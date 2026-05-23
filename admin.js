@@ -78,35 +78,63 @@ window.sendPresence = async function(mode) {
 
 async function sendStandbyAndUpdateAll() {
     if (!currentAdmin) return;
+    
+    console.log("🟡 Standby: cek event baru");
+    
+    // 1. Kirim presence standby
     await window.sendPresence('standby');
+    
     if (!notificationEnabled) return;
+    
+    // 2. CEK CHAT LOG (pesan baru)
     try {
         const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
         const res = await fetch(url);
         const data = await res.json();
+        
         const logs = data.logs || [];
-        const guestMessages = logs.filter(msg => msg.type !== 'command' && msg.uid !== currentAdmin.id);
+        const guestMessages = logs.filter(msg => {
+            if (msg.type === 'command') return false;
+            if (msg.uid === currentAdmin.id) return false;
+            return true;
+        });
+        
         const currentCount = guestMessages.length;
         const lastCount = parseInt(localStorage.getItem('umbrella_last_chat_count') || '0');
-        localStorage.setItem('umbrella_last_chat_count', currentCount);
+        
+        localStorage.setItem('umbrella_last_chat_count', currentCount.toString());
+        
         if (currentCount > lastCount && lastCount > 0) {
             const newCount = currentCount - lastCount;
+            const lastMsg = guestMessages[guestMessages.length - 1];
+            console.log(`💬 Ada ${newCount} pesan chat baru!`);
+            
             if (document.hidden) {
-                showBrowserNotification('💬 Pesan Baru', `${newCount} pesan baru di chat`);
+                showBrowserNotification('💬 Pesan Chat Baru', `${newCount} pesan baru dari ${lastMsg?.username || 'Guest'}`);
                 playNotificationSound();
             } else {
-                showToast(`💬 Ada ${newCount} pesan baru!`);
+                showToast(`💬 Ada ${newCount} pesan chat baru!`);
             }
         }
-    } catch(e) {}
-    if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
+    } catch(e) { console.error("Check chat error:", e); }
+    
+    // 3. CEK MAILBOX (surat baru)
+    if (typeof window.refreshMailbox === 'function') {
+        // refreshMailbox akan handle notifikasi sendiri
+        window.refreshMailbox();
+    }
 }
 
 function startStandbyPresence() {
     if (standbyInterval) clearInterval(standbyInterval);
+    
+    console.log("🟡 START STANDBY (60 detik) - cek event");
     sendStandbyAndUpdateAll();
+    
     standbyInterval = setInterval(() => {
-        if (currentAdmin && (!window.isChatOpen || !window.isChatOpen())) sendStandbyAndUpdateAll();
+        if (currentAdmin && (!window.isChatOpen || !window.isChatOpen())) {
+            sendStandbyAndUpdateAll();
+        }
     }, 60000);
 }
 

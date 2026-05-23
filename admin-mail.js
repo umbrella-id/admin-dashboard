@@ -4,37 +4,26 @@
 
 let currentMailFilter = "ALL";
 
-// ==========================================
-// SET FILTER
-// ==========================================
 window.setMailFilter = function(filter) {
     currentMailFilter = filter;
     refreshMailbox();
 };
 
-// ==========================================
-// REFRESH MAILBOX (ambil dari server)
-// ==========================================
 async function refreshMailbox() {
     try {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox`);
         const data = await res.json();
-        
         if (data.status === 'success' && data.data) {
             window.renderMailboxData(data.data);
         }
     } catch(e) { 
-        console.error("Refresh mailbox error:", e);
+        console.error("Refresh error:", e);
     }
 }
 
-// ==========================================
-// RENDER MAILBOX DATA (dipanggil dari admin.js juga)
-// ==========================================
 window.renderMailboxData = function(allMails) {
     if (!allMails) return;
     
-    // Filter berdasarkan currentMailFilter
     let filteredData = allMails;
     const categoryMap = {
         'REQUEST_JOIN': 'Request Join',
@@ -54,16 +43,12 @@ window.renderMailboxData = function(allMails) {
     
     renderMailbox(filteredData);
     
-    // Update dropdown value
     const dropdown = document.getElementById('mail-filter');
     if (dropdown && dropdown.value !== currentMailFilter) {
         dropdown.value = currentMailFilter;
     }
 };
 
-// ==========================================
-// RENDER MAILBOX LIST
-// ==========================================
 function renderMailbox(mails) {
     const container = document.getElementById('mailbox-list');
     if (!container) return;
@@ -80,7 +65,6 @@ function renderMailbox(mails) {
     }
     
     container.innerHTML = mails.map(mail => {
-        // Status badge
         let statusClass = 'badge-unread', statusText = '📬 BELUM DIBACA';
         if (mail.status === 'READ') { 
             statusClass = 'badge-read'; 
@@ -93,7 +77,6 @@ function renderMailbox(mails) {
             statusText = '✅ SELESAI'; 
         }
         
-        // Kategori
         let catIcon = 'fa-comment', catColor = '#64748b', catLabel = 'Umum';
         if (mail.category === 'Request Join') { 
             catIcon = 'fa-user-plus'; 
@@ -105,29 +88,24 @@ function renderMailbox(mails) {
             catLabel = 'Saran';
         }
         
-        const ign = mail.ign || 'Tidak dikenal';
-        const uid = mail.uid || '-';
-        const message = mail.message || '';
-        const timestamp = mail.timestamp || new Date();
-        
         return `
             <div class="list-item" data-rowid="${mail.rowId}">
                 <div style="display:flex; justify-content:space-between;">
-                    <div style="flex:1;">
-                        <b>${escapeHtml(ign)}</b>
+                    <div style="flex:1; cursor:pointer;" class="mail-detail-click" data-rowid="${mail.rowId}">
+                        <b>${escapeHtml(mail.ign || 'Tidak dikenal')}</b>
                         <span style="font-size:0.6rem;color:${catColor};margin-left:8px;">
                             <i class="fas ${catIcon}"></i> ${catLabel}
                         </span>
                         <div style="font-size:0.6rem;color:var(--text-muted);">
-                            ${escapeHtml(uid)} • ${new Date(timestamp).toLocaleString('id-ID')}
+                            ${escapeHtml(mail.uid || '-')} • ${new Date(mail.timestamp).toLocaleString('id-ID')}
                         </div>
-                        <div class="mail-message" style="margin-top:6px; font-size:0.75rem;">
-                            ${escapeHtml(message).substring(0, 120)}${message.length > 120 ? '...' : ''}
+                        <div class="mail-message">
+                            ${escapeHtml(mail.message || '').substring(0, 120)}${(mail.message || '').length > 120 ? '...' : ''}
                         </div>
                     </div>
                     <div style="text-align:right; margin-left:10px;">
                         <span class="${statusClass}">${statusText}</span>
-                        <button class="delete-mail-btn" onclick="event.stopPropagation(); window.deleteMail(${mail.rowId})" 
+                        <button class="delete-mail-btn" data-rowid="${mail.rowId}" 
                                 style="display:block; margin-top:8px; background:transparent; border:none; color:#ff8888; cursor:pointer; opacity:0.5; font-size:0.7rem;">
                             <i class="fas fa-trash-alt"></i> Hapus
                         </button>
@@ -137,15 +115,26 @@ function renderMailbox(mails) {
         `;
     }).join('');
     
-    // Attach click event untuk buka detail
-    document.querySelectorAll('#mailbox-list .list-item').forEach(item => {
-        const rowId = parseInt(item.dataset.rowid);
-        const mail = mails.find(m => m.rowId === rowId);
-        if (mail) {
-            item.onclick = (e) => { 
-                if(!e.target.closest('.delete-mail-btn')) showMailDetail(mail); 
-            };
-        }
+    // Event listener DELETE
+    document.querySelectorAll('.delete-mail-btn').forEach(btn => {
+        btn.removeEventListener('click', window._deleteHandler);
+        window._deleteHandler = (e) => {
+            e.stopPropagation();
+            const rowId = parseInt(btn.dataset.rowid);
+            if (rowId) window.deleteMail(rowId);
+        };
+        btn.addEventListener('click', window._deleteHandler);
+    });
+    
+    // Event listener DETAIL
+    document.querySelectorAll('.mail-detail-click').forEach(el => {
+        el.removeEventListener('click', window._detailHandler);
+        window._detailHandler = (e) => {
+            const rowId = parseInt(el.dataset.rowid);
+            const mail = mails.find(m => m.rowId === rowId);
+            if (mail) showMailDetail(mail);
+        };
+        el.addEventListener('click', window._detailHandler);
     });
 }
 
@@ -153,17 +142,27 @@ function renderMailbox(mails) {
 // DELETE MAIL
 // ==========================================
 window.deleteMail = async function(rowId) {
+    console.log("🗑️ Delete mail dipanggil, rowId:", rowId);
+    if (!rowId) {
+        window.showToast("Error: ID surat tidak valid", true);
+        return;
+    }
+    
     window.showConfirmModal('Hapus surat ini?', async () => {
         try {
+            window.showToast("⏳ Menghapus surat...");
             const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteMail&rowId=${rowId}`);
             const data = await res.json();
+            console.log("Response delete:", data);
+            
             if (data.status === 'success') {
-                window.showToast('✅ Surat dihapus');
+                window.showToast('✅ Surat berhasil dihapus');
                 refreshMailbox();
             } else {
-                window.showToast(data.message || 'Gagal hapus', true);
+                window.showToast(data.message || 'Gagal hapus surat', true);
             }
         } catch(e) { 
+            console.error("Delete error:", e);
             window.showToast('Gagal koneksi', true);
         }
     });
@@ -240,7 +239,7 @@ function showMailDetail(mail) {
 }
 
 // ==========================================
-// EXPOSE GLOBAL FUNCTIONS
+// EXPOSE
 // ==========================================
 window.refreshMailbox = refreshMailbox;
 window.setMailFilter = setMailFilter;
@@ -248,4 +247,4 @@ window.updateMailStatus = updateMailStatus;
 window.deleteMail = deleteMail;
 window.showMailDetail = showMailDetail;
 
-console.log("✅ admin-mail.js loaded");
+console.log("✅ admin-mail.js loaded (Final)");

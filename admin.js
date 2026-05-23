@@ -5,6 +5,9 @@ let currentAdmin = null;
 let standbyInterval = null;
 let notificationEnabled = localStorage.getItem('umbrella_notif_enabled') !== 'false';
 
+// ==========================================
+// UTILITY FUNCTIONS
+// ==========================================
 function showToast(msg, isError = false) {
     const toast = document.getElementById('toast');
     toast.innerText = msg;
@@ -24,7 +27,9 @@ function escapeHtml(str) {
     });
 }
 
-function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+function closeModal() { 
+    document.getElementById('modal-overlay').style.display = 'none'; 
+}
 
 window.showConfirmModal = function(pesan, onConfirm, onCancel) {
     const modal = document.getElementById('modal-overlay');
@@ -43,6 +48,9 @@ window.showConfirmModal = function(pesan, onConfirm, onCancel) {
     document.getElementById('confirm-no').onclick = () => { modal.style.display = 'none'; if(onCancel) onCancel(); };
 };
 
+// ==========================================
+// NOTIFICATION FUNCTIONS
+// ==========================================
 function isNotificationEnabled() { return notificationEnabled; }
 function saveNotificationPreference(enabled) { notificationEnabled = enabled; localStorage.setItem('umbrella_notif_enabled', enabled); }
 
@@ -71,11 +79,17 @@ function showBrowserNotification(title, body) {
     notification.onclick = () => { window.focus(); notification.close(); };
 }
 
+// ==========================================
+// PRESENCE SYSTEM
+// ==========================================
 window.sendPresence = async function(mode) {
     if (!currentAdmin) return;
     await fetch(`${window.GAS_SYNC_URL}?role=admin&uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}&mode=${mode}`);
 };
 
+// ==========================================
+// STANDBY + NOTIFICATION + UI REFRESH
+// ==========================================
 async function sendStandbyAndUpdateAll() {
     if (!currentAdmin) return;
     
@@ -94,7 +108,7 @@ async function sendStandbyAndUpdateAll() {
         
         const logs = data.logs || [];
         
-        // ✅ TAMBAHKAN: simpan ke cache
+        // Simpan ke cache
         sessionStorage.setItem('umbrella_cached_chat_logs', JSON.stringify(logs));
         sessionStorage.setItem('umbrella_cached_chat_timestamp', Date.now().toString());
         
@@ -123,7 +137,7 @@ async function sendStandbyAndUpdateAll() {
         }
     } catch(e) { console.error("Check chat error:", e); }
     
-    // 3. CEK MAILBOX (surat baru)
+    // 3. CEK MAILBOX (surat baru) + REFRESH UI
     try {
         const resMail = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox`);
         const dataMail = await resMail.json();
@@ -135,7 +149,7 @@ async function sendStandbyAndUpdateAll() {
             
             localStorage.setItem('umbrella_last_unread_mail', currentUnread.toString());
             
-            // ✅ PINDAHKAN KE SINI (refresh UI tetap jalan meskipun tidak ada notif)
+            // ✅ REFRESH UI MAILBOX (SETIAP KALI)
             if (typeof window.renderMailboxData === 'function') {
                 window.renderMailboxData(dataMail.data);
             }
@@ -143,7 +157,7 @@ async function sendStandbyAndUpdateAll() {
             if (currentUnread > lastUnread && lastUnread > 0) {
                 const newCount = currentUnread - lastUnread;
                 const newestMail = unreadMails[0];
-                console.log(`📬 Ada ${newCount} surat baru!`);
+                console.log(`📬 Ada ${newCount} surat baru! - UI sudah direfresh`);
                 
                 if (document.hidden) {
                     showBrowserNotification('📬 Surat Baru', `${newCount} surat baru dari ${newestMail?.ign || 'Guest'}`);
@@ -156,17 +170,17 @@ async function sendStandbyAndUpdateAll() {
     } catch(e) { console.error("Check mailbox error:", e); }
 }
 
+// ==========================================
 // REFRESH UI SAAT TAB AKTIF KEMBALI
+// ==========================================
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden && currentAdmin) {
         console.log("🟢 Tab aktif kembali, refresh UI...");
         
-        // Refresh mailbox
         if (typeof window.refreshMailbox === 'function') {
             window.refreshMailbox();
         }
         
-        // Refresh chat jika sedang terbuka
         if (window.isChatOpen && window.isChatOpen()) {
             if (typeof window.loadChatMessages === 'function') {
                 window.loadChatMessages();
@@ -178,6 +192,9 @@ document.addEventListener('visibilitychange', function() {
     }
 });
 
+// ==========================================
+// STANDBY PRESENCE (60 DETIK)
+// ==========================================
 function startStandbyPresence() {
     if (standbyInterval) clearInterval(standbyInterval);
     
@@ -191,12 +208,23 @@ function startStandbyPresence() {
     }, 60000);
 }
 
-function stopStandbyPresence() { if(standbyInterval) { clearInterval(standbyInterval); standbyInterval = null; } }
+function stopStandbyPresence() { 
+    if(standbyInterval) { 
+        clearInterval(standbyInterval); 
+        standbyInterval = null; 
+    } 
+}
 window.stopStandbyPresence = stopStandbyPresence;
 
+// ==========================================
+// LOGIN
+// ==========================================
 async function doLogin() {
     const passkey = document.getElementById('login-passkey').value.trim();
-    if (!passkey) { document.getElementById('login-error').innerText = 'Passkey harus diisi!'; return; }
+    if (!passkey) { 
+        document.getElementById('login-error').innerText = 'Passkey harus diisi!'; 
+        return; 
+    }
     try {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=login&passkey=${encodeURIComponent(passkey)}`);
         const data = await res.json();
@@ -207,23 +235,34 @@ async function doLogin() {
             document.getElementById('admin-role-display').innerText = roleText;
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('dashboard').style.display = 'flex';
-            if (notificationEnabled && Notification.permission !== 'granted') await Notification.requestPermission();
+            
+            if (notificationEnabled && Notification.permission !== 'granted') {
+                await Notification.requestPermission();
+            }
+            
             const hasChat = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
             if (hasChat) {
                 document.getElementById('floating-chat').style.display = 'block';
-                setTimeout(() => { if(typeof window.initChat === 'function') window.initChat(currentAdmin); }, 500);
+                setTimeout(() => { 
+                    if(typeof window.initChat === 'function') window.initChat(currentAdmin); 
+                }, 500);
             }
+            
             renderBottomNav();
             if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
             startStandbyPresence();
-            if (typeof window.startMailboxRefresh === 'function') window.startMailboxRefresh();
         } else {
             document.getElementById('login-error').innerText = data.message || 'Login gagal!';
         }
-    } catch(err) { document.getElementById('login-error').innerText = 'Koneksi gagal!'; }
+    } catch(err) { 
+        document.getElementById('login-error').innerText = 'Koneksi gagal!'; 
+    }
 }
 
+// ==========================================
+// BOTTOM NAVIGATION
+// ==========================================
 function renderBottomNav() {
     const navContainer = document.getElementById('bottom-nav');
     const swipeArea = document.getElementById('tab-swipe-area');
@@ -231,16 +270,27 @@ function renderBottomNav() {
     const hasMail = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
     const hasKas = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA');
     const hasAdmin = (currentAdmin.role1 === 'LEADER');
+    
     if (hasMail) tabs.push({ id: 'mailbox', icon: 'fa-envelope', label: 'Surat' });
     if (hasKas) tabs.push({ id: 'kas', icon: 'fa-coins', label: 'Kas' });
     if (hasAdmin) tabs.push({ id: 'manage-admin', icon: 'fa-users-cog', label: 'Admin' });
+    
     for (let i = 0; i < swipeArea.children.length; i++) {
         const page = swipeArea.children[i];
-        if (!tabs.some(t => t.id === page.dataset.tab)) { page.remove(); i--; }
+        if (!tabs.some(t => t.id === page.dataset.tab)) { 
+            page.remove(); 
+            i--; 
+        }
     }
-    if (tabs.length <= 1) { navContainer.style.display = 'none'; return; }
+    
+    if (tabs.length <= 1) { 
+        navContainer.style.display = 'none'; 
+        return; 
+    }
+    
     navContainer.style.display = 'flex';
     navContainer.innerHTML = tabs.map((tab, idx) => `<button class="nav-item ${idx === 0 ? 'active' : ''}" data-nav="${tab.id}"><i class="fas ${tab.icon}"></i><span>${tab.label}</span></button>`).join('');
+    
     document.querySelectorAll('.nav-item').forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.dataset.nav;
@@ -250,6 +300,7 @@ function renderBottomNav() {
             btn.classList.add('active');
         });
     });
+    
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -261,9 +312,13 @@ function renderBottomNav() {
             }
         });
     }, { threshold: 0.5 });
+    
     for (let page of swipeArea.children) observer.observe(page);
 }
 
+// ==========================================
+// SETTINGS & LOGOUT
+// ==========================================
 function openSettingsModal() {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
@@ -285,7 +340,12 @@ async function toggleNotificationSetting() {
     const isChecked = document.getElementById('notif-toggle')?.checked || false;
     if (isChecked && Notification.permission !== 'granted') {
         const granted = await Notification.requestPermission();
-        if (granted !== 'granted') { document.getElementById('notif-toggle').checked = false; saveNotificationPreference(false); showToast("Izin ditolak", true); return; }
+        if (granted !== 'granted') { 
+            document.getElementById('notif-toggle').checked = false; 
+            saveNotificationPreference(false); 
+            showToast("Izin ditolak", true); 
+            return; 
+        }
     }
     saveNotificationPreference(isChecked);
     showToast(isChecked ? "Notifikasi aktif" : "Notifikasi nonaktif");
@@ -314,7 +374,10 @@ async function changeMyPasskey() {
     try {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=changeMyPasskey&adminId=${currentAdmin.id}&oldPasskey=${encodeURIComponent(oldPasskey)}&newKey=${encodeURIComponent(newPasskey)}`);
         const data = await res.json();
-        if (data.status === 'success') { showToast("Passkey berhasil diubah, login ulang"); setTimeout(() => logout(), 2000); }
+        if (data.status === 'success') { 
+            showToast("Passkey berhasil diubah, login ulang"); 
+            setTimeout(() => logout(), 2000); 
+        }
         else showToast(data.message || "Gagal", true);
     } catch(e) { showToast("Gagal koneksi", true); }
 }
@@ -322,11 +385,13 @@ async function changeMyPasskey() {
 function logout() {
     if (standbyInterval) clearInterval(standbyInterval);
     if (typeof window.stopActivePresence === 'function') window.stopActivePresence();
-    if (typeof window.stopMailboxRefresh === 'function') window.stopMailboxRefresh();
     currentAdmin = null;
     location.reload();
 }
 
+// ==========================================
+// EXPOSE GLOBAL FUNCTIONS
+// ==========================================
 window.doLogin = doLogin;
 window.logout = logout;
 window.closeModal = closeModal;
@@ -336,3 +401,6 @@ window.toggleNotificationSetting = toggleNotificationSetting;
 window.openChangePasskey = openChangePasskey;
 window.changeMyPasskey = changeMyPasskey;
 window.openSettingsModal = openSettingsModal;
+window.sendStandbyAndUpdateAll = sendStandbyAndUpdateAll;
+
+console.log("✅ admin.js loaded");

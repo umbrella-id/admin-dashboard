@@ -16,7 +16,7 @@
         <p>Masukkan Passkey Anda</p>
         <div class="login-input-group">
             <label>PASSKEY</label>
-            <input type="password" id="login-passkey" placeholder="Masukkan passkey..." autocomplete="off">
+            <input type="password" id="login-passkey" placeholder="Masukkan passkey..." autocomplete="off" onkeypress="if(event.key==='Enter') doLogin()">
         </div>
         <button class="login-btn" onclick="doLogin()">MASUK</button>
         <div id="login-error" class="login-error"></div>
@@ -44,7 +44,6 @@
                         <option value="ALL">📋 Semua</option>
                         <option value="UNREAD">📬 Belum Dibaca</option>
                         <option value="NEED_ACTION">⚠️ Perlu Tindakan</option>
-                        <option value="COMPLETED">✅ Selesai</option>
                         <option value="REQUEST_JOIN">🛡️ Permintaan Bergabung</option>
                         <option value="SARAN">💡 Saran</option>
                         <option value="UMUM">📝 Umum</option>
@@ -82,12 +81,10 @@
         <i class="fas fa-comments"></i>
     </div>
     <div class="chat-widget" id="chat-widget">
-        <!-- Header minimal dengan tombol X -->
         <div class="chat-header">
             <span><i class="fas fa-comments"></i> Obrolan Admin</span>
             <i class="fas fa-times" onclick="window.toggleChatWidget()" style="cursor: pointer;"></i>
         </div>
-        <!-- Tab akan digenerate oleh JS -->
         <div class="online-users-list" id="online-users-list" style="display: none;">
             <div id="online-users-container">Memuat...</div>
         </div>

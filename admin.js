@@ -93,6 +93,11 @@ window.sendPresence = async function(mode) {
 // ==========================================
 async function sendStandbyAndUpdateAll() {
     if (!currentAdmin) return;
+
+    // TAMBAHKAN 3 BARIS INI DI AWAL FUNGSI
+    console.log("🔍 [DEBUG] sendStandbyAndUpdateAll dipanggil");
+    console.log("🔍 [DEBUG] notificationEnabled =", notificationEnabled);
+    console.log("🔍 [DEBUG] document.hidden =", document.hidden);
     
     await window.sendPresence('standby');
     

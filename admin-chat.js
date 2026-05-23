@@ -1,5 +1,5 @@
 /**
- * admin-chat.js - Chat Widget (Final)
+ * admin-chat.js - Chat Widget (Final - Fix Load)
  */
 
 let activeInterval = null;
@@ -14,7 +14,8 @@ let onlineUsersCount = 0;
 function initChat(admin) {
     adminData = admin;
     console.log("✅ Chat diinisialisasi untuk:", adminData?.nama);
-    document.getElementById('floating-chat').style.display = 'block';
+    const floatingChat = document.getElementById('floating-chat');
+    if (floatingChat) floatingChat.style.display = 'block';
 }
 
 window.isChatOpen = () => isChatOpen;
@@ -23,9 +24,14 @@ window.isChatOpen = () => isChatOpen;
 // TOGGLE CHAT WIDGET
 // ==========================================
 window.toggleChatWidget = async function() {
-    if (!adminData) { window.showToast("Chat belum siap", true); return; }
+    if (!adminData) { 
+        window.showToast("Chat belum siap, refresh halaman", true); 
+        return; 
+    }
     
     const widget = document.getElementById('chat-widget');
+    if (!widget) return;
+    
     const isOpening = !widget.classList.contains('show');
     
     if (isOpening) {
@@ -34,7 +40,7 @@ window.toggleChatWidget = async function() {
         
         if (typeof window.markChatAsRead === 'function') window.markChatAsRead();
         if (typeof window.stopStandbyPresence === 'function') window.stopStandbyPresence();
-        await window.sendPresence('active');
+        if (typeof window.sendPresence === 'function') await window.sendPresence('active');
         
         startAllTimers();
         renderChatTabs();
@@ -42,14 +48,22 @@ window.toggleChatWidget = async function() {
         await loadChatMessages();
         await fetchOnlineUsers();
         
-        document.getElementById('admin-chat-input')?.focus();
+        const input = document.getElementById('admin-chat-input');
+        if (input) input.focus();
+        
+        // Push state untuk back button
+        history.pushState({ chatOpen: true }, "");
     } else {
         widget.classList.remove('show');
         isChatOpen = false;
         
         stopAllTimers();
-        await window.sendPresence('standby');
+        if (typeof window.sendPresence === 'function') await window.sendPresence('standby');
         if (typeof window.startStandbyPresence === 'function') window.startStandbyPresence();
+        
+        if (history.state && history.state.chatOpen) {
+            history.back();
+        }
     }
 };
 
@@ -58,6 +72,7 @@ window.toggleChatWidget = async function() {
 // ==========================================
 function renderChatTabs() {
     const widget = document.getElementById('chat-widget');
+    if (!widget) return;
     if (widget.querySelector('.chat-tabs')) return;
     
     const tabsHtml = `
@@ -72,7 +87,9 @@ function renderChatTabs() {
     `;
     
     const header = widget.querySelector('.chat-header');
-    header.insertAdjacentHTML('afterend', tabsHtml);
+    if (header) {
+        header.insertAdjacentHTML('afterend', tabsHtml);
+    }
     
     document.querySelectorAll('.chat-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => switchChatTab(btn.dataset.tab));
@@ -91,15 +108,17 @@ function switchChatTab(tab) {
     const inputArea = document.querySelector('.chat-input-area');
     
     if (tab === 'online') {
-        onlineDiv.style.display = 'block';
-        chatDiv.style.display = 'none';
-        inputArea.style.display = 'none';
+        if (onlineDiv) onlineDiv.style.display = 'block';
+        if (chatDiv) chatDiv.style.display = 'none';
+        if (inputArea) inputArea.style.display = 'none';
         fetchOnlineUsers();
     } else {
-        onlineDiv.style.display = 'none';
-        chatDiv.style.display = 'flex';
-        inputArea.style.display = 'flex';
-        setTimeout(() => chatDiv.scrollTop = chatDiv.scrollHeight, 100);
+        if (onlineDiv) onlineDiv.style.display = 'none';
+        if (chatDiv) {
+            chatDiv.style.display = 'flex';
+            setTimeout(() => chatDiv.scrollTop = chatDiv.scrollHeight, 100);
+        }
+        if (inputArea) inputArea.style.display = 'flex';
     }
 }
 
@@ -111,7 +130,9 @@ function startAllTimers() {
     if (chatPollingInterval) clearInterval(chatPollingInterval);
     
     activeInterval = setInterval(async () => {
-        if (isChatOpen && adminData) await window.sendPresence('active');
+        if (isChatOpen && adminData && typeof window.sendPresence === 'function') {
+            await window.sendPresence('active');
+        }
     }, 4500);
     
     chatPollingInterval = setInterval(async () => {
@@ -123,8 +144,8 @@ function startAllTimers() {
 }
 
 function stopAllTimers() {
-    if (activeInterval) clearInterval(activeInterval);
-    if (chatPollingInterval) clearInterval(chatPollingInterval);
+    if (activeInterval) { clearInterval(activeInterval); activeInterval = null; }
+    if (chatPollingInterval) { clearInterval(chatPollingInterval); chatPollingInterval = null; }
 }
 window.stopActivePresence = stopAllTimers;
 
@@ -132,51 +153,77 @@ window.stopActivePresence = stopAllTimers;
 // LOAD CHAT MESSAGES
 // ==========================================
 async function loadChatMessages() {
+    if (!adminData) return;
+    
     const container = document.getElementById('admin-chat-logs');
     if (!container) return;
     
+    // Cek cache dulu
     const cached = sessionStorage.getItem('umbrella_cached_chat_logs');
-    if (cached) renderChatLogs(JSON.parse(cached), container);
+    if (cached) {
+        try {
+            renderChatLogs(JSON.parse(cached), container);
+        } catch(e) { console.error("Cache parse error:", e); }
+    }
     
     try {
-        const res = await fetch(`${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`);
+        const url = `${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`;
+        const res = await fetch(url);
         const data = await res.json();
         const logs = data.logs || [];
         const stamp = JSON.stringify(logs);
+        
         if (stamp === lastChatStamp && cached) return;
         lastChatStamp = stamp;
         
         sessionStorage.setItem('umbrella_cached_chat_logs', JSON.stringify(logs));
+        sessionStorage.setItem('umbrella_cached_chat_timestamp', Date.now().toString());
         renderChatLogs(logs, container);
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.error("Load chat error:", e);
+        if (!cached) {
+            container.innerHTML = '<div style="text-align:center;padding:20px;">⚠️ Gagal memuat chat</div>';
+        }
+    }
 }
 
 function renderChatLogs(logs, container) {
+    if (!container) return;
+    
     if (!logs.length) {
         container.innerHTML = '<div style="text-align:center;padding:20px;">📭 Belum ada pesan</div>';
         return;
     }
     
-    container.innerHTML = logs.map(msg => {
-        if (msg.type === 'command') return '';
+    let html = '';
+    for (const msg of logs) {
+        if (msg.type === 'command') continue;
+        
         const isDeleted = msg.message === '[deleted by admin]';
         const isMe = msg.uid === adminData.id;
         
         if (isDeleted) {
-            return `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
+            html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
+            continue;
         }
         
-        return `
+        const username = escapeHtml(msg.username || 'Anonim');
+        const message = escapeHtml(msg.message || '');
+        const rowIndex = msg.rowIndex;
+        const uid = msg.uid;
+        
+        html += `
             <div class="chat-row ${isMe ? 'me' : 'other'}">
-                <b>${escapeHtml(msg.username || 'Anonim')}</b>
+                <b>${username}</b>
                 <div class="chat-message-wrapper">
-                    <div class="msg-text">${escapeHtml(msg.message)}</div>
-                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${msg.rowIndex}, '${msg.uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    <div class="msg-text">${message}</div>
+                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
                 </div>
             </div>
         `;
-    }).join('');
+    }
     
+    container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
 }
 
@@ -188,15 +235,17 @@ async function fetchOnlineUsers() {
     if (!container) return;
     
     try {
-        const res = await fetch(`${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`);
+        const url = `${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`;
+        const res = await fetch(url);
         const data = await res.json();
         let users = data.onlineUsers || [];
         
-        const admins = users.filter(u => u.uid.includes('ADMIN_'));
-        const regulars = users.filter(u => !u.uid.includes('ADMIN_'));
+        const admins = users.filter(u => u.uid && u.uid.includes('ADMIN_'));
+        const regulars = users.filter(u => u.uid && !u.uid.includes('ADMIN_'));
         onlineUsersCount = users.length;
         
-        document.getElementById('online-count').innerText = onlineUsersCount;
+        const onlineCountSpan = document.getElementById('online-count');
+        if (onlineCountSpan) onlineCountSpan.innerText = onlineUsersCount;
         
         if (!users.length) {
             container.innerHTML = '<div style="padding:12px;text-align:center;">✨ Tidak ada pengguna online</div>';
@@ -206,21 +255,22 @@ async function fetchOnlineUsers() {
         let html = '';
         if (admins.length) {
             html += '<div style="margin-bottom:8px;"><span style="font-size:0.65rem;color:var(--color-primary);">👑 ADMIN ONLINE</span></div>';
-            admins.forEach(u => {
+            for (const u of admins) {
                 html += `<div class="online-user-item admin-item"><div><i class="fas fa-crown" style="color:#f59e0b;"></i> ${escapeHtml(u.ign)}<div style="font-size:0.6rem;">${u.uid}</div></div><div style="width:50px;"></div></div>`;
-            });
+            }
         }
         
         if (regulars.length) {
             if (admins.length) html += '<div style="margin:12px 0 8px;"><span style="font-size:0.65rem;">👥 USER ONLINE</span></div>';
-            regulars.forEach(u => {
+            for (const u of regulars) {
                 const muted = u.isMuted === true;
                 html += `<div class="online-user-item"><div><strong>${escapeHtml(u.ign)}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}<div style="font-size:0.6rem;">${u.uid}</div></div><button class="${muted ? 'unmute-btn' : 'mute-btn'}" onclick="window.toggleMute('${u.uid}', '${escapeHtml(u.ign)}', ${muted})">${muted ? 'BUKA BISU' : 'BISUKAN'}</button></div>`;
-            });
+            }
         }
         
         container.innerHTML = html;
     } catch(e) { 
+        console.error("Fetch online users error:", e);
         container.innerHTML = '<div style="padding:12px;text-align:center;">⚠️ Gagal memuat</div>';
     }
 }
@@ -232,14 +282,17 @@ window.adminSendMessage = async function() {
     if (isSending) return;
     
     const input = document.getElementById('admin-chat-input');
-    const msg = input?.value.trim();
+    if (!input) return;
+    
+    const msg = input.value.trim();
     if (!msg) return;
     
     isSending = true;
     input.disabled = true;
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=sendChat&adminId=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}&msg=${encodeURIComponent(msg)}`);
+        const url = `${window.GAS_ADMIN_URL}?action=sendChat&adminId=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}&msg=${encodeURIComponent(msg)}`;
+        const res = await fetch(url);
         const data = await res.json();
         if (data.status === 'success') {
             input.value = '';
@@ -249,7 +302,8 @@ window.adminSendMessage = async function() {
             input.value = msg;
         }
     } catch(e) { 
-        window.showToast("❌ Gagal", true); 
+        console.error("Send message error:", e);
+        window.showToast("❌ Gagal kirim", true); 
         input.value = msg;
     } finally { 
         input.disabled = false; 
@@ -274,6 +328,7 @@ window.deleteChatMessage = async function(rowIndex, uid) {
                 window.showToast('❌ Gagal', true);
             }
         } catch(e) { 
+            console.error("Delete chat error:", e);
             window.showToast('❌ Gagal', true);
         }
     });
@@ -283,23 +338,27 @@ window.deleteChatMessage = async function(rowIndex, uid) {
 // MUTE / UNMUTE
 // ==========================================
 window.toggleMute = function(uid, ign, isCurrentlyMuted) {
-    if (isCurrentlyMuted) window.executeUnmute(uid, ign);
-    else window.showMuteModal(uid, ign);
+    if (isCurrentlyMuted) {
+        window.executeUnmute(uid, ign);
+    } else {
+        window.showMuteModal(uid, ign);
+    }
 };
 
 window.showMuteModal = function(uid, ign) {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
         <div class="modal-content">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-volume-mute"></i> Bisukan Pemain</h3>
-            <p>Pemain: <strong>${ign}</strong> (${uid})</p>
-            <select id="mute-duration">
+            <p>Pemain: <strong>${escapeHtml(ign)}</strong> (${escapeHtml(uid)})</p>
+            <select id="mute-duration" style="width:100%; padding:8px; margin-bottom:10px;">
                 <option value="1">1 menit</option><option value="5">5 menit</option>
                 <option value="10">10 menit</option><option value="30">30 menit</option>
                 <option value="60">60 menit</option>
             </select>
             <div class="modal-buttons">
-                <button onclick="window.executeMute('${uid}', document.getElementById('mute-duration').value, '${ign}')" style="background:var(--color-primary);">BISUKAN</button>
+                <button onclick="window.executeMute('${uid}', document.getElementById('mute-duration').value, '${escapeHtml(ign)}')" style="background:var(--color-primary);">BISUKAN</button>
                 <button onclick="window.closeModal()" style="background:#333;">Batal</button>
             </div>
         </div>
@@ -322,6 +381,7 @@ window.executeMute = async function(targetUid, duration, ign) {
             window.showToast(`❌ Gagal`, true);
         }
     } catch(e) { 
+        console.error("Execute mute error:", e);
         window.showToast("❌ Gagal", true);
     }
 };
@@ -341,12 +401,26 @@ window.executeUnmute = async function(targetUid, ign) {
             window.showToast(`❌ Gagal`, true);
         }
     } catch(e) { 
+        console.error("Execute unmute error:", e);
         window.showToast("❌ Gagal", true);
     }
 };
 
+// ==========================================
+// MARK CHAT AS READ (untuk badge)
+// ==========================================
+window.markChatAsRead = function() {
+    const chatCount = parseInt(localStorage.getItem('umbrella_last_chat_count') || '0');
+    localStorage.setItem('umbrella_last_chat_shown', chatCount.toString());
+    if (typeof window.updateTotalBadge === 'function') window.updateTotalBadge();
+};
+
+// ==========================================
+// EXPOSE GLOBAL FUNCTIONS
+// ==========================================
 window.initChat = initChat;
 window.loadChatMessages = loadChatMessages;
 window.fetchOnlineUsers = fetchOnlineUsers;
+window.markChatAsRead = window.markChatAsRead;
 
-console.log("✅ admin-chat.js loaded (Final)");
+console.log("✅ admin-chat.js loaded (Final - Fix Load)");

@@ -98,7 +98,7 @@ async function sendStandbyAndUpdateAll() {
     
     if (!notificationEnabled) return;
     
-    // CEK CHAT
+    // CEK CHAT LOG (pesan baru) - PAKAI TIMESTAMP
     try {
         const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
         const res = await fetch(url);
@@ -111,45 +111,58 @@ async function sendStandbyAndUpdateAll() {
             return true;
         });
         
-        const currentCount = guestMessages.length;
-        const lastCount = parseInt(localStorage.getItem('umbrella_last_chat_count') || '0');
+        // ✅ PAKAI TIMESTAMP PESAN TERBARU, BUKAN JUMLAH
+        const lastTimestamp = guestMessages.length > 0 ? guestMessages[0].timestamp : 0;
+        const savedTimestamp = parseInt(localStorage.getItem('umbrella_last_chat_timestamp') || '0');
         
-        localStorage.setItem('umbrella_last_chat_count', currentCount.toString());
+        // Simpan timestamp terbaru
+        if (lastTimestamp > savedTimestamp) {
+            localStorage.setItem('umbrella_last_chat_timestamp', lastTimestamp.toString());
+        }
         
-        if (currentCount > lastCount && lastCount > 0) {
-            const newCount = currentCount - lastCount;
-            const lastMsg = guestMessages[guestMessages.length - 1];
-            console.log(`💬 Ada ${newCount} pesan chat baru!`);
+        // Jika ada pesan baru (timestamp lebih baru)
+        if (lastTimestamp > savedTimestamp && savedTimestamp > 0) {
+            const newMsg = guestMessages[0];
+            console.log(`💬 Pesan chat baru dari ${newMsg?.username || 'Guest'}!`);
             
             if (document.hidden) {
-                showBrowserNotification('💬 Pesan Chat Baru', `${newCount} pesan baru dari ${lastMsg?.username || 'Guest'}`);
+                showBrowserNotification('💬 Pesan Chat Baru', `Pesan baru dari ${newMsg?.username || 'Guest'}: "${newMsg?.message?.substring(0, 40)}..."`);
                 playNotificationSound();
             } else {
-                showToast(`💬 Ada ${newCount} pesan chat baru!`);
+                showToast(`💬 Pesan baru dari ${newMsg?.username || 'Guest'}!`);
             }
         }
-    } catch(e) {console.error("Check chat error:", e); }
-
+    } catch(e) { console.error("Check chat error:", e); }    
     
-    // CEK MAILBOX (HANYA NOTIF, TIDAK RENDER)
+    // CEK MAILBOX (surat baru) - PAKAI TIMESTAMP
     try {
         const resMail = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`);
         const dataMail = await resMail.json();
+        
         if (dataMail.status === 'success' && dataMail.data) {
-            const unreadMails = dataMail.data.filter(mail => mail.status === 'UNREAD');
-            const currentUnread = unreadMails.length;
-            const lastUnread = parseInt(localStorage.getItem('umbrella_last_unread_mail') || '0');
-            localStorage.setItem('umbrella_last_unread_mail', currentUnread.toString());
+            // ✅ PAKAI TIMESTAMP SURAT TERBARU
+            const lastMailTimestamp = dataMail.data.length > 0 ? new Date(dataMail.data[0].timestamp).getTime() : 0;
+            const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
             
-            if (currentUnread > lastUnread && lastUnread > 0) {
-                const newCount = currentUnread - lastUnread;
-                const newestMail = unreadMails[0];
+            if (lastMailTimestamp > savedMailTimestamp) {
+                localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+            }
+            
+            if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
+                const newestMail = dataMail.data[0];
+                console.log(`📬 Surat baru dari ${newestMail?.ign || 'Guest'}!`);
+                
                 if (document.hidden) {
-                    showBrowserNotification('📬 Surat Baru', `${newCount} surat baru dari ${newestMail?.ign || 'Guest'}`);
+                    showBrowserNotification('📬 Surat Baru', `Surat baru dari ${newestMail?.ign || 'Guest'}`);
                     playNotificationSound();
                 } else {
-                    showToast(`📬 Ada ${newCount} surat baru!`);
+                    showToast(`📬 Surat baru dari ${newestMail?.ign || 'Guest'}!`);
                 }
+            }
+            
+            // Refresh UI mailbox (tetap dilakukan)
+            if (typeof window.renderMailboxData === 'function') {
+                window.renderMailboxData(dataMail.data);
             }
         }
     } catch(e) { console.error("Check mailbox error:", e); }

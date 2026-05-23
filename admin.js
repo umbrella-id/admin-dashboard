@@ -93,7 +93,6 @@ function showBrowserNotification(title, body) {
     };
 }
 
-
 // ==========================================
 // PRESENCE
 // ==========================================
@@ -164,6 +163,7 @@ async function sendStandbyAndUpdateAll() {
     } catch(e) { 
         console.error("Check chat error:", e); 
     }
+}
 
 // ==========================================
 // ANDROID BACK BUTTON

@@ -6,7 +6,7 @@ let standbyInterval = null;
 let notificationEnabled = localStorage.getItem('umbrella_notif_enabled') !== 'false';
 
 // ==========================================
-// UTILITY FUNCTIONS
+// UTILITY
 // ==========================================
 function showToast(msg, isError = false) {
     const toast = document.getElementById('toast');
@@ -35,6 +35,7 @@ window.showConfirmModal = function(pesan, onConfirm, onCancel) {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 300px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-question-circle"></i> Konfirmasi</h3>
             <p style="margin-bottom:20px;">${pesan}</p>
             <div class="modal-buttons">
@@ -49,7 +50,7 @@ window.showConfirmModal = function(pesan, onConfirm, onCancel) {
 };
 
 // ==========================================
-// NOTIFICATION FUNCTIONS
+// NOTIFICATION
 // ==========================================
 function isNotificationEnabled() { return notificationEnabled; }
 function saveNotificationPreference(enabled) { notificationEnabled = enabled; localStorage.setItem('umbrella_notif_enabled', enabled); }
@@ -80,7 +81,7 @@ function showBrowserNotification(title, body) {
 }
 
 // ==========================================
-// PRESENCE SYSTEM
+// PRESENCE
 // ==========================================
 window.sendPresence = async function(mode) {
     if (!currentAdmin) return;
@@ -88,33 +89,25 @@ window.sendPresence = async function(mode) {
 };
 
 // ==========================================
-// STANDBY + NOTIFICATION + UI REFRESH
+// STANDBY (60 DETIK) - TANPA RENDER MAILBOX
 // ==========================================
 async function sendStandbyAndUpdateAll() {
     if (!currentAdmin) return;
-    
-    console.log("🟡 Standby: cek event baru (chat + mail)");
     
     await window.sendPresence('standby');
     
     if (!notificationEnabled) return;
     
-    // CEK CHAT LOG
+    // CEK CHAT
     try {
         const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
         const res = await fetch(url);
         const data = await res.json();
-        
         const logs = data.logs || [];
         sessionStorage.setItem('umbrella_cached_chat_logs', JSON.stringify(logs));
         sessionStorage.setItem('umbrella_cached_chat_timestamp', Date.now().toString());
         
-        const guestMessages = logs.filter(msg => {
-            if (msg.type === 'command') return false;
-            if (msg.uid === currentAdmin.id) return false;
-            return true;
-        });
-        
+        const guestMessages = logs.filter(msg => msg.type !== 'command' && msg.uid !== currentAdmin.id);
         const currentCount = guestMessages.length;
         const lastCount = parseInt(localStorage.getItem('umbrella_last_chat_count') || '0');
         localStorage.setItem('umbrella_last_chat_count', currentCount.toString());
@@ -122,8 +115,6 @@ async function sendStandbyAndUpdateAll() {
         if (currentCount > lastCount && lastCount > 0) {
             const newCount = currentCount - lastCount;
             const lastMsg = guestMessages[guestMessages.length - 1];
-            console.log(`💬 Ada ${newCount} pesan chat baru!`);
-            
             if (document.hidden) {
                 showBrowserNotification('💬 Pesan Chat Baru', `${newCount} pesan baru dari ${lastMsg?.username || 'Guest'}`);
                 playNotificationSound();
@@ -133,27 +124,19 @@ async function sendStandbyAndUpdateAll() {
         }
     } catch(e) { console.error("Check chat error:", e); }
     
-    // CEK MAILBOX + REFRESH UI
+    // CEK MAILBOX (HANYA NOTIF, TIDAK RENDER)
     try {
-        const resMail = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox`);
+        const resMail = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`);
         const dataMail = await resMail.json();
-        
         if (dataMail.status === 'success' && dataMail.data) {
             const unreadMails = dataMail.data.filter(mail => mail.status === 'UNREAD');
             const currentUnread = unreadMails.length;
             const lastUnread = parseInt(localStorage.getItem('umbrella_last_unread_mail') || '0');
             localStorage.setItem('umbrella_last_unread_mail', currentUnread.toString());
             
-            // REFRESH UI MAILBOX (SETIAP KALI)
-            if (typeof window.renderMailboxData === 'function') {
-                window.renderMailboxData(dataMail.data);
-            }
-            
             if (currentUnread > lastUnread && lastUnread > 0) {
                 const newCount = currentUnread - lastUnread;
                 const newestMail = unreadMails[0];
-                console.log(`📬 Ada ${newCount} surat baru!`);
-                
                 if (document.hidden) {
                     showBrowserNotification('📬 Surat Baru', `${newCount} surat baru dari ${newestMail?.ign || 'Guest'}`);
                     playNotificationSound();
@@ -165,10 +148,26 @@ async function sendStandbyAndUpdateAll() {
     } catch(e) { console.error("Check mailbox error:", e); }
 }
 
-// REFRESH UI SAAT TAB AKTIF KEMBALI
+// ==========================================
+// ANDROID BACK BUTTON
+// ==========================================
+window.addEventListener('popstate', function(event) {
+    const modal = document.getElementById('modal-overlay');
+    const chatWidget = document.getElementById('chat-widget');
+    if (modal && modal.style.display === 'flex') {
+        closeModal();
+        event.preventDefault();
+    } else if (chatWidget && chatWidget.classList.contains('show')) {
+        window.toggleChatWidget();
+        event.preventDefault();
+    }
+});
+
+// ==========================================
+// TAB AKTIF KEMBALI
+// ==========================================
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden && currentAdmin) {
-        console.log("🟢 Tab aktif kembali, refresh UI...");
         if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
         if (window.isChatOpen && window.isChatOpen()) {
             if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
@@ -178,11 +177,10 @@ document.addEventListener('visibilitychange', function() {
 });
 
 // ==========================================
-// STANDBY PRESENCE (60 DETIK)
+// STANDBY TIMER
 // ==========================================
 function startStandbyPresence() {
     if (standbyInterval) clearInterval(standbyInterval);
-    console.log("🟡 START STANDBY (60 detik)");
     sendStandbyAndUpdateAll();
     standbyInterval = setInterval(() => {
         if (currentAdmin && (!window.isChatOpen || !window.isChatOpen())) {
@@ -192,15 +190,12 @@ function startStandbyPresence() {
 }
 
 function stopStandbyPresence() { 
-    if(standbyInterval) { 
-        clearInterval(standbyInterval); 
-        standbyInterval = null; 
-    } 
+    if(standbyInterval) { clearInterval(standbyInterval); standbyInterval = null; } 
 }
 window.stopStandbyPresence = stopStandbyPresence;
 
 // ==========================================
-// LOGIN
+// LOGIN (DENGAN SESSION)
 // ==========================================
 async function doLogin() {
     const passkey = document.getElementById('login-passkey').value.trim();
@@ -213,6 +208,11 @@ async function doLogin() {
         const data = await res.json();
         if (data.status === 'success') {
             currentAdmin = data.admin;
+            localStorage.setItem('umbrella_admin_session', JSON.stringify({
+                admin: currentAdmin,
+                loggedInAt: Date.now()
+            }));
+            
             document.getElementById('admin-name-display').innerText = currentAdmin.nama;
             const roleText = currentAdmin.role2 ? `${currentAdmin.role1} + ${currentAdmin.role2}` : currentAdmin.role1;
             document.getElementById('admin-role-display').innerText = roleText;
@@ -226,20 +226,57 @@ async function doLogin() {
             const hasChat = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
             if (hasChat) {
                 document.getElementById('floating-chat').style.display = 'block';
-                setTimeout(() => { 
-                    if(typeof window.initChat === 'function') window.initChat(currentAdmin); 
-                }, 500);
+                setTimeout(() => { if(typeof window.initChat === 'function') window.initChat(currentAdmin); }, 500);
             }
             
             renderBottomNav();
             if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
             startStandbyPresence();
+            history.pushState({ dashboard: true }, "");
         } else {
             document.getElementById('login-error').innerText = data.message || 'Login gagal!';
         }
     } catch(err) { 
         document.getElementById('login-error').innerText = 'Koneksi gagal!'; 
+    }
+}
+
+function checkSession() {
+    const session = localStorage.getItem('umbrella_admin_session');
+    if (session) {
+        try {
+            const data = JSON.parse(session);
+            currentAdmin = data.admin;
+            document.getElementById('admin-name-display').innerText = currentAdmin.nama;
+            const roleText = currentAdmin.role2 ? `${currentAdmin.role1} + ${currentAdmin.role2}` : currentAdmin.role1;
+            document.getElementById('admin-role-display').innerText = roleText;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'flex';
+            
+            if (notificationEnabled && Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
+            
+            const hasChat = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
+            if (hasChat) {
+                document.getElementById('floating-chat').style.display = 'block';
+                setTimeout(() => { if(typeof window.initChat === 'function') window.initChat(currentAdmin); }, 500);
+            }
+            
+            renderBottomNav();
+            
+            // ✅ TAMBAHKAN JEDA 500ms SEBELUM REFRESH MAILBOX
+            setTimeout(() => {
+                if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
+            }, 500);
+            
+            if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
+            startStandbyPresence();
+            history.pushState({ dashboard: true }, "");
+        } catch(e) {
+            localStorage.removeItem('umbrella_admin_session');
+        }
     }
 }
 
@@ -260,16 +297,10 @@ function renderBottomNav() {
     
     for (let i = 0; i < swipeArea.children.length; i++) {
         const page = swipeArea.children[i];
-        if (!tabs.some(t => t.id === page.dataset.tab)) { 
-            page.remove(); 
-            i--; 
-        }
+        if (!tabs.some(t => t.id === page.dataset.tab)) { page.remove(); i--; }
     }
     
-    if (tabs.length <= 1) { 
-        navContainer.style.display = 'none'; 
-        return; 
-    }
+    if (tabs.length <= 1) { navContainer.style.display = 'none'; return; }
     
     navContainer.style.display = 'flex';
     navContainer.innerHTML = tabs.map((tab, idx) => `<button class="nav-item ${idx === 0 ? 'active' : ''}" data-nav="${tab.id}"><i class="fas ${tab.icon}"></i><span>${tab.label}</span></button>`).join('');
@@ -295,17 +326,17 @@ function renderBottomNav() {
             }
         });
     }, { threshold: 0.5 });
-    
     for (let page of swipeArea.children) observer.observe(page);
 }
 
 // ==========================================
-// SETTINGS & LOGOUT
+// SETTINGS
 // ==========================================
 function openSettingsModal() {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
         <div class="modal-content">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-cog"></i> Pengaturan</h3>
             <div style="display:flex; justify-content:space-between; margin-bottom:15px; padding:10px; background:var(--bg-solid-form); border-radius:12px;">
                 <span>🔔 Notifikasi Browser</span>
@@ -313,7 +344,6 @@ function openSettingsModal() {
             </div>
             <button onclick="openChangePasskey()" style="width:100%; margin-bottom:10px; background:var(--color-primary); border:none; border-radius:12px; padding:12px; color:white;">🔑 Ganti Passkey</button>
             <button onclick="logout()" style="width:100%; background:#ff4444; border:none; border-radius:12px; padding:12px; color:white;">🚪 Keluar</button>
-            <div class="modal-buttons"><button onclick="closeModal()" style="background:#333;">Tutup</button></div>
         </div>
     `;
     modal.style.display = 'flex';
@@ -338,6 +368,7 @@ function openChangePasskey() {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
         <div class="modal-content">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-key"></i> Ganti Passkey</h3>
             <input type="password" id="old-passkey" placeholder="Passkey lama">
             <input type="password" id="new-passkey" placeholder="Passkey baru (huruf+angka)">
@@ -358,8 +389,10 @@ async function changeMyPasskey() {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=changeMyPasskey&adminId=${currentAdmin.id}&oldPasskey=${encodeURIComponent(oldPasskey)}&newKey=${encodeURIComponent(newPasskey)}`);
         const data = await res.json();
         if (data.status === 'success') { 
-            showToast("Passkey berhasil diubah, login ulang"); 
-            setTimeout(() => logout(), 2000); 
+            showToast("Passkey berhasil diubah!");
+            currentAdmin.passkey = newPasskey;
+            localStorage.setItem('umbrella_admin_session', JSON.stringify({ admin: currentAdmin, loggedInAt: Date.now() }));
+            setTimeout(() => location.reload(), 1500);
         }
         else showToast(data.message || "Gagal", true);
     } catch(e) { showToast("Gagal koneksi", true); }
@@ -368,12 +401,183 @@ async function changeMyPasskey() {
 function logout() {
     if (standbyInterval) clearInterval(standbyInterval);
     if (typeof window.stopActivePresence === 'function') window.stopActivePresence();
+    localStorage.removeItem('umbrella_admin_session');
     currentAdmin = null;
     location.reload();
 }
 
 // ==========================================
-// EXPOSE GLOBAL FUNCTIONS
+// MANAGE ADMIN (LEADER ONLY)
+// ==========================================
+async function refreshAdminList() {
+    if (currentAdmin?.role1 !== 'LEADER') {
+        console.log("Bukan LEADER, skip refresh admin list");
+        return;
+    }
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=getAdminList`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.status === 'success' && data.data) {
+            renderAdminList(data.data);
+        } else {
+            document.getElementById('admin-list-container').innerHTML = '<div class="empty-state">Gagal memuat data admin</div>';
+        }
+    } catch(e) {
+        console.error("Refresh admin list error:", e);
+        document.getElementById('admin-list-container').innerHTML = '<div class="empty-state">Gagal koneksi</div>';
+    }
+}
+
+function renderAdminList(admins) {
+    const container = document.getElementById('admin-list-container');
+    if (!container) return;
+    
+    container.innerHTML = admins.map(admin => `
+        <div class="admin-row">
+            <div class="admin-info-row">
+                <div>
+                    <strong>${escapeHtml(admin.nama)}</strong><br>
+                    <span style="font-size:0.7rem; color:var(--text-muted);">ID: ${admin.id}</span>
+                </div>
+                <div style="font-size:0.7rem;">
+                    ${admin.role1} ${admin.role2 ? `+ ${admin.role2}` : ''}
+                </div>
+            </div>
+            <div class="admin-buttons">
+                <button class="btn-small" onclick="editAdminName('${admin.id}', '${escapeHtml(admin.nama)}')"><i class="fas fa-user-edit"></i> Edit Nama</button>
+                <button class="btn-small" onclick="editAdminRole('${admin.id}', '${admin.role1}', '${admin.role2 || ''}')"><i class="fas fa-tag"></i> Edit Role</button>
+                <button class="btn-small btn-warning" onclick="resetPasskey('${admin.id}')"><i class="fas fa-key"></i> Reset Passkey</button>
+                ${currentAdmin.id !== admin.id ? `<button class="btn-small btn-danger" onclick="promoteToLeader('${admin.id}')"><i class="fas fa-crown"></i> Lantik Leader</button>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+function editAdminName(adminId, currentName) {
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <h3><i class="fas fa-user-edit"></i> Edit Nama Admin</h3>
+            <input type="text" id="edit-name" value="${currentName}" placeholder="Nama baru">
+            <div class="modal-buttons">
+                <button onclick="saveAdminName('${adminId}')" style="background:var(--color-primary);">Simpan</button>
+                <button onclick="closeModal()" style="background:#333;">Batal</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+async function saveAdminName(adminId) {
+    const newName = document.getElementById('edit-name').value.trim();
+    if (!newName) { showToast("Nama tidak boleh kosong", true); return; }
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${adminId}&field=nama&value=${encodeURIComponent(newName)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.status === 'success') {
+            showToast("Nama admin berhasil diubah");
+            closeModal();
+            refreshAdminList();
+            if (adminId === currentAdmin.id) currentAdmin.nama = newName;
+        } else {
+            showToast(data.message || "Gagal", true);
+        }
+    } catch(e) { showToast("Gagal koneksi", true); }
+}
+
+function editAdminRole(adminId, role1, role2) {
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <h3><i class="fas fa-tag"></i> Edit Role</h3>
+            <select id="edit-role1">
+                <option value="LEADER" ${role1 === 'LEADER' ? 'selected' : ''} ${adminId === currentAdmin.id ? 'disabled' : ''}>LEADER</option>
+                <option value="CO-LEAD" ${role1 === 'CO-LEAD' ? 'selected' : ''}>CO-LEAD</option>
+                <option value="BENDAHARA" ${role1 === 'BENDAHARA' ? 'selected' : ''}>BENDAHARA</option>
+                <option value="">(Kosong)</option>
+            </select>
+            <select id="edit-role2">
+                <option value="">(Tidak ada)</option>
+                <option value="CO-LEAD" ${role2 === 'CO-LEAD' ? 'selected' : ''}>CO-LEAD</option>
+                <option value="BENDAHARA" ${role2 === 'BENDAHARA' ? 'selected' : ''}>BENDAHARA</option>
+            </select>
+            <div class="modal-buttons">
+                <button onclick="saveAdminRole('${adminId}')" style="background:var(--color-primary);">Simpan</button>
+                <button onclick="closeModal()" style="background:#333;">Batal</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+async function saveAdminRole(adminId) {
+    const role1 = document.getElementById('edit-role1').value;
+    const role2 = document.getElementById('edit-role2').value;
+    try {
+        if (role1) {
+            await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${adminId}&field=role1&value=${role1}`);
+        }
+        await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${adminId}&field=role2&value=${role2}`);
+        showToast("Role berhasil diubah");
+        closeModal();
+        refreshAdminList();
+    } catch(e) { showToast("Gagal", true); }
+}
+
+async function resetPasskey(adminId) {
+    const defaultKey = `Passkey_${adminId.split('_')[1] || '1'}`;
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=resetPasskey&adminId=${adminId}&newKey=${defaultKey}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.status === 'success') {
+            showToast(`✅ Passkey direset menjadi: ${defaultKey}`);
+        } else {
+            showToast(data.message || "Gagal reset", true);
+        }
+    } catch(e) { showToast("Gagal koneksi", true); }
+}
+
+function promoteToLeader(targetId) {
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <h3><i class="fas fa-crown"></i> Lantik Leader Baru</h3>
+            <p style="margin-bottom:10px;">Anda akan turun menjadi CO-LEAD</p>
+            <input type="password" id="confirm-passkey" placeholder="Masukkan passkey Anda" style="width:100%; padding:10px; margin-bottom:10px;">
+            <div class="modal-buttons">
+                <button onclick="executePromoteLeader('${targetId}')" style="background:var(--color-primary);">Lantik</button>
+                <button onclick="closeModal()" style="background:#333;">Batal</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+async function executePromoteLeader(targetId) {
+    const passkey = document.getElementById('confirm-passkey').value.trim();
+    if (!passkey) { showToast("Passkey wajib diisi", true); return; }
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=promoteLeader&passkey=${encodeURIComponent(passkey)}&targetId=${targetId}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.status === 'success') {
+            showToast("Leader baru dilantik! Silakan login ulang.");
+            localStorage.removeItem('umbrella_admin_session');
+            setTimeout(() => logout(), 2000);
+        } else {
+            showToast(data.message || "Gagal", true);
+        }
+    } catch(e) { showToast("Gagal koneksi", true); }
+}
+
+// ==========================================
+// EXPOSE
 // ==========================================
 window.doLogin = doLogin;
 window.logout = logout;
@@ -384,5 +588,14 @@ window.toggleNotificationSetting = toggleNotificationSetting;
 window.openChangePasskey = openChangePasskey;
 window.changeMyPasskey = changeMyPasskey;
 window.openSettingsModal = openSettingsModal;
+window.refreshAdminList = refreshAdminList;
+window.editAdminName = editAdminName;
+window.saveAdminName = saveAdminName;
+window.editAdminRole = editAdminRole;
+window.saveAdminRole = saveAdminRole;
+window.resetPasskey = resetPasskey;
+window.promoteToLeader = promoteToLeader;
+window.executePromoteLeader = executePromoteLeader;
 
+checkSession();
 console.log("✅ admin.js loaded");

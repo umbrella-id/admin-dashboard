@@ -94,46 +94,56 @@ window.sendPresence = async function(mode) {
 async function sendStandbyAndUpdateAll() {
     if (!currentAdmin) return;
     
-    console.log("🔍 sendStandbyAndUpdateAll - start");
-    
     await window.sendPresence('standby');
     
-    if (!notificationEnabled) {
-        console.log("❌ notificationEnabled = false, skip notifikasi");
-        return;
-    }
-    
-    console.log("✅ notificationEnabled = true, lanjut cek...");
-    console.log("📱 document.hidden =", document.hidden);
+    if (!notificationEnabled) return;
     
     // CEK CHAT
     try {
-        // ... kode fetch chat ...
+        const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const logs = data.logs || [];
+        sessionStorage.setItem('umbrella_cached_chat_logs', JSON.stringify(logs));
+        sessionStorage.setItem('umbrella_cached_chat_timestamp', Date.now().toString());
         
-        console.log("📊 Chat - currentCount:", currentCount, "lastCount:", lastCount);
+        const guestMessages = logs.filter(msg => msg.type !== 'command' && msg.uid !== currentAdmin.id);
+        const currentCount = guestMessages.length;
+        const lastCount = parseInt(localStorage.getItem('umbrella_last_chat_count') || '0');
+        localStorage.setItem('umbrella_last_chat_count', currentCount.toString());
         
         if (currentCount > lastCount && lastCount > 0) {
-            console.log("🔔 Akan muncul notifikasi chat!");
-            // HAPUS if (document.hidden) untuk test
-            showBrowserNotification('💬 Pesan Chat Baru', ...);
-            playNotificationSound();
-        } else {
-            console.log("⏸️ Chat - kondisi tidak terpenuhi");
+            const newCount = currentCount - lastCount;
+            const lastMsg = guestMessages[guestMessages.length - 1];
+            if (document.hidden) {
+                showBrowserNotification('💬 Pesan Chat Baru', `${newCount} pesan baru dari ${lastMsg?.username || 'Guest'}`);
+                playNotificationSound();
+            } else {
+                showToast(`💬 Ada ${newCount} pesan chat baru!`);
+            }
         }
     } catch(e) { console.error("Check chat error:", e); }
     
-    // CEK MAILBOX
+    // CEK MAILBOX (HANYA NOTIF, TIDAK RENDER)
     try {
-        // ... kode fetch mailbox ...
-        
-        console.log("📊 Mail - currentUnread:", currentUnread, "lastUnread:", lastUnread);
-        
-        if (currentUnread > lastUnread && lastUnread > 0) {
-            console.log("🔔 Akan muncul notifikasi surat!");
-            showBrowserNotification('📬 Surat Baru', ...);
-            playNotificationSound();
-        } else {
-            console.log("⏸️ Mail - kondisi tidak terpenuhi");
+        const resMail = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`);
+        const dataMail = await resMail.json();
+        if (dataMail.status === 'success' && dataMail.data) {
+            const unreadMails = dataMail.data.filter(mail => mail.status === 'UNREAD');
+            const currentUnread = unreadMails.length;
+            const lastUnread = parseInt(localStorage.getItem('umbrella_last_unread_mail') || '0');
+            localStorage.setItem('umbrella_last_unread_mail', currentUnread.toString());
+            
+            if (currentUnread > lastUnread && lastUnread > 0) {
+                const newCount = currentUnread - lastUnread;
+                const newestMail = unreadMails[0];
+                if (document.hidden) {
+                    showBrowserNotification('📬 Surat Baru', `${newCount} surat baru dari ${newestMail?.ign || 'Guest'}`);
+                    playNotificationSound();
+                } else {
+                    showToast(`📬 Ada ${newCount} surat baru!`);
+                }
+            }
         }
     } catch(e) { console.error("Check mailbox error:", e); }
 }

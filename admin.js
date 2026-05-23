@@ -76,9 +76,23 @@ function showBrowserNotification(title, body) {
     if (!('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
     if (!document.hidden) return;
+    
     const notification = new Notification(title, { body: body, icon: '/favicon.ico' });
-    notification.onclick = () => { window.focus(); notification.close(); };
+    notification.onclick = () => {
+        window.focus();
+        notification.close();
+        if (type === 'chat') {
+            const widget = document.getElementById('chat-widget');
+            if (widget && !widget.classList.contains('show')) {
+                if (typeof window.toggleChatWidget === 'function') window.toggleChatWidget();
+            }
+        } else if (type === 'mail') {
+            const mailboxTab = document.querySelector('.nav-item[data-nav="mailbox"]');
+            if (mailboxTab) mailboxTab.click();
+        }
+    };
 }
+
 
 // ==========================================
 // PRESENCE
@@ -98,7 +112,7 @@ async function sendStandbyAndUpdateAll() {
     
     if (!notificationEnabled) return;
     
-    // CEK CHAT LOG (pesan baru) - PAKAI TIMESTAMP + ISI PESAN
+    // CEK CHAT LOG (pesan baru)
     try {
         const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
         const res = await fetch(url);
@@ -111,67 +125,45 @@ async function sendStandbyAndUpdateAll() {
             return true;
         });
         
-        const lastTimestamp = guestMessages.length > 0 ? guestMessages[0].timestamp : 0;
-        const savedTimestamp = parseInt(localStorage.getItem('umbrella_last_chat_timestamp') || '0');
+        // Ambil timestamp pesan terbaru (pastikan dalam milidetik)
+        let lastTimestamp = 0;
+        if (guestMessages.length > 0 && guestMessages[0].timestamp) {
+            lastTimestamp = typeof guestMessages[0].timestamp === 'number' 
+                ? guestMessages[0].timestamp 
+                : new Date(guestMessages[0].timestamp).getTime();
+        }
         
+        let savedTimestamp = parseInt(localStorage.getItem('umbrella_last_chat_timestamp') || '0');
+        
+        console.log(`🔍 Chat - last: ${lastTimestamp}, saved: ${savedTimestamp}`);
+        
+        // Simpan timestamp terbaru (selalu update ke yang lebih baru)
         if (lastTimestamp > savedTimestamp) {
+            console.log(`✅ Update timestamp chat: ${lastTimestamp}`);
             localStorage.setItem('umbrella_last_chat_timestamp', lastTimestamp.toString());
         }
         
+        // Kirim notifikasi hanya jika ada pesan baru (timestamp lebih baru)
         if (lastTimestamp > savedTimestamp && savedTimestamp > 0) {
             const newMsg = guestMessages[0];
             const sender = newMsg?.username || 'Guest';
             const message = newMsg?.message || '';
             const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
             
-            console.log(`💬 Pesan chat baru dari ${sender}: ${preview}`);
+            console.log(`🔔 KIRIM NOTIFIKASI CHAT: dari ${sender}`);
             
             if (document.hidden) {
-                showBrowserNotification(`💬 Pesan dari ${sender}`, preview);
+                showBrowserNotification(`💬 Pesan dari ${sender}`, preview, 'chat');
                 playNotificationSound();
             } else {
                 showToast(`💬 Pesan baru dari ${sender}: ${preview}`);
             }
+        } else {
+            console.log(`⏭️ Skip notifikasi chat (no new message)`);
         }
-    } catch(e) { console.error("Check chat error:", e); }
-    
-    // CEK MAILBOX (surat baru) - PAKAI TIMESTAMP + ISI SURAT
-    try {
-        const resMail = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`);
-        const dataMail = await resMail.json();
-        
-        if (dataMail.status === 'success' && dataMail.data) {
-            const lastMailTimestamp = dataMail.data.length > 0 ? new Date(dataMail.data[0].timestamp).getTime() : 0;
-            const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
-            
-            if (lastMailTimestamp > savedMailTimestamp) {
-                localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-            }
-            
-            if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
-                const newestMail = dataMail.data[0];
-                const sender = newestMail?.ign || 'Guest';
-                const subject = newestMail?.category || 'Umum';
-                const message = newestMail?.message || '';
-                const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-                
-                console.log(`📬 Surat baru dari ${sender} [${subject}]: ${preview}`);
-                
-                if (document.hidden) {
-                    showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview);
-                    playNotificationSound();
-                } else {
-                    showToast(`📬 Surat baru dari ${sender}: ${preview}`);
-                }
-            }
-            
-            // Refresh UI mailbox
-            if (typeof window.renderMailboxData === 'function') {
-                window.renderMailboxData(dataMail.data);
-            }
-        }
-    } catch(e) { console.error("Check mailbox error:", e); }
-}
+    } catch(e) { 
+        console.error("Check chat error:", e); 
+    }
 
 // ==========================================
 // ANDROID BACK BUTTON

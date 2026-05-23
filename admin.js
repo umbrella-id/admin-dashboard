@@ -95,20 +95,17 @@ async function sendStandbyAndUpdateAll() {
     
     console.log("🟡 Standby: cek event baru (chat + mail)");
     
-    // 1. Kirim presence standby
     await window.sendPresence('standby');
     
     if (!notificationEnabled) return;
     
-    // 2. CEK CHAT LOG (pesan baru)
+    // CEK CHAT LOG
     try {
         const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
         const res = await fetch(url);
         const data = await res.json();
         
         const logs = data.logs || [];
-        
-        // Simpan ke cache
         sessionStorage.setItem('umbrella_cached_chat_logs', JSON.stringify(logs));
         sessionStorage.setItem('umbrella_cached_chat_timestamp', Date.now().toString());
         
@@ -120,7 +117,6 @@ async function sendStandbyAndUpdateAll() {
         
         const currentCount = guestMessages.length;
         const lastCount = parseInt(localStorage.getItem('umbrella_last_chat_count') || '0');
-        
         localStorage.setItem('umbrella_last_chat_count', currentCount.toString());
         
         if (currentCount > lastCount && lastCount > 0) {
@@ -137,7 +133,7 @@ async function sendStandbyAndUpdateAll() {
         }
     } catch(e) { console.error("Check chat error:", e); }
     
-    // 3. CEK MAILBOX (surat baru) + REFRESH UI
+    // CEK MAILBOX + REFRESH UI
     try {
         const resMail = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox`);
         const dataMail = await resMail.json();
@@ -146,10 +142,9 @@ async function sendStandbyAndUpdateAll() {
             const unreadMails = dataMail.data.filter(mail => mail.status === 'UNREAD');
             const currentUnread = unreadMails.length;
             const lastUnread = parseInt(localStorage.getItem('umbrella_last_unread_mail') || '0');
-            
             localStorage.setItem('umbrella_last_unread_mail', currentUnread.toString());
             
-            // ✅ REFRESH UI MAILBOX (SETIAP KALI)
+            // REFRESH UI MAILBOX (SETIAP KALI)
             if (typeof window.renderMailboxData === 'function') {
                 window.renderMailboxData(dataMail.data);
             }
@@ -157,7 +152,7 @@ async function sendStandbyAndUpdateAll() {
             if (currentUnread > lastUnread && lastUnread > 0) {
                 const newCount = currentUnread - lastUnread;
                 const newestMail = unreadMails[0];
-                console.log(`📬 Ada ${newCount} surat baru! - UI sudah direfresh`);
+                console.log(`📬 Ada ${newCount} surat baru!`);
                 
                 if (document.hidden) {
                     showBrowserNotification('📬 Surat Baru', `${newCount} surat baru dari ${newestMail?.ign || 'Guest'}`);
@@ -170,24 +165,14 @@ async function sendStandbyAndUpdateAll() {
     } catch(e) { console.error("Check mailbox error:", e); }
 }
 
-// ==========================================
 // REFRESH UI SAAT TAB AKTIF KEMBALI
-// ==========================================
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden && currentAdmin) {
         console.log("🟢 Tab aktif kembali, refresh UI...");
-        
-        if (typeof window.refreshMailbox === 'function') {
-            window.refreshMailbox();
-        }
-        
+        if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
         if (window.isChatOpen && window.isChatOpen()) {
-            if (typeof window.loadChatMessages === 'function') {
-                window.loadChatMessages();
-            }
-            if (typeof window.fetchOnlineUsers === 'function') {
-                window.fetchOnlineUsers();
-            }
+            if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
+            if (typeof window.fetchOnlineUsers === 'function') window.fetchOnlineUsers();
         }
     }
 });
@@ -197,10 +182,8 @@ document.addEventListener('visibilitychange', function() {
 // ==========================================
 function startStandbyPresence() {
     if (standbyInterval) clearInterval(standbyInterval);
-    
-    console.log("🟡 START STANDBY (60 detik) - cek event");
+    console.log("🟡 START STANDBY (60 detik)");
     sendStandbyAndUpdateAll();
-    
     standbyInterval = setInterval(() => {
         if (currentAdmin && (!window.isChatOpen || !window.isChatOpen())) {
             sendStandbyAndUpdateAll();
@@ -401,6 +384,5 @@ window.toggleNotificationSetting = toggleNotificationSetting;
 window.openChangePasskey = openChangePasskey;
 window.changeMyPasskey = changeMyPasskey;
 window.openSettingsModal = openSettingsModal;
-window.sendStandbyAndUpdateAll = sendStandbyAndUpdateAll;
 
 console.log("✅ admin.js loaded");

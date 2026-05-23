@@ -98,7 +98,7 @@ async function sendStandbyAndUpdateAll() {
     
     if (!notificationEnabled) return;
     
-    // CEK CHAT LOG (pesan baru) - PAKAI TIMESTAMP
+    // CEK CHAT LOG (pesan baru) - PAKAI TIMESTAMP + ISI PESAN
     try {
         const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
         const res = await fetch(url);
@@ -111,36 +111,36 @@ async function sendStandbyAndUpdateAll() {
             return true;
         });
         
-        // ✅ PAKAI TIMESTAMP PESAN TERBARU, BUKAN JUMLAH
         const lastTimestamp = guestMessages.length > 0 ? guestMessages[0].timestamp : 0;
         const savedTimestamp = parseInt(localStorage.getItem('umbrella_last_chat_timestamp') || '0');
         
-        // Simpan timestamp terbaru
         if (lastTimestamp > savedTimestamp) {
             localStorage.setItem('umbrella_last_chat_timestamp', lastTimestamp.toString());
         }
         
-        // Jika ada pesan baru (timestamp lebih baru)
         if (lastTimestamp > savedTimestamp && savedTimestamp > 0) {
             const newMsg = guestMessages[0];
-            console.log(`💬 Pesan chat baru dari ${newMsg?.username || 'Guest'}!`);
+            const sender = newMsg?.username || 'Guest';
+            const message = newMsg?.message || '';
+            const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+            
+            console.log(`💬 Pesan chat baru dari ${sender}: ${preview}`);
             
             if (document.hidden) {
-                showBrowserNotification('💬 Pesan Chat Baru', `Pesan baru dari ${newMsg?.username || 'Guest'}: "${newMsg?.message?.substring(0, 40)}..."`);
+                showBrowserNotification(`💬 Pesan dari ${sender}`, preview);
                 playNotificationSound();
             } else {
-                showToast(`💬 Pesan baru dari ${newMsg?.username || 'Guest'}!`);
+                showToast(`💬 Pesan baru dari ${sender}: ${preview}`);
             }
         }
-    } catch(e) { console.error("Check chat error:", e); }    
+    } catch(e) { console.error("Check chat error:", e); }
     
-    // CEK MAILBOX (surat baru) - PAKAI TIMESTAMP
+    // CEK MAILBOX (surat baru) - PAKAI TIMESTAMP + ISI SURAT
     try {
         const resMail = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`);
         const dataMail = await resMail.json();
         
         if (dataMail.status === 'success' && dataMail.data) {
-            // ✅ PAKAI TIMESTAMP SURAT TERBARU
             const lastMailTimestamp = dataMail.data.length > 0 ? new Date(dataMail.data[0].timestamp).getTime() : 0;
             const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
             
@@ -150,17 +150,22 @@ async function sendStandbyAndUpdateAll() {
             
             if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
                 const newestMail = dataMail.data[0];
-                console.log(`📬 Surat baru dari ${newestMail?.ign || 'Guest'}!`);
+                const sender = newestMail?.ign || 'Guest';
+                const subject = newestMail?.category || 'Umum';
+                const message = newestMail?.message || '';
+                const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+                
+                console.log(`📬 Surat baru dari ${sender} [${subject}]: ${preview}`);
                 
                 if (document.hidden) {
-                    showBrowserNotification('📬 Surat Baru', `Surat baru dari ${newestMail?.ign || 'Guest'}`);
+                    showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview);
                     playNotificationSound();
                 } else {
-                    showToast(`📬 Surat baru dari ${newestMail?.ign || 'Guest'}!`);
+                    showToast(`📬 Surat baru dari ${sender}: ${preview}`);
                 }
             }
             
-            // Refresh UI mailbox (tetap dilakukan)
+            // Refresh UI mailbox
             if (typeof window.renderMailboxData === 'function') {
                 window.renderMailboxData(dataMail.data);
             }

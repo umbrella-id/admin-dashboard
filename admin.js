@@ -15,6 +15,7 @@ function showToast(msg, isError = false) {
 
 function escapeHtml(str) {
     if (!str) return '';
+    if (typeof str !== 'string') str = String(str);
     return str.replace(/[&<>]/g, function(m) {
         if (m === '&') return '&amp;';
         if (m === '<') return '&lt;';

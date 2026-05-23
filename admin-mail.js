@@ -41,6 +41,8 @@ function renderMailbox(allMails) {
         filtered = allMails.filter(m => m.category === 'Request Join');
     } else if (currentMailFilter === 'SARAN') {
         filtered = allMails.filter(m => m.category === 'Saran');
+    } else if (currentMailFilter === 'UMUM') {
+        filtered = allMails.filter(m => m.category === 'Umum');
     }
     
     if (!filtered.length) {

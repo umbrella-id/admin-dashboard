@@ -93,11 +93,6 @@ window.sendPresence = async function(mode) {
 // ==========================================
 async function sendStandbyAndUpdateAll() {
     if (!currentAdmin) return;
-
-    // TAMBAHKAN 3 BARIS INI DI AWAL FUNGSI
-    console.log("🔍 [DEBUG] sendStandbyAndUpdateAll dipanggil");
-    console.log("🔍 [DEBUG] notificationEnabled =", notificationEnabled);
-    console.log("🔍 [DEBUG] document.hidden =", document.hidden);
     
     await window.sendPresence('standby');
     
@@ -108,18 +103,24 @@ async function sendStandbyAndUpdateAll() {
         const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
         const res = await fetch(url);
         const data = await res.json();
-        const logs = data.logs || [];
-        sessionStorage.setItem('umbrella_cached_chat_logs', JSON.stringify(logs));
-        sessionStorage.setItem('umbrella_cached_chat_timestamp', Date.now().toString());
         
-        const guestMessages = logs.filter(msg => msg.type !== 'command' && msg.uid !== currentAdmin.id);
+        const logs = data.logs || [];
+        const guestMessages = logs.filter(msg => {
+            if (msg.type === 'command') return false;
+            if (msg.uid === currentAdmin.id) return false;
+            return true;
+        });
+        
         const currentCount = guestMessages.length;
         const lastCount = parseInt(localStorage.getItem('umbrella_last_chat_count') || '0');
+        
         localStorage.setItem('umbrella_last_chat_count', currentCount.toString());
         
         if (currentCount > lastCount && lastCount > 0) {
             const newCount = currentCount - lastCount;
             const lastMsg = guestMessages[guestMessages.length - 1];
+            console.log(`💬 Ada ${newCount} pesan chat baru!`);
+            
             if (document.hidden) {
                 showBrowserNotification('💬 Pesan Chat Baru', `${newCount} pesan baru dari ${lastMsg?.username || 'Guest'}`);
                 playNotificationSound();
@@ -127,7 +128,8 @@ async function sendStandbyAndUpdateAll() {
                 showToast(`💬 Ada ${newCount} pesan chat baru!`);
             }
         }
-    } catch(e) { console.error("Check chat error:", e); }
+    } catch(e) {console.error("Check chat error:", e); }
+
     
     // CEK MAILBOX (HANYA NOTIF, TIDAK RENDER)
     try {

@@ -93,6 +93,11 @@ async function sendStandbyAndUpdateAll() {
         const data = await res.json();
         
         const logs = data.logs || [];
+        
+        // ✅ TAMBAHKAN: simpan ke cache
+        sessionStorage.setItem('umbrella_cached_chat_logs', JSON.stringify(logs));
+        sessionStorage.setItem('umbrella_cached_chat_timestamp', Date.now().toString());
+        
         const guestMessages = logs.filter(msg => {
             if (msg.type === 'command') return false;
             if (msg.uid === currentAdmin.id) return false;
@@ -130,6 +135,11 @@ async function sendStandbyAndUpdateAll() {
             
             localStorage.setItem('umbrella_last_unread_mail', currentUnread.toString());
             
+            // ✅ PINDAHKAN KE SINI (refresh UI tetap jalan meskipun tidak ada notif)
+            if (typeof window.renderMailboxData === 'function') {
+                window.renderMailboxData(dataMail.data);
+            }
+            
             if (currentUnread > lastUnread && lastUnread > 0) {
                 const newCount = currentUnread - lastUnread;
                 const newestMail = unreadMails[0];
@@ -142,14 +152,31 @@ async function sendStandbyAndUpdateAll() {
                     showToast(`📬 Ada ${newCount} surat baru!`);
                 }
             }
-            
-            // Refresh UI mailbox (tanpa notifikasi lagi)
-            if (typeof window.renderMailboxData === 'function') {
-                window.renderMailboxData(dataMail.data);
-            }
         }
     } catch(e) { console.error("Check mailbox error:", e); }
 }
+
+// REFRESH UI SAAT TAB AKTIF KEMBALI
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && currentAdmin) {
+        console.log("🟢 Tab aktif kembali, refresh UI...");
+        
+        // Refresh mailbox
+        if (typeof window.refreshMailbox === 'function') {
+            window.refreshMailbox();
+        }
+        
+        // Refresh chat jika sedang terbuka
+        if (window.isChatOpen && window.isChatOpen()) {
+            if (typeof window.loadChatMessages === 'function') {
+                window.loadChatMessages();
+            }
+            if (typeof window.fetchOnlineUsers === 'function') {
+                window.fetchOnlineUsers();
+            }
+        }
+    }
+});
 
 function startStandbyPresence() {
     if (standbyInterval) clearInterval(standbyInterval);

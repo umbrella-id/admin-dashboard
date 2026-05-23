@@ -79,7 +79,7 @@ window.sendPresence = async function(mode) {
 async function sendStandbyAndUpdateAll() {
     if (!currentAdmin) return;
     
-    console.log("🟡 Standby: cek event baru");
+    console.log("🟡 Standby: cek event baru (chat + mail)");
     
     // 1. Kirim presence standby
     await window.sendPresence('standby');
@@ -119,10 +119,36 @@ async function sendStandbyAndUpdateAll() {
     } catch(e) { console.error("Check chat error:", e); }
     
     // 3. CEK MAILBOX (surat baru)
-    if (typeof window.refreshMailbox === 'function') {
-        // refreshMailbox akan handle notifikasi sendiri
-        window.refreshMailbox();
-    }
+    try {
+        const resMail = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox`);
+        const dataMail = await resMail.json();
+        
+        if (dataMail.status === 'success' && dataMail.data) {
+            const unreadMails = dataMail.data.filter(mail => mail.status === 'UNREAD');
+            const currentUnread = unreadMails.length;
+            const lastUnread = parseInt(localStorage.getItem('umbrella_last_unread_mail') || '0');
+            
+            localStorage.setItem('umbrella_last_unread_mail', currentUnread.toString());
+            
+            if (currentUnread > lastUnread && lastUnread > 0) {
+                const newCount = currentUnread - lastUnread;
+                const newestMail = unreadMails[0];
+                console.log(`📬 Ada ${newCount} surat baru!`);
+                
+                if (document.hidden) {
+                    showBrowserNotification('📬 Surat Baru', `${newCount} surat baru dari ${newestMail?.ign || 'Guest'}`);
+                    playNotificationSound();
+                } else {
+                    showToast(`📬 Ada ${newCount} surat baru!`);
+                }
+            }
+            
+            // Refresh UI mailbox (tanpa notifikasi lagi)
+            if (typeof window.renderMailboxData === 'function') {
+                window.renderMailboxData(dataMail.data);
+            }
+        }
+    } catch(e) { console.error("Check mailbox error:", e); }
 }
 
 function startStandbyPresence() {

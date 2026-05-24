@@ -313,65 +313,48 @@ window.addEventListener('popstate', function(event) {
 // ==========================================
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden && currentAdmin) {
+        // Tab menjadi aktif kembali
         console.log("🟢 Tab aktif kembali");
         
-        try {
-            // Kembalikan status online jika chat widget terbuka
-            if (window.isChatOpen && window.isChatOpen()) {
-                console.log("💬 Chat widget terbuka, kembalikan status online");
-                window.sendPresence('active');
-                
-                // Coba mulai ulang polling chat (jika fungsi ada)
-                if (typeof window.startAllTimers === 'function') {
-                    window.startAllTimers();
-                }
-                // Refresh chat
-                if (typeof window.loadChatMessages === 'function') {
-                    window.loadChatMessages();
-                }
-                if (typeof window.fetchOnlineUsers === 'function') {
-                    window.fetchOnlineUsers();
-                }
-            }
-        } catch(e) {
-            console.error("Error chat resume:", e);
-        }
+        // Cek apakah tab SURAT yang aktif
+        const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
         
-        try {
-            // Update timestamp mailbox jika tab surat aktif
-            const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
-            if (activeTab === 'mailbox') {
-                const cached = sessionStorage.getItem('umbrella_cached_mailbox');
-                if (cached) {
+        if (activeTab === 'mailbox') {
+            // Update timestamp mailbox dengan data terbaru dari cache
+            const cached = sessionStorage.getItem('umbrella_cached_mailbox');
+            if (cached) {
+                try {
                     const dataMail = JSON.parse(cached);
                     const lastMailTimestamp = dataMail[0]?.timestamp ? new Date(dataMail[0].timestamp).getTime() : 0;
                     if (lastMailTimestamp > 0) {
                         localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                        console.log("📬 Timestamp mailbox diupdate");
+                        console.log("📬 Timestamp mailbox diupdate (kembali ke tab surat)");
                     }
-                }
+                } catch(e) {}
             }
-        } catch(e) {
-            console.error("Error timestamp update:", e);
         }
         
-        // Render mailbox dari cache
+        // Gunakan render dari cache, bukan fetch ulang
         if (typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
         } else if (typeof window.refreshMailbox === 'function') {
-            window.refreshMailbox();
+            window.refreshMailbox(); // fallback
+        }
+        if (window.isChatOpen && window.isChatOpen()) {
+            if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
+            if (typeof window.fetchOnlineUsers === 'function') window.fetchOnlineUsers();
         }
         
     } else if (document.hidden && currentAdmin) {
-        console.log("🔴 Tab tidak aktif");
+        // 🆕 Tab tidak aktif (user pindah ke tab lain)
+        console.log("🔴 Tab tidak aktif, paksa status standby");
         
-        try {
-            window.sendPresence('standby');
-            if (typeof window.stopActivePresence === 'function') {
-                window.stopActivePresence();
-            }
-        } catch(e) {
-            console.error("Error standby:", e);
+        // Paksa kirim presence standby
+        window.sendPresence('standby');
+        
+        // Hentikan polling chat sementara (hemat kuota)
+        if (typeof window.stopActivePresence === 'function') {
+            window.stopActivePresence();
         }
     }
 });
@@ -797,7 +780,6 @@ window.saveAdminRole = saveAdminRole;
 window.resetPasskey = resetPasskey;
 window.promoteToLeader = promoteToLeader;
 window.executePromoteLeader = executePromoteLeader;
-window.startAllTimers = startAllTimers;
 
 checkSession();
 console.log("✅ admin.js loaded");

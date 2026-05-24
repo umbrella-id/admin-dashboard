@@ -207,60 +207,80 @@ async function sendStandbyAndUpdateAll() {
         console.error("❌ Check chat error:", e); 
     }    
     // ==========================================
-    // 3. CEK MAILBOX (surat baru)
+    // 3. CEK MAILBOX (surat baru) - OPTIMASI
     // ==========================================
     try {
-        const urlMail = `${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`;
-        console.log("📡 Fetch mailbox dari:", urlMail);
-        const resMail = await fetch(urlMail);
-        const dataMail = await resMail.json();
-        
-        if (dataMail.status === 'success' && dataMail.data) {
-            console.log(`📥 Dapat ${dataMail.data.length} surat`);
+        // Cek perubahan dengan endpoint ringan
+        if (typeof window.checkMailboxChanges === 'function') {
+            const hasChanged = await window.checkMailboxChanges();
             
-            // Ambil timestamp surat terbaru
-            let lastMailTimestamp = 0;
-            if (dataMail.data.length > 0 && dataMail.data[0].timestamp) {
-                lastMailTimestamp = new Date(dataMail.data[0].timestamp).getTime();
-            }
-            
-            const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
-            
-            console.log(`🔍 MAIL - lastTimestamp: ${lastMailTimestamp}, savedTimestamp: ${savedMailTimestamp}`);
-            
-            // Simpan timestamp terbaru
-            if (lastMailTimestamp > savedMailTimestamp) {
-                console.log(`✅ Simpan timestamp mail baru: ${lastMailTimestamp}`);
-                localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-            }
-            
-            // Kirim notifikasi jika ada surat baru
-            if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
-                const newestMail = dataMail.data[0];
-                const sender = newestMail?.ign || 'Guest';
-                const subject = newestMail?.category || 'Umum';
-                const message = newestMail?.message || '';
-                const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+            if (hasChanged) {
+                console.log("📬 Mailbox berubah, notifikasi akan diproses");
                 
-                console.log(`🔔 KIRIM NOTIFIKASI MAIL! dari ${sender} [${subject}]: ${preview}`);
-                
-                if (document.hidden) {
-                    showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview, 'mail');
-                    playNotificationSound();
-                } else {
-                    showToast(`📬 Surat baru dari ${sender}: ${preview}`);
+                // Ambil data dari cache setelah fetchMailboxAndCache dijalankan
+                const cached = sessionStorage.getItem('umbrella_cached_mailbox');
+                if (cached) {
+                    const dataMail = JSON.parse(cached);
+                    const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
+                    const lastMailTimestamp = dataMail[0]?.timestamp ? new Date(dataMail[0].timestamp).getTime() : 0;
+                    
+                    // Kirim notifikasi jika ada surat baru
+                    if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
+                        const newestMail = dataMail[0];
+                        const sender = newestMail?.ign || 'Guest';
+                        const subject = newestMail?.category || 'Umum';
+                        const message = newestMail?.message || '';
+                        const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+                        
+                        console.log(`🔔 KIRIM NOTIFIKASI MAIL! dari ${sender} [${subject}]: ${preview}`);
+                        
+                        if (document.hidden) {
+                            showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview, 'mail');
+                            playNotificationSound();
+                        } else {
+                            showToast(`📬 Surat baru dari ${sender}: ${preview}`);
+                        }
+                        
+                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                    }
                 }
-            } else {
-                console.log(`⏭️ Skip notifikasi mail (tidak ada surat baru)`);
             }
         } else {
-            console.log("⚠️ Mailbox response error:", dataMail);
+            // Fallback ke cara lama jika fungsi belum ada
+            console.warn("checkMailboxChanges tidak tersedia, pakai cara lama");
+            const urlMail = `${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`;
+            const resMail = await fetch(urlMail);
+            const dataMail = await resMail.json();
+            
+            if (dataMail.status === 'success' && dataMail.data) {
+                const lastMailTimestamp = dataMail.data[0]?.timestamp ? new Date(dataMail.data[0].timestamp).getTime() : 0;
+                const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
+                
+                if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
+                    const newestMail = dataMail.data[0];
+                    const sender = newestMail?.ign || 'Guest';
+                    const subject = newestMail?.category || 'Umum';
+                    const message = newestMail?.message || '';
+                    const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+                    
+                    if (document.hidden) {
+                        showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview, 'mail');
+                        playNotificationSound();
+                    } else {
+                        showToast(`📬 Surat baru dari ${sender}: ${preview}`);
+                    }
+                }
+                
+                localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                
+                if (typeof window.refreshMailbox === 'function') {
+                    window.refreshMailbox();
+                }
+            }
         }
-        
     } catch(e) { 
         console.error("❌ Check mailbox error:", e); 
-    }
-    
+    }    
     console.log("🟡 [STANDBY] Selesai pengecekan\n");
 }
 // ==========================================
@@ -283,7 +303,12 @@ window.addEventListener('popstate', function(event) {
 // ==========================================
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden && currentAdmin) {
-        if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
+        // Gunakan render dari cache, bukan fetch ulang
+        if (typeof window.renderMailboxFromCache === 'function') {
+            window.renderMailboxFromCache();
+        } else if (typeof window.refreshMailbox === 'function') {
+            window.refreshMailbox(); // fallback
+        }
         if (window.isChatOpen && window.isChatOpen()) {
             if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
             if (typeof window.fetchOnlineUsers === 'function') window.fetchOnlineUsers();

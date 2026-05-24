@@ -161,7 +161,7 @@ async function sendStandbyAndUpdateAll() {
         
         console.log(`👥 Pesan guest: ${guestMessages.length}`);
         
-        // ✅ AMBIL TIMESTAMP TERTINGGI (pesan terbaru)
+        // AMBIL TIMESTAMP TERTINGGI (pesan terbaru)
         let lastTimestamp = 0;
         let newestMessage = null;
         
@@ -205,7 +205,8 @@ async function sendStandbyAndUpdateAll() {
         
     } catch(e) { 
         console.error("❌ Check chat error:", e); 
-    }    
+    }
+    
     // ==========================================
     // 3. CEK MAILBOX (surat baru) - OPTIMASI
     // ==========================================
@@ -223,9 +224,10 @@ async function sendStandbyAndUpdateAll() {
                     const dataMail = JSON.parse(cached);
                     const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
                     const lastMailTimestamp = dataMail[0]?.timestamp ? new Date(dataMail[0].timestamp).getTime() : 0;
+                    const isMailboxTabActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
                     
-                    // Kirim notifikasi jika ada surat baru
-                    if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
+                    // Kirim notifikasi jika ada surat baru DAN TAB SURAT TIDAK AKTIF
+                    if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0 && !isMailboxTabActive) {
                         const newestMail = dataMail[0];
                         const sender = newestMail?.ign || 'Guest';
                         const subject = newestMail?.category || 'Umum';
@@ -242,6 +244,10 @@ async function sendStandbyAndUpdateAll() {
                         }
                         
                         localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                    } else if (isMailboxTabActive && lastMailTimestamp > savedMailTimestamp) {
+                        // Update timestamp tanpa notifikasi (tab surat aktif)
+                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                        console.log("📬 Timestamp mailbox diupdate (tab surat aktif, notifikasi skip)");
                     }
                 }
             }
@@ -255,8 +261,9 @@ async function sendStandbyAndUpdateAll() {
             if (dataMail.status === 'success' && dataMail.data) {
                 const lastMailTimestamp = dataMail.data[0]?.timestamp ? new Date(dataMail.data[0].timestamp).getTime() : 0;
                 const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
+                const isMailboxTabActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
                 
-                if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
+                if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0 && !isMailboxTabActive) {
                     const newestMail = dataMail.data[0];
                     const sender = newestMail?.ign || 'Guest';
                     const subject = newestMail?.category || 'Umum';
@@ -269,9 +276,11 @@ async function sendStandbyAndUpdateAll() {
                     } else {
                         showToast(`📬 Surat baru dari ${sender}: ${preview}`);
                     }
+                    localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                } else if (isMailboxTabActive && lastMailTimestamp > savedMailTimestamp) {
+                    localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                    console.log("📬 Timestamp mailbox diupdate (fallback, tab surat aktif)");
                 }
-                
-                localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
                 
                 if (typeof window.refreshMailbox === 'function') {
                     window.refreshMailbox();
@@ -280,7 +289,8 @@ async function sendStandbyAndUpdateAll() {
         }
     } catch(e) { 
         console.error("❌ Check mailbox error:", e); 
-    }    
+    }
+    
     console.log("🟡 [STANDBY] Selesai pengecekan\n");
 }
 // ==========================================

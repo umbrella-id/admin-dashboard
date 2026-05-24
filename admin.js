@@ -84,14 +84,17 @@ function showBrowserNotification(title, body) {
         notification.close();
         
         if (isChat) {
-            // Buka chat widget
+            // Buka chat widget dan tab mail
             if (typeof window.toggleChatWidget === 'function') {
                 // Jika chat belum terbuka, buka
                 const widget = document.getElementById('chat-widget');
                 if (widget && !widget.classList.contains('show')) {
                     window.toggleChatWidget();
                 }
-            }
+            } else if (type === 'mail') {
+            const mailboxTab = document.querySelector('.nav-item[data-nav="mailbox"]');
+            if (mailboxTab) mailboxTab.click();
+        }
         }
     };
 }

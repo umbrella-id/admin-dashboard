@@ -384,7 +384,7 @@ window.executeMute = async function(targetUid, duration, ign) {
     window.showToast(`⏳ Membisukan ${ign}...`);
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=executeMute&adminId=${adminData.id}&targetUid=${targetUid}&duration=${duration}`);
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=executeMute&adminId=${adminData.id}&targetUid=${targetUid}&duration=${duration}&targetIgn=${encodeURIComponent(ign)}`);
         const data = await res.json();
         if (data.status === 'success') {
             window.showToast(`✅ ${ign} dibisukan ${duration} menit`);
@@ -404,7 +404,7 @@ window.executeUnmute = async function(targetUid, ign) {
     window.showToast(`⏳ Membuka bisuan ${ign}...`);
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=executeUnmute&adminId=${adminData.id}&targetUid=${targetUid}`);
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=executeUnmute&adminId=${adminData.id}&targetUid=${targetUid}&targetIgn=${encodeURIComponent(ign)}`);
         const data = await res.json();
         if (data.status === 'success') {
             window.showToast(`✅ Bisuan ${ign} dibuka`);

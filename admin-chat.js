@@ -50,8 +50,6 @@ window.toggleChatWidget = async function() {
         widget.classList.add('show');
         isChatOpen = true;
         
-        if (typeof window.markChatAsRead === 'function') window.markChatAsRead();
-        if (typeof window.stopStandbyPresence === 'function') window.stopStandbyPresence();
         if (typeof window.sendPresence === 'function') await window.sendPresence('active');
         
         startAllTimers();
@@ -70,9 +68,7 @@ window.toggleChatWidget = async function() {
         isChatOpen = false;
         
         stopAllTimers();
-        if (typeof window.sendPresence === 'function') await window.sendPresence('standby');
-        if (typeof window.startStandbyPresence === 'function') window.startStandbyPresence();
-        
+        if (typeof window.sendPresence === 'function') await window.sendPresence('standby');        
         if (history.state && history.state.chatOpen) {
             history.back();
         }

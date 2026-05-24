@@ -407,15 +407,6 @@ window.executeUnmute = async function(targetUid, ign) {
 };
 
 // ==========================================
-// MARK CHAT AS READ (untuk badge)
-// ==========================================
-window.markChatAsRead = function() {
-    const chatCount = parseInt(localStorage.getItem('umbrella_last_chat_count') || '0');
-    localStorage.setItem('umbrella_last_chat_shown', chatCount.toString());
-    if (typeof window.updateTotalBadge === 'function') window.updateTotalBadge();
-};
-
-// ==========================================
 // EXPOSE GLOBAL FUNCTIONS
 // ==========================================
 window.initChat = initChat;

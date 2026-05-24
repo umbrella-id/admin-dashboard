@@ -4,16 +4,29 @@ window.GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbwqsSUeVxPg4V5hMc
 let currentAdmin = null;
 let standbyInterval = null;
 let notificationEnabled = localStorage.getItem('umbrella_notif_enabled') !== 'false';
+let toastTimeout = null;
 
 // ==========================================
 // UTILITY
 // ==========================================
 function showToast(msg, isError = false) {
     const toast = document.getElementById('toast');
+    
+    // Matikan timer lama jika masih berjalan
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+        toastTimeout = null;
+    }
+    
     toast.innerText = msg;
     toast.style.borderColor = isError ? '#ff4444' : 'var(--color-primary)';
     toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3000);
+    
+    // Set timer baru
+    toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+        toastTimeout = null;
+    }, 3000);
 }
 
 function escapeHtml(str) {

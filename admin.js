@@ -476,6 +476,7 @@ async function toggleNotificationSetting() {
         }
     }
     saveNotificationPreference(isChecked);
+    notificationEnabled = isChecked;
     showToast(isChecked ? "Notifikasi aktif" : "Notifikasi nonaktif");
 }
 

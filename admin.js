@@ -313,6 +313,27 @@ window.addEventListener('popstate', function(event) {
 // ==========================================
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden && currentAdmin) {
+        // Tab menjadi aktif kembali
+        console.log("🟢 Tab aktif kembali");
+        
+        // Cek apakah tab SURAT yang aktif
+        const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
+        
+        if (activeTab === 'mailbox') {
+            // Update timestamp mailbox dengan data terbaru dari cache
+            const cached = sessionStorage.getItem('umbrella_cached_mailbox');
+            if (cached) {
+                try {
+                    const dataMail = JSON.parse(cached);
+                    const lastMailTimestamp = dataMail[0]?.timestamp ? new Date(dataMail[0].timestamp).getTime() : 0;
+                    if (lastMailTimestamp > 0) {
+                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                        console.log("📬 Timestamp mailbox diupdate (kembali ke tab surat)");
+                    }
+                } catch(e) {}
+            }
+        }
+        
         // Gunakan render dari cache, bukan fetch ulang
         if (typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
@@ -322,6 +343,18 @@ document.addEventListener('visibilitychange', function() {
         if (window.isChatOpen && window.isChatOpen()) {
             if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
             if (typeof window.fetchOnlineUsers === 'function') window.fetchOnlineUsers();
+        }
+        
+    } else if (document.hidden && currentAdmin) {
+        // 🆕 Tab tidak aktif (user pindah ke tab lain)
+        console.log("🔴 Tab tidak aktif, paksa status standby");
+        
+        // Paksa kirim presence standby
+        window.sendPresence('standby');
+        
+        // Hentikan polling chat sementara (hemat kuota)
+        if (typeof window.stopActivePresence === 'function') {
+            window.stopActivePresence();
         }
     }
 });

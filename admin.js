@@ -83,18 +83,18 @@ function showBrowserNotification(title, body) {
         window.focus();
         notification.close();
         
-        if (isChat) {
-            // Buka chat widget dan tab mail
-            if (typeof window.toggleChatWidget === 'function') {
-                // Jika chat belum terbuka, buka
-                const widget = document.getElementById('chat-widget');
-                if (widget && !widget.classList.contains('show')) {
-                    window.toggleChatWidget();
-                }
-            } else if (type === 'mail') {
+        if (type === 'chat') {
+            // Buka chat widget
+            const widget = document.getElementById('chat-widget');
+            if (widget && !widget.classList.contains('show')) {
+                window.toggleChatWidget();
+            }
+        } else if (type === 'mail') {
+            // Buka tab mailbox
             const mailboxTab = document.querySelector('.nav-item[data-nav="mailbox"]');
-            if (mailboxTab) mailboxTab.click();
-        }
+            if (mailboxTab) {
+                mailboxTab.click();
+            }
         }
     };
 }
@@ -146,7 +146,7 @@ async function sendStandbyAndUpdateAll() {
                 console.log(`💬 Pesan chat baru dari ${sender}: ${preview}`);
                 
                 if (document.hidden) {
-                    showBrowserNotification(`💬 Pesan dari ${sender}`, preview, true);
+                    showBrowserNotification(`💬 Pesan dari ${sender}`, preview , 'chat');
                     playNotificationSound();
                 } else {
                     showToast(`💬 Pesan baru dari ${sender}: ${preview}`);
@@ -177,7 +177,7 @@ async function sendStandbyAndUpdateAll() {
                     console.log(`📬 Surat baru dari ${sender} [${subject}]: ${preview}`);
                     
                     if (document.hidden) {
-                        showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview);
+                        showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview , 'mail');
                         playNotificationSound();
                     } else {
                         showToast(`📬 Surat baru dari ${sender}: ${preview}`);

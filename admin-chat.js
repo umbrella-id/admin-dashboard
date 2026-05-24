@@ -1,5 +1,10 @@
 /**
- * admin-chat.js - Chat Widget (Final - Fix Load)
+ * admin-chat.js - Chat Widget
+ * 
+ * STRUKTUR WIDGET:
+ * - Dua tab: "Obrolan" (chat logs) dan "Online" (daftar user online)
+ * - dua container terpisah (online-users-list dan admin-chat-logs) yang di-switch via CSS display
+ * - Input area hanya muncul di tab Obrolan
  */
 
 let activeInterval = null;
@@ -404,6 +409,14 @@ window.executeUnmute = async function(targetUid, ign) {
         console.error("Execute unmute error:", e);
         window.showToast("❌ Gagal", true);
     }
+};
+
+// ==========================================
+// MARK CHAT AS READ (untuk badge)
+// ==========================================
+window.markChatAsRead = function() {
+    const chatCount = parseInt(localStorage.getItem('umbrella_last_chat_count') || '0');
+    localStorage.setItem('umbrella_last_chat_shown', chatCount.toString());
 };
 
 // ==========================================

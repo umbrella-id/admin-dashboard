@@ -313,65 +313,69 @@ window.addEventListener('popstate', function(event) {
 // ==========================================
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden && currentAdmin) {
-        // Tab menjadi aktif kembali
         console.log("🟢 Tab aktif kembali");
         
-        // ✅ KEMBALIKAN STATUS ONLINE jika chat widget terbuka
-        if (window.isChatOpen && window.isChatOpen()) {
-            console.log("💬 Chat widget terbuka, kembalikan status online");
-            window.sendPresence('active');
-            
-            // Mulai ulang polling chat
-            if (typeof window.startAllTimers === 'function') {
-                window.startAllTimers();
+        try {
+            // Kembalikan status online jika chat widget terbuka
+            if (window.isChatOpen && window.isChatOpen()) {
+                console.log("💬 Chat widget terbuka, kembalikan status online");
+                window.sendPresence('active');
+                
+                // Coba mulai ulang polling chat (jika fungsi ada)
+                if (typeof window.startAllTimers === 'function') {
+                    window.startAllTimers();
+                }
+                // Refresh chat
+                if (typeof window.loadChatMessages === 'function') {
+                    window.loadChatMessages();
+                }
+                if (typeof window.fetchOnlineUsers === 'function') {
+                    window.fetchOnlineUsers();
+                }
             }
-            // Refresh chat
-            if (typeof window.loadChatMessages === 'function') {
-                window.loadChatMessages();
-            }
-            if (typeof window.fetchOnlineUsers === 'function') {
-                window.fetchOnlineUsers();
-            }
+        } catch(e) {
+            console.error("Error chat resume:", e);
         }
         
-        // Cek apakah tab SURAT yang aktif
-        const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
-        
-        if (activeTab === 'mailbox') {
-            // Update timestamp mailbox dengan data terbaru dari cache
-            const cached = sessionStorage.getItem('umbrella_cached_mailbox');
-            if (cached) {
-                try {
+        try {
+            // Update timestamp mailbox jika tab surat aktif
+            const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
+            if (activeTab === 'mailbox') {
+                const cached = sessionStorage.getItem('umbrella_cached_mailbox');
+                if (cached) {
                     const dataMail = JSON.parse(cached);
                     const lastMailTimestamp = dataMail[0]?.timestamp ? new Date(dataMail[0].timestamp).getTime() : 0;
                     if (lastMailTimestamp > 0) {
                         localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                        console.log("📬 Timestamp mailbox diupdate (kembali ke tab surat)");
+                        console.log("📬 Timestamp mailbox diupdate");
                     }
-                } catch(e) {}
+                }
             }
+        } catch(e) {
+            console.error("Error timestamp update:", e);
         }
         
         // Render mailbox dari cache
         if (typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
         } else if (typeof window.refreshMailbox === 'function') {
-            window.refreshMailbox(); // fallback
+            window.refreshMailbox();
         }
         
     } else if (document.hidden && currentAdmin) {
-        // Tab tidak aktif (user pindah ke tab lain)
-        console.log("🔴 Tab tidak aktif, paksa status standby");
+        console.log("🔴 Tab tidak aktif");
         
-        // Paksa kirim presence standby
-        window.sendPresence('standby');
-        
-        // Hentikan polling chat sementara (hemat kuota)
-        if (typeof window.stopActivePresence === 'function') {
-            window.stopActivePresence();
+        try {
+            window.sendPresence('standby');
+            if (typeof window.stopActivePresence === 'function') {
+                window.stopActivePresence();
+            }
+        } catch(e) {
+            console.error("Error standby:", e);
         }
     }
 });
+
 // ==========================================
 // STANDBY TIMER
 // ==========================================

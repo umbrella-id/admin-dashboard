@@ -10,11 +10,18 @@
 let activeInterval = null;
 let chatPollingInterval = null;
 let isChatOpen = false;
-let lastChatStamp = "";
 let adminData = null;
 let currentChatTab = 'chat';
 let isSending = false;
 let onlineUsersCount = 0;
+
+function getLastChatStamp() {
+    return localStorage.getItem('umbrella_last_chat_stamp') || '';
+}
+
+function setLastChatStamp(stamp) {
+    localStorage.setItem('umbrella_last_chat_stamp', stamp);
+}
 
 function initChat(admin) {
     adminData = admin;
@@ -177,9 +184,10 @@ async function loadChatMessages() {
         const data = await res.json();
         const logs = data.logs || [];
         const stamp = JSON.stringify(logs);
-        
-        if (stamp === lastChatStamp && cached) return;
-        lastChatStamp = stamp;
+        const savedStamp = getLastChatStamp();
+
+        if (stamp === savedStamp && cached) return;
+        setLastChatStamp(stamp);
         
         sessionStorage.setItem('umbrella_cached_chat_logs', JSON.stringify(logs));
         sessionStorage.setItem('umbrella_cached_chat_timestamp', Date.now().toString());

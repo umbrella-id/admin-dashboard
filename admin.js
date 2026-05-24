@@ -139,7 +139,7 @@ async function sendStandbyAndUpdateAll() {
         const logs = data.logs || [];
         console.log(`📥 Dapat ${logs.length} log chat`);
         
-        // Filter pesan dari guest (bukan admin, bukan command)
+        // Filter pesan dari guest
         const guestMessages = logs.filter(msg => {
             if (msg.type === 'command') return false;
             if (msg.uid === currentAdmin.id) return false;
@@ -148,12 +148,18 @@ async function sendStandbyAndUpdateAll() {
         
         console.log(`👥 Pesan guest: ${guestMessages.length}`);
         
-        // Ambil timestamp pesan terbaru
+        // ✅ AMBIL TIMESTAMP TERTINGGI (pesan terbaru)
         let lastTimestamp = 0;
-        if (guestMessages.length > 0 && guestMessages[0].timestamp) {
-            lastTimestamp = typeof guestMessages[0].timestamp === 'number' 
-                ? guestMessages[0].timestamp 
-                : new Date(guestMessages[0].timestamp).getTime();
+        let newestMessage = null;
+        
+        for (const msg of guestMessages) {
+            let msgTime = typeof msg.timestamp === 'number' 
+                ? msg.timestamp 
+                : new Date(msg.timestamp).getTime();
+            if (msgTime > lastTimestamp) {
+                lastTimestamp = msgTime;
+                newestMessage = msg;
+            }
         }
         
         const savedTimestamp = parseInt(localStorage.getItem('umbrella_last_chat_timestamp') || '0');
@@ -167,10 +173,9 @@ async function sendStandbyAndUpdateAll() {
         }
         
         // Kirim notifikasi jika ada pesan baru
-        if (lastTimestamp > savedTimestamp && savedTimestamp > 0) {
-            const newMsg = guestMessages[0];
-            const sender = newMsg?.username || 'Guest';
-            const message = newMsg?.message || '';
+        if (lastTimestamp > savedTimestamp && savedTimestamp > 0 && newestMessage) {
+            const sender = newestMessage?.username || 'Guest';
+            const message = newestMessage?.message || '';
             const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
             
             console.log(`🔔 KIRIM NOTIFIKASI CHAT! dari ${sender}: ${preview}`);
@@ -187,8 +192,7 @@ async function sendStandbyAndUpdateAll() {
         
     } catch(e) { 
         console.error("❌ Check chat error:", e); 
-    }
-    
+    }    
     // ==========================================
     // 3. CEK MAILBOX (surat baru)
     // ==========================================

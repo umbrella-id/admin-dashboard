@@ -77,7 +77,23 @@ function showBrowserNotification(title, body) {
     if (Notification.permission !== 'granted') return;
     if (!document.hidden) return;
     const notification = new Notification(title, { body: body, icon: '/favicon.ico' });
-    notification.onclick = () => { window.focus(); notification.close(); };
+            
+    // ✅ TAMBAHKAN: saat notifikasi diklik
+    notification.onclick = () => {
+        window.focus();
+        notification.close();
+        
+        if (isChat) {
+            // Buka chat widget
+            if (typeof window.toggleChatWidget === 'function') {
+                // Jika chat belum terbuka, buka
+                const widget = document.getElementById('chat-widget');
+                if (widget && !widget.classList.contains('show')) {
+                    window.toggleChatWidget();
+                }
+            }
+        }
+    };
 }
 
 // ==========================================
@@ -127,7 +143,7 @@ async function sendStandbyAndUpdateAll() {
                 console.log(`💬 Pesan chat baru dari ${sender}: ${preview}`);
                 
                 if (document.hidden) {
-                    showBrowserNotification(`💬 Pesan dari ${sender}`, preview);
+                    showBrowserNotification(`💬 Pesan dari ${sender}`, preview, true);
                     playNotificationSound();
                 } else {
                     showToast(`💬 Pesan baru dari ${sender}: ${preview}`);

@@ -253,11 +253,6 @@ async function sendStandbyAndUpdateAll() {
             } else {
                 console.log(`⏭️ Skip notifikasi mail (tidak ada surat baru)`);
             }
-            
-            // Refresh UI mailbox (tetap dilakukan)
-            if (typeof window.renderMailboxData === 'function') {
-                window.renderMailboxData(dataMail.data);
-            }
         } else {
             console.log("⚠️ Mailbox response error:", dataMail);
         }

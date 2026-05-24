@@ -316,6 +316,24 @@ document.addEventListener('visibilitychange', function() {
         // Tab menjadi aktif kembali
         console.log("🟢 Tab aktif kembali");
         
+        // ✅ KEMBALIKAN STATUS ONLINE jika chat widget terbuka
+        if (window.isChatOpen && window.isChatOpen()) {
+            console.log("💬 Chat widget terbuka, kembalikan status online");
+            window.sendPresence('active');
+            
+            // Mulai ulang polling chat
+            if (typeof window.startAllTimers === 'function') {
+                window.startAllTimers();
+            }
+            // Refresh chat
+            if (typeof window.loadChatMessages === 'function') {
+                window.loadChatMessages();
+            }
+            if (typeof window.fetchOnlineUsers === 'function') {
+                window.fetchOnlineUsers();
+            }
+        }
+        
         // Cek apakah tab SURAT yang aktif
         const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
         
@@ -334,19 +352,15 @@ document.addEventListener('visibilitychange', function() {
             }
         }
         
-        // Gunakan render dari cache, bukan fetch ulang
+        // Render mailbox dari cache
         if (typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
         } else if (typeof window.refreshMailbox === 'function') {
             window.refreshMailbox(); // fallback
         }
-        if (window.isChatOpen && window.isChatOpen()) {
-            if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
-            if (typeof window.fetchOnlineUsers === 'function') window.fetchOnlineUsers();
-        }
         
     } else if (document.hidden && currentAdmin) {
-        // 🆕 Tab tidak aktif (user pindah ke tab lain)
+        // Tab tidak aktif (user pindah ke tab lain)
         console.log("🔴 Tab tidak aktif, paksa status standby");
         
         // Paksa kirim presence standby
@@ -358,7 +372,6 @@ document.addEventListener('visibilitychange', function() {
         }
     }
 });
-
 // ==========================================
 // STANDBY TIMER
 // ==========================================
@@ -780,6 +793,7 @@ window.saveAdminRole = saveAdminRole;
 window.resetPasskey = resetPasskey;
 window.promoteToLeader = promoteToLeader;
 window.executePromoteLeader = executePromoteLeader;
+window.startAllTimers = startAllTimers;
 
 checkSession();
 console.log("✅ admin.js loaded");

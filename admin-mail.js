@@ -3,11 +3,94 @@
  */
 
 let currentMailFilter = "ALL";
+let lastMailStatus = {
+    lastTimestamp: 0,
+    totalSurat: 0,
+    unreadCount: 0,
+    needActionCount: 0
+};
 
 window.setMailFilter = function(filter) {
     currentMailFilter = filter;
     refreshMailbox();
 };
+
+// Cek perubahan mailbox (panggil setiap 60 detik)
+async function checkMailboxChanges() {
+    try {
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=checkMailboxStatus`);
+        const data = await res.json();
+        
+        if (data.status !== 'success') return false;
+        
+        const current = {
+            lastTimestamp: data.lastTimestamp,
+            totalSurat: data.totalSurat,
+            unreadCount: data.unreadCount,
+            needActionCount: data.needActionCount
+        };
+        
+        const saved = lastMailStatus;
+        
+        // Bandingkan apakah ada perubahan
+        const hasChanged = (
+            current.lastTimestamp !== saved.lastTimestamp ||
+            current.totalSurat !== saved.totalSurat ||
+            current.unreadCount !== saved.unreadCount ||
+            current.needActionCount !== saved.needActionCount
+        );
+        
+        if (hasChanged) {
+            // Update nilai tersimpan
+            lastMailStatus = current;
+            // Fetch data lengkap
+            await fetchMailboxAndCache();
+            return true;
+        }
+        
+        return false;
+    } catch(e) {
+        console.error("Check mailbox changes error:", e);
+        return false;
+    }
+}
+
+// Fetch 50 surat lengkap dan simpan ke sessionStorage
+async function fetchMailboxAndCache() {
+    try {
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`);
+        const data = await res.json();
+        
+        if (data.status === 'success' && data.data) {
+            // Simpan ke sessionStorage
+            sessionStorage.setItem('umbrella_cached_mailbox', JSON.stringify(data.data));
+            sessionStorage.setItem('umbrella_cached_mailbox_time', Date.now().toString());
+            
+            // Render jika tab sedang aktif
+            const isMailboxActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
+            if (isMailboxActive) {
+                renderMailbox(data.data);
+            }
+        }
+    } catch(e) {
+        console.error("Fetch mailbox error:", e);
+    }
+}
+
+// Render dari cache (untuk buka tab)
+function renderMailboxFromCache() {
+    const cached = sessionStorage.getItem('umbrella_cached_mailbox');
+    if (cached) {
+        try {
+            renderMailbox(JSON.parse(cached));
+        } catch(e) {
+            console.error("Cache parse error:", e);
+            refreshMailbox(); // fallback ke fetch langsung
+        }
+    } else {
+        refreshMailbox(); // cache kosong, fetch langsung
+    }
+}
 
 async function refreshMailbox() {
     const container = document.getElementById('mailbox-list');
@@ -17,6 +100,19 @@ async function refreshMailbox() {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`);
         const data = await res.json();
         if (data.status === 'success' && data.data) {
+            // Simpan ke cache
+            sessionStorage.setItem('umbrella_cached_mailbox', JSON.stringify(data.data));
+            sessionStorage.setItem('umbrella_cached_mailbox_time', Date.now().toString());
+            
+            // Update status tersimpan
+            lastMailStatus = {
+                lastTimestamp: data.data[0]?.timestamp ? new Date(data.data[0].timestamp).getTime() : 0,
+                totalSurat: data.data.length,
+                unreadCount: data.data.filter(m => m.status === 'UNREAD').length,
+                needActionCount: data.data.filter(m => m.status === 'NEED_ACTION').length
+            };
+            
+            // Render
             renderMailbox(data.data);
         } else {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat</div>';
@@ -205,5 +301,8 @@ window.setMailFilter = setMailFilter;
 window.updateMailStatus = updateMailStatus;
 window.deleteMail = deleteMail;
 window.showMailDetail = showMailDetail;
+window.checkMailboxChanges = checkMailboxChanges;
+window.renderMailboxFromCache = renderMailboxFromCache;
+window.fetchMailboxAndCache = fetchMailboxAndCache;
 
 console.log("✅ admin-mail.js loaded (Dengan Pinned)");

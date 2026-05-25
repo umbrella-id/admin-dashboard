@@ -206,42 +206,26 @@ function renderChatLogs(logs, container) {
     
     let html = '';
     for (const msg of logs) {
-        // ==========================================
-        // 🆕 KONVERSI COMMAND MUTE/UNMUTE JADI PESAN SISTEM
-        // ==========================================
         let msgType = msg.type || 'msg';
         let msgText = msg.message || '';
-        let isSystem = false;
-        let displayText = msgText;
         
+        // Konversi command MUTE/UNMUTE jadi pesan sistem
         if (msgType === 'command') {
             if (msgText.startsWith('MUTE_')) {
                 const parts = msgText.split('_');
                 const targetIGN = parts[3] || 'Seseorang';
                 const durasi = parts[2] || '?';
-                displayText = `🔇 ${targetIGN} dibisukan selama ${durasi} menit oleh admin.`;
-                isSystem = true;
+                html += `<div class="chat-row system-message"><div class="system-text">🔇 ${targetIGN} dibisukan ${durasi} menit</div></div>`;
             } else if (msgText.startsWith('UNMUTE_')) {
                 const parts = msgText.split('_');
                 const targetIGN = parts[2] || 'Seseorang';
-                displayText = `🔊 ${targetIGN} telah dibuka bisuannya oleh admin.`;
-                isSystem = true;
-            } else {
-                continue; // command lain tidak ditampilkan
+                html += `<div class="chat-row system-message"><div class="system-text">🔊 ${targetIGN} dibuka bisuannya</div></div>`;
             }
-        }
-        
-        // Filter: hanya msg atau system yang boleh lewat
-        if (msgType !== 'msg' && !isSystem) continue;
-        
-        const isDeleted = (msgType === 'msg' && msgText === '[deleted by admin]');
-        
-        if (isSystem) {
-            html += `<div class="chat-row system-message"><div class="system-text">${displayText}</div></div>`;
             continue;
         }
         
-        if (isDeleted) {
+        // Pesan biasa (dari user)
+        if (msgText === '[deleted by admin]') {
             html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
             continue;
         }

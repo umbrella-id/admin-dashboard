@@ -539,20 +539,31 @@ function renderBottomNav() {
 function openSettingsModal() {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 400px;">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
-            <h3><i class="fas fa-cog"></i> Pengaturan</h3>
-            <div style="display:flex; justify-content:space-between; margin-bottom:15px; padding:10px; background:var(--bg-solid-form); border-radius:12px;">
-                <span>🔔 Notifikasi Browser</span>
-                <label class="toggle-switch"><input type="checkbox" id="notif-toggle" ${notificationEnabled ? 'checked' : ''} onchange="toggleNotificationSetting()"><span class="toggle-slider"></span></label>
+            <h3 style="text-align:center; margin-bottom:20px;"><i class="fas fa-cog"></i> Pengaturan</h3>
+            
+            <div class="settings-item">
+                <div class="settings-label">
+                    <i class="fas fa-bell"></i> Notifikasi Browser
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="notif-toggle" ${notificationEnabled ? 'checked' : ''} onchange="toggleNotificationSetting()">
+                    <span class="toggle-slider"></span>
+                </label>
             </div>
-            <button onclick="openChangePasskey()" style="width:100%; margin-bottom:10px; background:var(--color-primary); border:none; border-radius:12px; padding:12px; color:white;">🔑 Ganti Passkey</button>
-            <button onclick="logout()" style="width:100%; background:#ff4444; border:none; border-radius:12px; padding:12px; color:white;">🚪 Keluar</button>
+            
+            <button onclick="openChangePasskey()" class="settings-btn-action">
+                <i class="fas fa-key"></i> Ganti Passkey
+            </button>
+            
+            <button onclick="logout()" class="settings-btn-logout">
+                <i class="fas fa-sign-out-alt"></i> Keluar
+            </button>
         </div>
     `;
     modal.style.display = 'flex';
 }
-
 async function toggleNotificationSetting() {
     const isChecked = document.getElementById('notif-toggle')?.checked || false;
     if (isChecked && Notification.permission !== 'granted') {
@@ -583,8 +594,8 @@ function openChangePasskey() {
             
             <div class="passkey-input-group">
                 <label><i class="fas fa-key"></i> Passkey Baru</label>
-                <input type="password" id="new-passkey" placeholder="Huruf besar+kecil+angka, min 6 karakter">
-                <small style="color:#64748b; font-size:0.65rem;">Minimal 6 karakter, mengandung huruf besar, huruf kecil, dan angka</small>
+                <input type="password" id="new-passkey" placeholder="Masukan passkey baru">
+                <small style="color:#64748b; font-size:0.65rem;">Minimal 6 karakter, mengandung huruf dan angka</small>
             </div>
             
             <div class="passkey-input-group">

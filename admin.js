@@ -161,7 +161,6 @@ async function sendStandbyAndUpdateAll() {
         
         console.log(`👥 Pesan guest: ${guestMessages.length}`);
         
-        // AMBIL TIMESTAMP TERTINGGI (pesan terbaru)
         let lastTimestamp = 0;
         let newestMessage = null;
         
@@ -179,26 +178,32 @@ async function sendStandbyAndUpdateAll() {
         
         console.log(`🔍 CHAT - lastTimestamp: ${lastTimestamp}, savedTimestamp: ${savedTimestamp}`);
         
-        // Simpan timestamp terbaru
         if (lastTimestamp > savedTimestamp) {
             console.log(`✅ Simpan timestamp chat baru: ${lastTimestamp}`);
             localStorage.setItem('umbrella_last_chat_timestamp', lastTimestamp.toString());
         }
         
-        // Kirim notifikasi jika ada pesan baru
+        // ✅ LOGIKA NOTIFIKASI CHAT SESUAI KONSEP ANDA
         if (lastTimestamp > savedTimestamp && savedTimestamp > 0 && newestMessage) {
             const sender = newestMessage?.username || 'Guest';
             const message = newestMessage?.message || '';
             const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
             
-            console.log(`🔔 KIRIM NOTIFIKASI CHAT! dari ${sender}: ${preview}`);
+            const isChatActive = window.isChatOpen && window.isChatOpen();
+            
+            console.log(`🔍 CHAT NOTIF - isChatActive: ${isChatActive}, document.hidden: ${document.hidden}`);
             
             if (document.hidden) {
+                // Tab browser tidak aktif → notif browser
+                console.log(`🔔 NOTIF BROWSER CHAT! dari ${sender}`);
                 showBrowserNotification(`💬 Pesan dari ${sender}`, preview, 'chat');
                 playNotificationSound();
-            } else {
+            } else if (!isChatActive) {
+                // Tab browser aktif, chat tertutup → toast
+                console.log(`🔔 TOAST CHAT! dari ${sender}`);
                 showToast(`💬 Pesan baru dari ${sender}: ${preview}`);
             }
+            // Jika chat terbuka & tab browser aktif → tidak ada notif/toast
         } else {
             console.log(`⏭️ Skip notifikasi chat (tidak ada pesan baru)`);
         }
@@ -224,35 +229,44 @@ async function sendStandbyAndUpdateAll() {
                     const dataMail = JSON.parse(cached);
                     const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
                     const lastMailTimestamp = dataMail[0]?.timestamp ? new Date(dataMail[0].timestamp).getTime() : 0;
-                    const isMailboxTabActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
+                    const isMailTabActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
                     
-                    // Kirim notifikasi jika ada surat baru DAN TAB SURAT TIDAK AKTIF
-                    if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0 && !isMailboxTabActive) {
-                        const newestMail = dataMail[0];
-                        const sender = newestMail?.ign || 'Guest';
-                        const subject = newestMail?.category || 'Umum';
-                        const message = newestMail?.message || '';
-                        const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-                        
-                        console.log(`🔔 KIRIM NOTIFIKASI MAIL! dari ${sender} [${subject}]: ${preview}`);
-                        
+                    console.log(`🔍 MAIL NOTIF - isMailTabActive: ${isMailTabActive}, document.hidden: ${document.hidden}`);
+                    
+                    if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
                         if (document.hidden) {
+                            // Tab browser tidak aktif → notif browser
+                            const newestMail = dataMail[0];
+                            const sender = newestMail?.ign || 'Guest';
+                            const subject = newestMail?.category || 'Umum';
+                            const message = newestMail?.message || '';
+                            const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+                            
+                            console.log(`🔔 NOTIF BROWSER MAIL! dari ${sender} [${subject}]`);
                             showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview, 'mail');
                             playNotificationSound();
-                        } else {
+                            localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                        } else if (!isMailTabActive) {
+                            // Tab browser aktif, tab mail tidak aktif → toast
+                            const newestMail = dataMail[0];
+                            const sender = newestMail?.ign || 'Guest';
+                            const subject = newestMail?.category || 'Umum';
+                            const message = newestMail?.message || '';
+                            const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+                            
+                            console.log(`🔔 TOAST MAIL! dari ${sender} [${subject}]`);
                             showToast(`📬 Surat baru dari ${sender}: ${preview}`);
+                            localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                        } else if (isMailTabActive) {
+                            // Tab mail aktif & tab browser aktif → update timestamp tanpa notif
+                            localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                            console.log("📬 Timestamp mailbox diupdate (tab mail aktif, notifikasi skip)");
                         }
-                        
-                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                    } else if (isMailboxTabActive && lastMailTimestamp > savedMailTimestamp) {
-                        // Update timestamp tanpa notifikasi (tab surat aktif)
-                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                        console.log("📬 Timestamp mailbox diupdate (tab surat aktif, notifikasi skip)");
                     }
                 }
             }
         } else {
-            // Fallback ke cara lama jika fungsi belum ada
+            // Fallback ke cara lama
             console.warn("checkMailboxChanges tidak tersedia, pakai cara lama");
             const urlMail = `${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`;
             const resMail = await fetch(urlMail);
@@ -261,25 +275,32 @@ async function sendStandbyAndUpdateAll() {
             if (dataMail.status === 'success' && dataMail.data) {
                 const lastMailTimestamp = dataMail.data[0]?.timestamp ? new Date(dataMail.data[0].timestamp).getTime() : 0;
                 const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
-                const isMailboxTabActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
+                const isMailTabActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
                 
-                if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0 && !isMailboxTabActive) {
-                    const newestMail = dataMail.data[0];
-                    const sender = newestMail?.ign || 'Guest';
-                    const subject = newestMail?.category || 'Umum';
-                    const message = newestMail?.message || '';
-                    const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-                    
+                if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
                     if (document.hidden) {
+                        const newestMail = dataMail.data[0];
+                        const sender = newestMail?.ign || 'Guest';
+                        const subject = newestMail?.category || 'Umum';
+                        const message = newestMail?.message || '';
+                        const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+                        
                         showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview, 'mail');
                         playNotificationSound();
-                    } else {
+                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                    } else if (!isMailTabActive) {
+                        const newestMail = dataMail.data[0];
+                        const sender = newestMail?.ign || 'Guest';
+                        const subject = newestMail?.category || 'Umum';
+                        const message = newestMail?.message || '';
+                        const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
+                        
                         showToast(`📬 Surat baru dari ${sender}: ${preview}`);
+                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                    } else if (isMailTabActive) {
+                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
+                        console.log("📬 Timestamp mailbox diupdate (fallback, tab mail aktif)");
                     }
-                    localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                } else if (isMailboxTabActive && lastMailTimestamp > savedMailTimestamp) {
-                    localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                    console.log("📬 Timestamp mailbox diupdate (fallback, tab surat aktif)");
                 }
                 
                 if (typeof window.refreshMailbox === 'function') {

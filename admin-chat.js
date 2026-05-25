@@ -206,10 +206,40 @@ function renderChatLogs(logs, container) {
     
     let html = '';
     for (const msg of logs) {
-        if (msg.type === 'command') continue;
+        // ==========================================
+        // 🆕 KONVERSI COMMAND MUTE/UNMUTE JADI PESAN SISTEM
+        // ==========================================
+        let msgType = msg.type || 'msg';
+        let msgText = msg.message || '';
+        let isSystem = false;
+        let displayText = msgText;
         
-        const isDeleted = msg.message === '[deleted by admin]';
-        const isMe = msg.uid === adminData.id;
+        if (msgType === 'command') {
+            if (msgText.startsWith('MUTE_')) {
+                const parts = msgText.split('_');
+                const targetIGN = parts[3] || 'Seseorang';
+                const durasi = parts[2] || '?';
+                displayText = `🔇 ${targetIGN} dibisukan selama ${durasi} menit oleh admin.`;
+                isSystem = true;
+            } else if (msgText.startsWith('UNMUTE_')) {
+                const parts = msgText.split('_');
+                const targetIGN = parts[2] || 'Seseorang';
+                displayText = `🔊 ${targetIGN} telah dibuka bisuannya oleh admin.`;
+                isSystem = true;
+            } else {
+                continue; // command lain tidak ditampilkan
+            }
+        }
+        
+        // Filter: hanya msg atau system yang boleh lewat
+        if (msgType !== 'msg' && !isSystem) continue;
+        
+        const isDeleted = (msgType === 'msg' && msgText === '[deleted by admin]');
+        
+        if (isSystem) {
+            html += `<div class="chat-row system-message"><div class="system-text">${displayText}</div></div>`;
+            continue;
+        }
         
         if (isDeleted) {
             html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
@@ -222,11 +252,11 @@ function renderChatLogs(logs, container) {
         const uid = msg.uid;
         
         html += `
-            <div class="chat-row ${isMe ? 'me' : 'other'}">
+            <div class="chat-row other">
                 <b>${username}</b>
                 <div class="chat-message-wrapper">
                     <div class="msg-text">${message}</div>
-                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    <button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>
                 </div>
             </div>
         `;

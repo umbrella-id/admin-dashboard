@@ -589,7 +589,7 @@ async function changeMyPasskey() {
     const confirmPasskey = document.getElementById('confirm-passkey').value.trim();
     if (!oldPasskey || !newPasskey) { showToast("Isi semua field", true); return; }
     if (newPasskey !== confirmPasskey) { showToast("Passkey baru tidak cocok", true); return; }
-    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPasskey)) { showToast("Harus huruf besar+kecil+angka", true); return; }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPasskey)) { showToast("Kata sandi kurang kuat, harap gunakan alfanumerik", true); return; }
     try {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=changeMyPasskey&adminId=${currentAdmin.id}&oldPasskey=${encodeURIComponent(oldPasskey)}&newKey=${encodeURIComponent(newPasskey)}`);
         const data = await res.json();

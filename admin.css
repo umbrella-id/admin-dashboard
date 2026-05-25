@@ -1,4 +1,4 @@
-:root {
+=:root {
     --color-primary: #a855f7;
     --color-primary-glow: rgba(168, 85, 247, 0.3);
     --color-primary-dark: #7e22ce;
@@ -583,6 +583,15 @@ body {
 }
 
 /* CHAT BUBBLES */
+/* Pesan sistem - harus full width agar bisa center */
+.chat-row.system-message {
+    max-width: 100%;
+    display: flex;
+    justify-content: center;
+    margin: 8px 0;
+}
+
+/* Aturan umum untuk chat row */
 .chat-row {
     margin-bottom: 8px;
     max-width: 85%;
@@ -634,6 +643,17 @@ body {
 
 .chat-row.other .chat-message-wrapper {
     flex-direction: row;
+}
+
+.system-text {
+    background: rgba(100, 116, 139, 0.2);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 11px;
+    color: #94a3b8;
+    text-align: center;
+    font-style: italic;
+    line-height: 1.4;
 }
 
 .delete-chat-btn {
@@ -713,7 +733,6 @@ body {
 .chat-input-area button:active {
     transform: scale(0.95);
 }
-
 /* MODAL */
 .modal-overlay {
     position: fixed;

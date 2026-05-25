@@ -943,3 +943,37 @@ input:checked + .toggle-slider:before {
         font-size: 0.8rem;
     }
 }
+
+/* ==========================================
+   OPTIMASI LAYAR LEBAR (24 inch)
+   ========================================== */
+@media screen and (min-width: 1200px) {
+    /* Batasi lebar konten utama */
+    .tab-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    /* Pusatkan modal detail surat */
+    .modal-content {
+        max-width: 700px;
+        width: 90%;
+    }
+    
+    /* Perbesar sedikit font untuk kenyamanan */
+    .mail-sender {
+        font-size: 0.9rem;
+    }
+    
+    .mail-message-preview {
+        font-size: 0.75rem;
+    }
+    
+    /* List surat lebih rapi */
+    .card-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+}

@@ -895,6 +895,50 @@ input:checked + .toggle-slider:before {
     transform: translateX(24px);
 }
 
+/* ==========================================
+   FORM GANTI PASSKEY
+   ========================================== */
+.passkey-input-group {
+    margin-bottom: 18px;
+}
+
+.passkey-input-group label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+
+.passkey-input-group label i {
+    width: 20px;
+    color: var(--color-primary);
+}
+
+.passkey-input-group input {
+    width: 100%;
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: white;
+    outline: none;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.passkey-input-group input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 10px var(--color-primary-glow);
+}
+
+.passkey-input-group small {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+}
+
 /* LOADING SPINNER */
 .fa-spinner {
     animation: spin 0.8s linear infinite;

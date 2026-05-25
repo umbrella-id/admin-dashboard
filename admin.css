@@ -919,51 +919,26 @@ input:checked + .toggle-slider:before {
     }
 }
 /* ==========================================
-   MODAL - RESPONSIF (BESAR DI PC)
-   ========================================== */
-.modal-content {
-    max-width: 340px; /* default mobile */
-    width: 85%;
-}
-
-/* PC mode: modal lebih besar */
-@media screen and (min-width: 768px) {
-    .modal-content {
-        max-width: 600px;
-        width: 80%;
-    }
-    
-    .modal-message {
-        max-height: 400px;
-        font-size: 0.9rem;
-    }
-    
-    .modal-buttons button {
-        padding: 10px 16px;
-        font-size: 0.8rem;
-    }
-}
-
-/* ==========================================
-   OPTIMASI LAYAR LEBAR (LAYOUT RATA TENGAH)
+   OPTIMASI LAYAR LEBAR (UNTUK SEMUA TAB)
    ========================================== */
 @media screen and (min-width: 1200px) {
-    /* Buat container list surat rata tengah */
-    .card-list {
-        max-width: 800px;
-        margin: 0 auto;
+    /* Batasi lebar konten semua tab */
+    .tab-page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
     
-    /* Pusatkan modal detail */
+    /* Konten di dalam tab-page */
+    .tab-page > * {
+        max-width: 1000px;
+        width: 100%;
+    }
+    
+    /* Pusatkan modal */
     .modal-content {
         max-width: 700px;
         width: 90%;
-        margin: 0 auto;
-    }
-    
-    /* Header filter juga ikut tengah */
-    .tab-page > div:first-child {
-        max-width: 800px;
         margin: 0 auto;
     }
 }

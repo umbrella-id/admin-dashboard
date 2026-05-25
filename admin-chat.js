@@ -197,6 +197,8 @@ async function loadChatMessages() {
 }
 
 function renderChatLogs(logs, container) {
+    console.log("🔍 [DEBUG] renderChatLogs dipanggil, jumlah logs:", logs.length);
+    
     if (!container) return;
     
     if (!logs.length) {
@@ -206,48 +208,49 @@ function renderChatLogs(logs, container) {
     
     let html = '';
     for (const msg of logs) {
+        console.log("🔍 [DEBUG] Pesan:", { type: msg.type, message: msg.message, uid: msg.uid });
+        
         let msgType = msg.type || 'msg';
         let msgText = msg.message || '';
         let isSystem = false;
         let displayText = msgText;
         
         // ==========================================
-        // KONVERSI COMMAND MUTE/UNMUTE JADI PESAN SISTEM
+        // KONVERSI COMMAND MUTE/UNMUTE
         // ==========================================
         if (msgType === 'command') {
+            console.log("🔍 [DEBUG] Command terdeteksi:", msgText);
+            
             if (msgText.startsWith('MUTE_')) {
                 const parts = msgText.split('_');
                 const targetIGN = parts[3] || 'Seseorang';
                 const durasi = parts[2] || '?';
                 displayText = `🔇 ${targetIGN} dibisukan ${durasi} menit`;
                 isSystem = true;
+                console.log("🔍 [DEBUG] MUTE diubah menjadi:", displayText);
             } else if (msgText.startsWith('UNMUTE_')) {
                 const parts = msgText.split('_');
                 const targetIGN = parts[2] || 'Seseorang';
                 displayText = `🔊 ${targetIGN} dibuka bisuannya`;
                 isSystem = true;
+                console.log("🔍 [DEBUG] UNMUTE diubah menjadi:", displayText);
             } else {
-                continue; // command lain tidak ditampilkan
+                console.log("🔍 [DEBUG] Command tidak dikenal, skip");
+                continue;
             }
         }
         
-        // Filter: hanya msg atau system yang boleh lewat
         if (msgType !== 'msg' && !isSystem) continue;
         
-        // ==========================================
-        // LOGIKA YANG SUDAH ADA (isMe, isDeleted)
-        // ==========================================
         const isDeleted = (msgType === 'msg' && msgText === '[deleted by admin]');
         const isMe = msg.uid === adminData.id;
         
         if (isSystem) {
-            // Pesan sistem dari command MUTE/UNMUTE
+            console.log("🔍 [DEBUG] RENDER sebagai system-message:", displayText);
             html += `<div class="chat-row system-message"><div class="system-text">${displayText}</div></div>`;
         } else if (isDeleted) {
-            // Pesan yang sudah dihapus
             html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
         } else {
-            // Pesan biasa (dari user atau admin)
             const username = escapeHtml(msg.username || 'Anonim');
             const message = escapeHtml(msg.message || '');
             const rowIndex = msg.rowIndex;
@@ -265,6 +268,7 @@ function renderChatLogs(logs, container) {
         }
     }
     
+    console.log("🔍 [DEBUG] HTML akhir:", html.substring(0, 500));
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
 }

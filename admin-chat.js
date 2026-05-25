@@ -206,26 +206,10 @@ function renderChatLogs(logs, container) {
     
     let html = '';
     for (const msg of logs) {
-        // ==========================================
-        // KONVERSI COMMAND MUTE/UNMUTE JADI PESAN SISTEM
-        // ==========================================
-        if (msg.type === 'command') {
-            const msgText = msg.message || '';
-            if (msgText.startsWith('MUTE_')) {
-                const parts = msgText.split('_');
-                const targetIGN = parts[3] || 'Seseorang';
-                const durasi = parts[2] || '?';
-                html += `<div class="chat-row system-message"><div class="system-text">🔇 ${targetIGN} dibisukan ${durasi} menit</div></div>`;
-            } else if (msgText.startsWith('UNMUTE_')) {
-                const parts = msgText.split('_');
-                const targetIGN = parts[2] || 'Seseorang';
-                html += `<div class="chat-row system-message"><div class="system-text">🔊 ${targetIGN} dibuka bisuannya</div></div>`;
-            }
-            continue;
-        }
+        if (msg.type === 'command') continue;
         
-        // Pesan biasa
         const isDeleted = msg.message === '[deleted by admin]';
+        const isMe = msg.uid === adminData.id;
         
         if (isDeleted) {
             html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
@@ -238,11 +222,11 @@ function renderChatLogs(logs, container) {
         const uid = msg.uid;
         
         html += `
-            <div class="chat-row other">
+            <div class="chat-row ${isMe ? 'me' : 'other'}">
                 <b>${username}</b>
                 <div class="chat-message-wrapper">
                     <div class="msg-text">${message}</div>
-                    <button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>
+                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
                 </div>
             </div>
         `;

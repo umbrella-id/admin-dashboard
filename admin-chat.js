@@ -206,27 +206,58 @@ function renderChatLogs(logs, container) {
     
     let html = '';
     for (const msg of logs) {
-        if (msg.type === 'command') continue;
+        let msgType = msg.type || 'msg';
+        let msgText = msg.message || '';
+        let isSystem = false;
+        let displayText = msgText;
         
-        const isDeleted = msg.message === '[deleted by admin]';
-        const isMe = msg.uid === adminData.id;
+        // ==========================================
+        // KONVERSI COMMAND MUTE/UNMUTE JADI PESAN SISTEM
+        // ==========================================
+        if (msgType === 'command') {
+            if (msgText.startsWith('MUTE_')) {
+                const parts = msgText.split('_');
+                const targetIGN = parts[3] || 'Seseorang';
+                const durasi = parts[2] || '?';
+                displayText = `🔇 ${targetIGN} dibisukan selama ${durasi} menit.`;
+                isSystem = true;
+            } else if (msgText.startsWith('UNMUTE_')) {
+                const parts = msgText.split('_');
+                const targetIGN = parts[2] || 'Seseorang';
+                displayText = `🔊 ${targetIGN} telah dibuka bisuannya.`;
+                isSystem = true;
+            } else {
+                continue; // command lain tidak dikenal
+            }
+        }
+        
+        // Filter: hanya msg atau system yang boleh lewat
+        if (msgType !== 'msg' && !isSystem) continue;
+        
+        const isDeleted = (msgType === 'msg' && msgText === '[deleted by admin]');
+        
+        if (isSystem) {
+            html += `<div class="chat-row system-message"><div class="system-text">${displayText}</div></div>`;
+            continue;
+        }
         
         if (isDeleted) {
             html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
             continue;
         }
         
+        // Pesan biasa (dari user)
         const username = escapeHtml(msg.username || 'Anonim');
         const message = escapeHtml(msg.message || '');
         const rowIndex = msg.rowIndex;
         const uid = msg.uid;
         
         html += `
-            <div class="chat-row ${isMe ? 'me' : 'other'}">
+            <div class="chat-row other">
                 <b>${username}</b>
                 <div class="chat-message-wrapper">
                     <div class="msg-text">${message}</div>
-                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    <button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>
                 </div>
             </div>
         `;

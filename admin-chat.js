@@ -206,16 +206,44 @@ function renderChatLogs(logs, container) {
     
     let html = '';
     for (const msg of logs) {
-        if (msg.type === 'command') continue;
+        // SKIP command? JANGAN, kita proses dulu
+        // if (msg.type === 'command') continue;  ← HAPUS atau ubah
         
+        // ==========================================
+        // PESAN DIHAPUS (pola existing)
+        // ==========================================
         const isDeleted = msg.message === '[deleted by admin]';
-        const isMe = msg.uid === adminData.id;
         
         if (isDeleted) {
             html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
             continue;
         }
         
+        // ==========================================
+        // 🆕 PESAN SISTEM MUTE/UNMUTE (pola yang sama)
+        // ==========================================
+        const isMuteCommand = msg.message && msg.message.startsWith('MUTE_');
+        const isUnmuteCommand = msg.message && msg.message.startsWith('UNMUTE_');
+        
+        if (isMuteCommand) {
+            const parts = msg.message.split('_');
+            const targetIGN = parts[3] || 'Seseorang';
+            const durasi = parts[2] || '?';
+            html += `<div class="chat-row system-message"><div class="system-text">🔇 ${targetIGN} dibisukan ${durasi} menit</div></div>`;
+            continue;
+        }
+        
+        if (isUnmuteCommand) {
+            const parts = msg.message.split('_');
+            const targetIGN = parts[2] || 'Seseorang';
+            html += `<div class="chat-row system-message"><div class="system-text">🔊 ${targetIGN} dibuka bisuannya</div></div>`;
+            continue;
+        }
+        
+        // ==========================================
+        // PESAN BIASA
+        // ==========================================
+        const isMe = msg.uid === adminData.id;
         const username = escapeHtml(msg.username || 'Anonim');
         const message = escapeHtml(msg.message || '');
         const rowIndex = msg.rowIndex;

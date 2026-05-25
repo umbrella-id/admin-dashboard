@@ -945,35 +945,25 @@ input:checked + .toggle-slider:before {
 }
 
 /* ==========================================
-   OPTIMASI LAYAR LEBAR (24 inch)
+   OPTIMASI LAYAR LEBAR (LAYOUT RATA TENGAH)
    ========================================== */
 @media screen and (min-width: 1200px) {
-    /* Batasi lebar konten utama */
-    .tab-page {
-        max-width: 1200px;
+    /* Buat container list surat rata tengah */
+    .card-list {
+        max-width: 800px;
         margin: 0 auto;
-        padding: 20px;
     }
     
-    /* Pusatkan modal detail surat */
+    /* Pusatkan modal detail */
     .modal-content {
         max-width: 700px;
         width: 90%;
+        margin: 0 auto;
     }
     
-    /* Perbesar sedikit font untuk kenyamanan */
-    .mail-sender {
-        font-size: 0.9rem;
-    }
-    
-    .mail-message-preview {
-        font-size: 0.75rem;
-    }
-    
-    /* List surat lebih rapi */
-    .card-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
+    /* Header filter juga ikut tengah */
+    .tab-page > div:first-child {
+        max-width: 800px;
+        margin: 0 auto;
     }
 }

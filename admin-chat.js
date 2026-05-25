@@ -206,30 +206,63 @@ function renderChatLogs(logs, container) {
     
     let html = '';
     for (const msg of logs) {
-        if (msg.type === 'command') continue;
+        let msgType = msg.type || 'msg';
+        let msgText = msg.message || '';
+        let isSystem = false;
+        let displayText = msgText;
         
-        const isDeleted = msg.message === '[deleted by admin]';
-        const isMe = msg.uid === adminData.id;
-        
-        if (isDeleted) {
-            html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
-            continue;
+        // ==========================================
+        // KONVERSI COMMAND MUTE/UNMUTE JADI PESAN SISTEM
+        // ==========================================
+        if (msgType === 'command') {
+            if (msgText.startsWith('MUTE_')) {
+                const parts = msgText.split('_');
+                const targetIGN = parts[3] || 'Seseorang';
+                const durasi = parts[2] || '?';
+                displayText = `🔇 ${targetIGN} dibisukan ${durasi} menit`;
+                isSystem = true;
+            } else if (msgText.startsWith('UNMUTE_')) {
+                const parts = msgText.split('_');
+                const targetIGN = parts[2] || 'Seseorang';
+                displayText = `🔊 ${targetIGN} dibuka bisuannya`;
+                isSystem = true;
+            } else {
+                continue; // command lain tidak ditampilkan
+            }
         }
         
-        const username = escapeHtml(msg.username || 'Anonim');
-        const message = escapeHtml(msg.message || '');
-        const rowIndex = msg.rowIndex;
-        const uid = msg.uid;
+        // Filter: hanya msg atau system yang boleh lewat
+        if (msgType !== 'msg' && !isSystem) continue;
         
-        html += `
-            <div class="chat-row ${isMe ? 'me' : 'other'}">
-                <b>${username}</b>
-                <div class="chat-message-wrapper">
-                    <div class="msg-text">${message}</div>
-                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+        // ==========================================
+        // LOGIKA YANG SUDAH ADA (isMe, isDeleted)
+        // ==========================================
+        const isDeleted = (msgType === 'msg' && msgText === '[deleted by admin]');
+        const isMe = msg.uid === adminData.id;
+        
+        if (isSystem) {
+            // Pesan sistem dari command MUTE/UNMUTE
+            html += `<div class="chat-row system-message"><div class="system-text">${displayText}</div></div>`;
+        } else if (isDeleted) {
+            // Pesan yang sudah dihapus
+            html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
+        } else {
+            // Pesan biasa (dari user atau admin)
+            const username = escapeHtml(msg.username || 'Anonim');
+            const message = escapeHtml(msg.message || '');
+            const rowIndex = msg.rowIndex;
+            const uid = msg.uid;
+            
+            html += `
+                <div class="chat-row ${isMe ? 'me' : 'other'}">
+                    <b>${username}</b>
+                    <div class="chat-message-wrapper">
+                        <div class="msg-text">${message}</div>
+                        ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
     }
     
     container.innerHTML = html;

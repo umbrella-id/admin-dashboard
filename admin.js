@@ -572,17 +572,34 @@ async function toggleNotificationSetting() {
 function openChangePasskey() {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 400px;">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
-            <h3><i class="fas fa-key"></i> Ganti Passkey</h3>
-            <input type="password" id="old-passkey" placeholder="Passkey lama">
-            <input type="password" id="new-passkey" placeholder="Passkey baru (huruf+angka)">
-            <input type="password" id="confirm-passkey" placeholder="Konfirmasi">
-            <div class="modal-buttons"><button onclick="changeMyPasskey()" style="background:var(--color-primary);">Ganti</button><button onclick="closeModal()" style="background:#333;">Batal</button></div>
+            <h3 style="text-align:center; margin-bottom:20px;"><i class="fas fa-key"></i> Ganti Passkey</h3>
+            
+            <div class="passkey-input-group">
+                <label><i class="fas fa-lock"></i> Passkey Lama</label>
+                <input type="password" id="old-passkey" placeholder="Masukkan passkey lama">
+            </div>
+            
+            <div class="passkey-input-group">
+                <label><i class="fas fa-key"></i> Passkey Baru</label>
+                <input type="password" id="new-passkey" placeholder="Huruf besar+kecil+angka, min 6 karakter">
+                <small style="color:#64748b; font-size:0.65rem;">Minimal 6 karakter, mengandung huruf besar, huruf kecil, dan angka</small>
+            </div>
+            
+            <div class="passkey-input-group">
+                <label><i class="fas fa-check-circle"></i> Konfirmasi</label>
+                <input type="password" id="confirm-passkey" placeholder="Ketik ulang passkey baru">
+            </div>
+            
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button onclick="changeMyPasskey()" style="background:var(--color-primary); flex:1;">Ganti Passkey</button>
+                <button onclick="closeModal()" style="background:#333; flex:1;">Batal</button>
+            </div>
         </div>
     `;
+    modal.style.display = 'flex';
 }
-
 async function changeMyPasskey() {
     const oldPasskey = document.getElementById('old-passkey').value.trim();
     const newPasskey = document.getElementById('new-passkey').value.trim();

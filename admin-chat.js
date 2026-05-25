@@ -197,8 +197,6 @@ async function loadChatMessages() {
 }
 
 function renderChatLogs(logs, container) {
-    console.log("🔍 [DEBUG] renderChatLogs dipanggil, jumlah logs:", logs.length);
-    
     if (!container) return;
     
     if (!logs.length) {
@@ -208,67 +206,32 @@ function renderChatLogs(logs, container) {
     
     let html = '';
     for (const msg of logs) {
-        console.log("🔍 [DEBUG] Pesan:", { type: msg.type, message: msg.message, uid: msg.uid });
+        if (msg.type === 'command') continue;
         
-        let msgType = msg.type || 'msg';
-        let msgText = msg.message || '';
-        let isSystem = false;
-        let displayText = msgText;
-        
-        // ==========================================
-        // KONVERSI COMMAND MUTE/UNMUTE
-        // ==========================================
-        if (msgType === 'command') {
-            console.log("🔍 [DEBUG] Command terdeteksi:", msgText);
-            
-            if (msgText.startsWith('MUTE_')) {
-                const parts = msgText.split('_');
-                const targetIGN = parts[3] || 'Seseorang';
-                const durasi = parts[2] || '?';
-                displayText = `🔇 ${targetIGN} dibisukan ${durasi} menit`;
-                isSystem = true;
-                console.log("🔍 [DEBUG] MUTE diubah menjadi:", displayText);
-            } else if (msgText.startsWith('UNMUTE_')) {
-                const parts = msgText.split('_');
-                const targetIGN = parts[2] || 'Seseorang';
-                displayText = `🔊 ${targetIGN} dibuka bisuannya`;
-                isSystem = true;
-                console.log("🔍 [DEBUG] UNMUTE diubah menjadi:", displayText);
-            } else {
-                console.log("🔍 [DEBUG] Command tidak dikenal, skip");
-                continue;
-            }
-        }
-        
-        if (msgType !== 'msg' && !isSystem) continue;
-        
-        const isDeleted = (msgType === 'msg' && msgText === '[deleted by admin]');
+        const isDeleted = msg.message === '[deleted by admin]';
         const isMe = msg.uid === adminData.id;
         
-        if (isSystem) {
-            console.log("🔍 [DEBUG] RENDER sebagai system-message:", displayText);
-            html += `<div class="chat-row system-message"><div class="system-text">${displayText}</div></div>`;
-        } else if (isDeleted) {
+        if (isDeleted) {
             html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
-        } else {
-            const username = escapeHtml(msg.username || 'Anonim');
-            const message = escapeHtml(msg.message || '');
-            const rowIndex = msg.rowIndex;
-            const uid = msg.uid;
-            
-            html += `
-                <div class="chat-row ${isMe ? 'me' : 'other'}">
-                    <b>${username}</b>
-                    <div class="chat-message-wrapper">
-                        <div class="msg-text">${message}</div>
-                        ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
-                    </div>
-                </div>
-            `;
+            continue;
         }
+        
+        const username = escapeHtml(msg.username || 'Anonim');
+        const message = escapeHtml(msg.message || '');
+        const rowIndex = msg.rowIndex;
+        const uid = msg.uid;
+        
+        html += `
+            <div class="chat-row ${isMe ? 'me' : 'other'}">
+                <b>${username}</b>
+                <div class="chat-message-wrapper">
+                    <div class="msg-text">${message}</div>
+                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                </div>
+            </div>
+        `;
     }
     
-    console.log("🔍 [DEBUG] HTML akhir:", html.substring(0, 500));
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
 }

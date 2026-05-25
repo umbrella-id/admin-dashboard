@@ -206,11 +206,11 @@ function renderChatLogs(logs, container) {
     
     let html = '';
     for (const msg of logs) {
-        let msgType = msg.type || 'msg';
-        let msgText = msg.message || '';
-        
-        // Konversi command MUTE/UNMUTE jadi pesan sistem
-        if (msgType === 'command') {
+        // ==========================================
+        // KONVERSI COMMAND MUTE/UNMUTE JADI PESAN SISTEM
+        // ==========================================
+        if (msg.type === 'command') {
+            const msgText = msg.message || '';
             if (msgText.startsWith('MUTE_')) {
                 const parts = msgText.split('_');
                 const targetIGN = parts[3] || 'Seseorang';
@@ -224,8 +224,10 @@ function renderChatLogs(logs, container) {
             continue;
         }
         
-        // Pesan biasa (dari user)
-        if (msgText === '[deleted by admin]') {
+        // Pesan biasa
+        const isDeleted = msg.message === '[deleted by admin]';
+        
+        if (isDeleted) {
             html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
             continue;
         }

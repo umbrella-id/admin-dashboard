@@ -211,9 +211,7 @@ function renderChatLogs(logs, container) {
         let isSystem = false;
         let displayText = msgText;
         
-        // ==========================================
-        // KONVERSI COMMAND MUTE/UNMUTE JADI PESAN SISTEM
-        // ==========================================
+        // Konversi command MUTE/UNMUTE jadi pesan sistem
         if (msgType === 'command') {
             if (msgText.startsWith('MUTE_')) {
                 const parts = msgText.split('_');
@@ -227,14 +225,14 @@ function renderChatLogs(logs, container) {
                 displayText = `🔊 ${targetIGN} telah dibuka bisuannya.`;
                 isSystem = true;
             } else {
-                continue; // command lain tidak dikenal
+                continue;
             }
         }
         
-        // Filter: hanya msg atau system yang boleh lewat
         if (msgType !== 'msg' && !isSystem) continue;
         
         const isDeleted = (msgType === 'msg' && msgText === '[deleted by admin]');
+        const isMe = msg.uid === adminData.id;  // ← PENTING: untuk pesan admin
         
         if (isSystem) {
             html += `<div class="chat-row system-message"><div class="system-text">${displayText}</div></div>`;
@@ -246,18 +244,18 @@ function renderChatLogs(logs, container) {
             continue;
         }
         
-        // Pesan biasa (dari user)
+        // Pesan biasa (dari user atau admin)
         const username = escapeHtml(msg.username || 'Anonim');
         const message = escapeHtml(msg.message || '');
         const rowIndex = msg.rowIndex;
         const uid = msg.uid;
         
         html += `
-            <div class="chat-row other">
+            <div class="chat-row ${isMe ? 'me' : 'other'}">
                 <b>${username}</b>
                 <div class="chat-message-wrapper">
                     <div class="msg-text">${message}</div>
-                    <button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>
+                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
                 </div>
             </div>
         `;

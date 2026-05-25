@@ -555,19 +555,31 @@ body {
 .chat-row.system-message {
     display: flex;
     justify-content: center;
-    margin: 12px 0;
+    align-items: center;
+    margin: 8px 0;
+    padding: 0;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .system-text {
     background: rgba(100, 116, 139, 0.2);
     border-radius: 20px;
-    padding: 6px 14px;
+    padding: 5px 14px;
     font-size: 11px;
     color: #94a3b8;
     text-align: center;
     font-style: italic;
-    letter-spacing: 0.3px;
+    display: inline-block;
     max-width: 85%;
+    line-height: 1.4;
+}
+
+/* Pastikan tidak ada elemen tambahan yang muncul */
+.chat-row.system-message::before,
+.chat-row.system-message::after {
+    display: none !important;
 }
 
 /* CHAT BUBBLES */

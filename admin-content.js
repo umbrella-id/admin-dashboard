@@ -82,14 +82,13 @@ function renderContentEditor(data) {
                     ${galeryList.map((item, idx) => `
                         <div class="content-item" data-idx="${idx}">
                             <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(item.Header || '')}" data-id="${item.ID}" data-rowid="${item.rowId || idx}" data-field="Header">
-                            <textarea class="content-body" placeholder="Body" data-id="${item.ID}" data-rowid="${item.rowId || idx}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
-                            <input type="text" class="content-image" placeholder="Image URL" value="${escapeHtml(item.ImageURL || '')}" data-id="${item.ID}" data-rowid="${item.rowId || idx}" data-field="ImageURL">
+                            <textarea class="content-body" placeholder="Body (HTML)" data-id="${item.ID}" data-rowid="${item.rowId || idx}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
                             <button class="btn-delete-item" onclick="deleteContentItem('galery', ${item.rowId || idx})"><i class="fas fa-trash"></i> Hapus</button>
                         </div>
                     `).join('')}
                 </div>
                 <button class="btn-add-item" onclick="addContentItem('galery')"><i class="fas fa-plus"></i> Tambah Galery</button>
-            </div>
+            </div>      
             
             <!-- RUNNING TEXT (bisa tambah/hapus) -->
             <div class="content-category">
@@ -149,7 +148,7 @@ function collectContentChanges() {
     const changes = [];
     
     // Scan semua input dan textarea dengan atribut data-id
-    document.querySelectorAll('.content-header, .content-body, .content-image, .content-platform').forEach(el => {
+    document.querySelectorAll('.content-header, .content-body, .content-platform').forEach(el => {
         const id = el.dataset.id;
         const field = el.dataset.field;
         const rowId = el.dataset.rowid;

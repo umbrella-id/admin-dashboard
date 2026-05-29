@@ -518,6 +518,11 @@ function renderBottomNav() {
             for (let p of pages) if (p.dataset.tab === tabId) p.scrollIntoView({ behavior: 'smooth', inline: 'start' });
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            // ✅ TAMBAHKAN INI
+            if (tabId === 'manage-content' && typeof window.loadContentData === 'function') {
+                console.log("📥 Memuat data konten...");
+                window.loadContentData();
+            }
         });
     });
     

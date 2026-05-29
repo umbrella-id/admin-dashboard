@@ -69,6 +69,16 @@
                     <button class="btn-small" onclick="refreshAdminList()" style="width: 100%;"><i class="fas fa-sync-alt"></i> Refresh</button>
                 </div>
             </div>
+
+            <!-- KELOLA KONTEN TAB -->
+            <div class="tab-page" data-tab="manage-content">
+                <h3><i class="fas fa-edit"></i> Kelola Konten Web</h3>
+                <div id="content-editor-container">Memuat...</div>
+                <button id="refresh-cache-btn" class="btn-primary" onclick="window.updateAllContent()" style="margin-top: 20px; width: 100%;">
+                    <i class="fas fa-sync-alt"></i> PERBARUI KONTEN & CACHE
+                </button>
+            </div>
+            
         </div>
     </div>
 
@@ -102,5 +112,6 @@
 <script src="admin.js"></script>
 <script src="admin-chat.js"></script>
 <script src="admin-mail.js"></script>
+<script src="admin-content.js"></script>
 </body>
 </html>

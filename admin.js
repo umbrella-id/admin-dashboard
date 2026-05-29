@@ -521,7 +521,8 @@ function renderBottomNav() {
             for (let p of pages) if (p.dataset.tab === tabId) p.scrollIntoView({ behavior: 'smooth', inline: 'start' });
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            // ✅ TAMBAHKAN INI
+            
+            // ✅ TAMBAHKAN: Load konten saat tab "Konten" diklik
             if (tabId === 'manage-content' && typeof window.loadContentData === 'function') {
                 console.log("📥 Memuat data konten...");
                 window.loadContentData();
@@ -542,7 +543,6 @@ function renderBottomNav() {
     }, { threshold: 0.5 });
     for (let page of swipeArea.children) observer.observe(page);
 }
-
 // ==========================================
 // SETTINGS
 // ==========================================

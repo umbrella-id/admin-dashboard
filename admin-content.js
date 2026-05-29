@@ -166,7 +166,6 @@ function collectContentChanges() {
 // Perbarui semua konten (tombol utama)
 window.updateAllContent = async function() {
     const changes = collectContentChanges();
-    
     if (changes.length === 0) {
         window.showToast("Tidak ada perubahan", true);
         return;
@@ -178,23 +177,24 @@ window.updateAllContent = async function() {
     btn.disabled = true;
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=updateAllContent`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ changes })
-        });
-        const data = await res.json();
-        
-        if (data.status === 'success') {
-            window.showToast("✅ Konten berhasil diperbarui!");
-            // Refresh data
-            await loadContentData();
-        } else {
-            window.showToast("❌ Gagal: " + (data.message || "Error"), true);
+        for (const change of changes) {
+            const url = `${window.GAS_ADMIN_URL}?action=updateContent&rowId=${change.rowId}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.status !== 'success') {
+                throw new Error(`Gagal update ${change.field}`);
+            }
         }
+        
+        // Refresh cache setelah semua update
+        await fetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache`);
+        
+        window.showToast("✅ Konten berhasil diperbarui!");
+        await loadContentData();
+        
     } catch(e) {
         console.error("Update error:", e);
-        window.showToast("❌ Gagal koneksi", true);
+        window.showToast("❌ Gagal: " + (e.message || "Error"), true);
     } finally {
         btn.innerHTML = originalHtml;
         btn.disabled = false;

@@ -437,6 +437,9 @@ async function doLogin() {
             if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
             startStandbyPresence();
+            if (typeof window.loadContentData === 'function') {
+                window.loadContentData(); 
+            }
             history.pushState({ dashboard: true }, "");
         } else {
             document.getElementById('login-error').innerText = data.message || 'Login gagal!';

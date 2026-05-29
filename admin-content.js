@@ -212,6 +212,41 @@ function escapeHtml(str) {
     });
 }
 
+// Tambah item baru
+window.addContentItem = async function(category) {
+    try {
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=addContentItem&category=${category}`);
+        const data = await res.json();
+        if (data.status === 'success') {
+            window.showToast("Item ditambahkan");
+            loadContentData(); // refresh
+        } else {
+            window.showToast("Gagal tambah item", true);
+        }
+    } catch(e) {
+        console.error("Add item error:", e);
+        window.showToast("Gagal koneksi", true);
+    }
+};
+
+// Hapus item
+window.deleteContentItem = async function(category, rowId) {
+    if (!confirm(`Hapus item ${category} ini?`)) return;
+    try {
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteContentItem&rowId=${rowId}`);
+        const data = await res.json();
+        if (data.status === 'success') {
+            window.showToast("Item dihapus");
+            loadContentData(); // refresh
+        } else {
+            window.showToast("Gagal hapus item", true);
+        }
+    } catch(e) {
+        console.error("Delete item error:", e);
+        window.showToast("Gagal koneksi", true);
+    }
+};
+
 // Ekspos fungsi
 window.loadContentData = loadContentData;
 window.updateAllContent = updateAllContent;

@@ -166,6 +166,7 @@ function collectContentChanges() {
 // Perbarui semua konten (tombol utama)
 window.updateAllContent = async function() {
     const changes = collectContentChanges();
+    
     if (changes.length === 0) {
         window.showToast("Tidak ada perubahan", true);
         return;
@@ -176,29 +177,39 @@ window.updateAllContent = async function() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MENYIMPAN...';
     btn.disabled = true;
     
-    try {
-        for (const change of changes) {
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const change of changes) {
+        try {
             const url = `${window.GAS_ADMIN_URL}?action=updateContent&rowId=${change.rowId}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
+            console.log("Fetching:", url);
             const res = await fetch(url);
             const data = await res.json();
-            if (data.status !== 'success') {
-                throw new Error(`Gagal update ${change.field}`);
+            
+            if (data.status === 'success') {
+                successCount++;
+            } else {
+                failCount++;
+                console.error("Gagal update:", change, data);
             }
+        } catch(e) {
+            failCount++;
+            console.error("Error update:", change, e);
         }
-        
-        // Refresh cache setelah semua update
-        await fetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache`);
-        
-        window.showToast("✅ Konten berhasil diperbarui!");
-        await loadContentData();
-        
-    } catch(e) {
-        console.error("Update error:", e);
-        window.showToast("❌ Gagal: " + (e.message || "Error"), true);
-    } finally {
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
     }
+    
+    // Refresh cache setelah semua update
+    if (successCount > 0) {
+        await fetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache`);
+        window.showToast(`✅ ${successCount} item berhasil diperbarui${failCount > 0 ? `, ${failCount} gagal` : ''}`);
+        await loadContentData();
+    } else {
+        window.showToast("❌ Gagal memperbarui konten", true);
+    }
+    
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
 };
 
 // Helper escapeHtml

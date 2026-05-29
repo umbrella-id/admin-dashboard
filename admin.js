@@ -494,10 +494,12 @@ function renderBottomNav() {
     const hasMail = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
     const hasKas = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA');
     const hasAdmin = (currentAdmin.role1 === 'LEADER');
+    const hasContent = (currentAdmin.role1 === 'LEADER');
     
     if (hasMail) tabs.push({ id: 'mailbox', icon: 'fa-envelope', label: 'Surat' });
     if (hasKas) tabs.push({ id: 'kas', icon: 'fa-coins', label: 'Kas' });
     if (hasAdmin) tabs.push({ id: 'manage-admin', icon: 'fa-users-cog', label: 'Admin' });
+    if (hasContent) tabs.push({ id: 'manage-content', icon: 'fa-edit', label: 'Konten' });
     
     for (let i = 0; i < swipeArea.children.length; i++) {
         const page = swipeArea.children[i];

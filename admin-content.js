@@ -1,13 +1,16 @@
 /**
- * admin-content.js - Kelola Konten Web
- * Update hanya field yang berubah (compare dengan currentContentData)
+ * admin-content.js - Kelola Konten Web (Hanya LEADER)
  */
 
 let currentContentData = [];
 
 async function loadContentData() {
+    console.log("loadContentData dipanggil");
     const container = document.getElementById('content-editor-container');
-    if (!container) return;
+    if (!container) {
+        console.log("Container content-editor-container tidak ditemukan");
+        return;
+    }
     
     container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data konten...</div>';
     
@@ -28,10 +31,98 @@ async function loadContentData() {
 }
 
 function renderContentEditor(data) {
-    // ... (sama seperti sebelumnya, dengan data-rowid dan data-field)
+    const container = document.getElementById('content-editor-container');
+    if (!container) return;
+    
+    const headline = data.find(item => item.ID?.toLowerCase() === 'headline');
+    const openmember = data.find(item => item.ID?.toLowerCase() === 'openmember');
+    const profilList = data.filter(item => item.ID?.toLowerCase() === 'profil');
+    const galeryList = data.filter(item => item.ID?.toLowerCase() === 'galery');
+    const runningTexts = data.filter(item => item.ID?.toLowerCase() === 'running_text');
+    const sosmedList = data.filter(item => item.ID?.toLowerCase() === 'sosmed');
+    
+    let html = `
+        <div class="content-editor">
+            <div class="content-category">
+                <h4><i class="fas fa-heading"></i> HEADLINE</h4>
+                <div class="content-item">
+                    <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(headline?.Header || '')}" data-rowid="${headline?.rowId || 2}" data-field="Header">
+                    <textarea class="content-body" placeholder="Body" data-rowid="${headline?.rowId || 2}" data-field="Body">${escapeHtml(headline?.Body || '')}</textarea>
+                </div>
+            </div>
+            
+            <div class="content-category">
+                <h4><i class="fas fa-users"></i> OPEN MEMBER</h4>
+                <div class="content-item">
+                    <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(openmember?.Header || '')}" data-rowid="${openmember?.rowId || 3}" data-field="Header">
+                    <textarea class="content-body" placeholder="Body" data-rowid="${openmember?.rowId || 3}" data-field="Body">${escapeHtml(openmember?.Body || '')}</textarea>
+                </div>
+            </div>
+            
+            <div class="content-category">
+                <h4><i class="fas fa-address-card"></i> PROFIL</h4>
+                <div id="profil-list">
+                    ${profilList.map(item => `
+                        <div class="content-item">
+                            <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
+                            <textarea class="content-body" placeholder="Body" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
+                            <button class="btn-delete-item" onclick="deleteContentItem('profil', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <button class="btn-add-item" onclick="addContentItem('profil')"><i class="fas fa-plus"></i> Tambah Profil</button>
+            </div>
+            
+            <div class="content-category">
+                <h4><i class="fas fa-images"></i> GALERY</h4>
+                <div id="galery-list">
+                    ${galeryList.map(item => `
+                        <div class="content-item">
+                            <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
+                            <textarea class="content-body" placeholder="Body (HTML)" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
+                            <button class="btn-delete-item" onclick="deleteContentItem('galery', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <button class="btn-add-item" onclick="addContentItem('galery')"><i class="fas fa-plus"></i> Tambah Galery</button>
+            </div>
+            
+            <div class="content-category">
+                <h4><i class="fas fa-scroll"></i> RUNNING TEXT</h4>
+                <div id="runningtext-list">
+                    ${runningTexts.map(item => `
+                        <div class="content-item">
+                            <textarea class="content-body" placeholder="Text" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
+                            <button class="btn-delete-item" onclick="deleteContentItem('running_text', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <button class="btn-add-item" onclick="addContentItem('running_text')"><i class="fas fa-plus"></i> Tambah Running Text</button>
+            </div>
+            
+            <div class="content-category">
+                <h4><i class="fas fa-share-alt"></i> SOSMED</h4>
+                <div id="sosmed-list">
+                    ${sosmedList.map(item => `
+                        <div class="content-item">
+                            <select class="content-platform" data-rowid="${item.rowId}" data-field="Header">
+                                <option value="whatsapp" ${item.Header === 'whatsapp' ? 'selected' : ''}>WhatsApp</option>
+                                <option value="facebook" ${item.Header === 'facebook' ? 'selected' : ''}>Facebook</option>
+                                <option value="discord" ${item.Header === 'discord' ? 'selected' : ''}>Discord</option>
+                            </select>
+                            <input type="text" class="content-body" placeholder="URL" value="${escapeHtml(item.Body || '')}" data-rowid="${item.rowId}" data-field="Body">
+                            <button class="btn-delete-item" onclick="deleteContentItem('sosmed', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <button class="btn-add-item" onclick="addContentItem('sosmed')"><i class="fas fa-plus"></i> Tambah Sosmed</button>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
 }
 
-// Kumpulkan perubahan (bandingkan dengan currentContentData)
 function collectChangedFields() {
     const changes = [];
     
@@ -40,13 +131,11 @@ function collectChangedFields() {
         const field = el.dataset.field;
         const newValue = el.value;
         
-        // Cari data lama dari currentContentData
         const oldItem = currentContentData.find(item => item.rowId === rowId);
         if (oldItem) {
             const oldValue = oldItem[field] || '';
             if (oldValue !== newValue) {
                 changes.push({ rowId, field, value: newValue });
-                console.log(`🔄 Perubahan: rowId ${rowId}, field ${field}: "${oldValue}" → "${newValue}"`);
             }
         }
     });
@@ -54,7 +143,6 @@ function collectChangedFields() {
     return changes;
 }
 
-// Update hanya yang berubah
 window.updateAllContent = async function() {
     const changes = collectChangedFields();
     
@@ -89,11 +177,10 @@ window.updateAllContent = async function() {
         }
     }
     
-    // Refresh cache jika ada yang berhasil
     if (successCount > 0) {
         await fetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache`);
         window.showToast(`✅ ${successCount} item berhasil diperbarui${failCount > 0 ? `, ${failCount} gagal` : ''}`);
-        await loadContentData(); // reload data terbaru
+        await loadContentData();
     } else {
         window.showToast("❌ Gagal memperbarui konten", true);
     }
@@ -102,14 +189,13 @@ window.updateAllContent = async function() {
     btn.disabled = false;
 };
 
-// Tambah item
 window.addContentItem = async function(category) {
     try {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=addContentItem&category=${category}`);
         const data = await res.json();
         if (data.status === 'success') {
             window.showToast("Item ditambahkan");
-            await loadContentData(); // reload
+            await loadContentData();
         } else {
             window.showToast("Gagal tambah item", true);
         }
@@ -119,7 +205,6 @@ window.addContentItem = async function(category) {
     }
 };
 
-// Hapus item
 window.deleteContentItem = async function(category, rowId) {
     if (!confirm(`Hapus item ${category} ini?`)) return;
     try {
@@ -127,7 +212,7 @@ window.deleteContentItem = async function(category, rowId) {
         const data = await res.json();
         if (data.status === 'success') {
             window.showToast("Item dihapus");
-            await loadContentData(); // reload
+            await loadContentData();
         } else {
             window.showToast("Gagal hapus item", true);
         }
@@ -150,4 +235,4 @@ function escapeHtml(str) {
 window.loadContentData = loadContentData;
 window.updateAllContent = updateAllContent;
 
-console.log("✅ admin-content.js loaded (Update only changed fields)");
+console.log("✅ admin-content.js loaded");

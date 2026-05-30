@@ -146,7 +146,11 @@ function renderContentEditor(data) {
                 <div id="sosmed-list">
                     ${sosmedList.map(item => `
                         <div class="content-item">
-                            <input type="text" class="content-header" placeholder="Platform (whatsapp, facebook, discord)" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
+                            <select class="content-platform" data-rowid="${item.rowId}" data-field="Header">
+                                <option value="whatsapp" ${item.Header === 'whatsapp' ? 'selected' : ''}>WhatsApp</option>
+                                <option value="facebook" ${item.Header === 'facebook' ? 'selected' : ''}>Facebook</option>
+                                <option value="discord" ${item.Header === 'discord' ? 'selected' : ''}>Discord</option>
+                            </select>
                             <input type="text" class="content-body" placeholder="URL" value="${escapeHtml(item.Body || '')}" data-rowid="${item.rowId}" data-field="Body">
                             <button class="btn-delete-item" onclick="deleteContentItem('sosmed', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
                         </div>
@@ -154,7 +158,6 @@ function renderContentEditor(data) {
                 </div>
                 <button class="btn-add-item" onclick="addContentItem('sosmed')"><i class="fas fa-plus"></i> Tambah Sosmed</button>
             </div>
-        </div>  <!-- ← PENUTUP content-editor -->
     `; 
     
     container.innerHTML = html;

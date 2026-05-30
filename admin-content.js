@@ -1,8 +1,38 @@
 /**
- * admin-content.js - Kelola Konten Web (Hanya LEADER)
+ * admin-content.js - Kelola Konten Web
+ * Dengan fitur Image URL untuk Galery (otomatis jadi <img>)
  */
 
 let currentContentData = [];
+
+// Fungsi bantu ekstrak URL gambar dari Body
+function extractImageUrlFromBody(body) {
+    if (!body) return '';
+    const match = body.match(/<img[^>]*src="([^"]+)"/);
+    return match ? match[1] : '';
+}
+
+// Fungsi bantu ekstrak caption (teks setelah img) dari Body
+function extractCaptionFromBody(body) {
+    if (!body) return '';
+    // Hapus semua tag img
+    let text = body.replace(/<img[^>]*>/g, '');
+    // Hapus tag p jika kosong
+    text = text.replace(/<\/?p>/g, '').trim();
+    return text;
+}
+
+// Fungsi build Body dari imageUrl + caption
+function buildGalleryBody(imageUrl, caption) {
+    let html = '';
+    if (imageUrl && imageUrl.trim()) {
+        html += `<img src="${escapeHtml(imageUrl.trim())}" style="max-width:100%; border-radius:12px; margin-bottom:10px;">`;
+    }
+    if (caption && caption.trim()) {
+        html += `<p>${escapeHtml(caption.trim())}</p>`;
+    }
+    return html;
+}
 
 async function loadContentData() {
     console.log("loadContentData dipanggil");
@@ -43,6 +73,7 @@ function renderContentEditor(data) {
     
     let html = `
         <div class="content-editor">
+            <!-- HEADLINE -->
             <div class="content-category">
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
                 <div class="content-item">
@@ -51,6 +82,7 @@ function renderContentEditor(data) {
                 </div>
             </div>
             
+            <!-- OPEN MEMBER -->
             <div class="content-category">
                 <h4><i class="fas fa-users"></i> OPEN MEMBER</h4>
                 <div class="content-item">
@@ -59,6 +91,7 @@ function renderContentEditor(data) {
                 </div>
             </div>
             
+            <!-- PROFIL -->
             <div class="content-category">
                 <h4><i class="fas fa-address-card"></i> PROFIL</h4>
                 <div id="profil-list">
@@ -73,20 +106,27 @@ function renderContentEditor(data) {
                 <button class="btn-add-item" onclick="addContentItem('profil')"><i class="fas fa-plus"></i> Tambah Profil</button>
             </div>
             
+            <!-- GALERY (dengan Image URL terpisah) -->
             <div class="content-category">
                 <h4><i class="fas fa-images"></i> GALERY</h4>
                 <div id="galery-list">
-                    ${galeryList.map(item => `
-                        <div class="content-item">
-                            <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
-                            <textarea class="content-body" placeholder="Body (HTML)" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
-                            <button class="btn-delete-item" onclick="deleteContentItem('galery', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
-                        </div>
-                    `).join('')}
+                    ${galeryList.map(item => {
+                        const imageUrl = extractImageUrlFromBody(item.Body || '');
+                        const caption = extractCaptionFromBody(item.Body || '');
+                        return `
+                            <div class="content-item">
+                                <input type="text" class="content-header" placeholder="Judul Event" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
+                                <input type="text" class="content-image-url" placeholder="URL Gambar" value="${escapeHtml(imageUrl)}" data-rowid="${item.rowId}" data-field="ImageUrl">
+                                <textarea class="content-caption" placeholder="Deskripsi / Caption" data-rowid="${item.rowId}" data-field="Caption">${escapeHtml(caption)}</textarea>
+                                <button class="btn-delete-item" onclick="deleteContentItem('galery', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
                 <button class="btn-add-item" onclick="addContentItem('galery')"><i class="fas fa-plus"></i> Tambah Galery</button>
             </div>
             
+            <!-- RUNNING TEXT -->
             <div class="content-category">
                 <h4><i class="fas fa-scroll"></i> RUNNING TEXT</h4>
                 <div id="runningtext-list">
@@ -100,6 +140,7 @@ function renderContentEditor(data) {
                 <button class="btn-add-item" onclick="addContentItem('running_text')"><i class="fas fa-plus"></i> Tambah Running Text</button>
             </div>
             
+            <!-- SOSMED -->
             <div class="content-category">
                 <h4><i class="fas fa-share-alt"></i> SOSMED</h4>
                 <div id="sosmed-list">
@@ -126,16 +167,86 @@ function renderContentEditor(data) {
 function collectChangedFields() {
     const changes = [];
     
-    document.querySelectorAll('.content-header, .content-body, .content-platform').forEach(el => {
-        const rowId = parseInt(el.dataset.rowid);
-        const field = el.dataset.field;
-        const newValue = el.value;
+    // Handle GALERY khusus (gabungkan ImageUrl + Caption jadi Body)
+    document.querySelectorAll('#galery-list .content-item').forEach(item => {
+        const rowId = parseInt(item.querySelector('.content-header')?.dataset.rowid);
+        const header = item.querySelector('.content-header')?.value || '';
+        const imageUrl = item.querySelector('.content-image-url')?.value || '';
+        const caption = item.querySelector('.content-caption')?.value || '';
         
-        const oldItem = currentContentData.find(item => item.rowId === rowId);
+        const oldItem = currentContentData.find(d => d.rowId === rowId);
         if (oldItem) {
-            const oldValue = oldItem[field] || '';
-            if (oldValue !== newValue) {
-                changes.push({ rowId, field, value: newValue });
+            const newBody = buildGalleryBody(imageUrl, caption);
+            
+            if (oldItem.Header !== header) {
+                changes.push({ rowId, field: 'Header', value: header });
+            }
+            if ((oldItem.Body || '') !== newBody) {
+                changes.push({ rowId, field: 'Body', value: newBody });
+            }
+        }
+    });
+    
+    // Handle PROFIL
+    document.querySelectorAll('#profil-list .content-item').forEach(item => {
+        const rowId = parseInt(item.querySelector('.content-header')?.dataset.rowid);
+        const header = item.querySelector('.content-header')?.value || '';
+        const body = item.querySelector('.content-body')?.value || '';
+        
+        const oldItem = currentContentData.find(d => d.rowId === rowId);
+        if (oldItem) {
+            if (oldItem.Header !== header) {
+                changes.push({ rowId, field: 'Header', value: header });
+            }
+            if ((oldItem.Body || '') !== body) {
+                changes.push({ rowId, field: 'Body', value: body });
+            }
+        }
+    });
+    
+    // Handle HEADLINE & OPEN MEMBER
+    document.querySelectorAll('.content-category:not(:has(#profil-list)):not(:has(#galery-list)) .content-item').forEach(item => {
+        const rowId = parseInt(item.querySelector('.content-header, .content-body')?.dataset.rowid);
+        if (!rowId) return;
+        
+        const headerInput = item.querySelector('.content-header');
+        const bodyInput = item.querySelector('.content-body');
+        
+        const oldItem = currentContentData.find(d => d.rowId === rowId);
+        if (oldItem) {
+            if (headerInput && oldItem.Header !== headerInput.value) {
+                changes.push({ rowId, field: 'Header', value: headerInput.value });
+            }
+            if (bodyInput && (oldItem.Body || '') !== bodyInput.value) {
+                changes.push({ rowId, field: 'Body', value: bodyInput.value });
+            }
+        }
+    });
+    
+    // Handle RUNNING TEXT
+    document.querySelectorAll('#runningtext-list .content-item').forEach(item => {
+        const rowId = parseInt(item.querySelector('.content-body')?.dataset.rowid);
+        const body = item.querySelector('.content-body')?.value || '';
+        
+        const oldItem = currentContentData.find(d => d.rowId === rowId);
+        if (oldItem && (oldItem.Body || '') !== body) {
+            changes.push({ rowId, field: 'Body', value: body });
+        }
+    });
+    
+    // Handle SOSMED
+    document.querySelectorAll('#sosmed-list .content-item').forEach(item => {
+        const rowId = parseInt(item.querySelector('.content-platform')?.dataset.rowid);
+        const header = item.querySelector('.content-platform')?.value || '';
+        const body = item.querySelector('.content-body')?.value || '';
+        
+        const oldItem = currentContentData.find(d => d.rowId === rowId);
+        if (oldItem) {
+            if ((oldItem.Header || '') !== header) {
+                changes.push({ rowId, field: 'Header', value: header });
+            }
+            if ((oldItem.Body || '') !== body) {
+                changes.push({ rowId, field: 'Body', value: body });
             }
         }
     });
@@ -235,4 +346,4 @@ function escapeHtml(str) {
 window.loadContentData = loadContentData;
 window.updateAllContent = updateAllContent;
 
-console.log("✅ admin-content.js loaded");
+console.log("✅ admin-content.js loaded (dengan Image URL untuk Galery)");

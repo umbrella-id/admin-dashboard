@@ -154,6 +154,8 @@ function renderContentEditor(data) {
                 </div>
                 <button class="btn-add-item" onclick="addContentItem('sosmed')"><i class="fas fa-plus"></i> Tambah Sosmed</button>
             </div>
+        </div>  <!-- ← PENUTUP content-editor -->
+    `; 
     
     container.innerHTML = html;
 }

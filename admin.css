@@ -1159,3 +1159,47 @@ input:checked + .toggle-slider:before {
 .btn-primary:active {
     transform: scale(0.97);
 }
+
+/* Status item baru & dihapus */
+.content-item {
+    position: relative;
+    transition: all 0.2s;
+}
+
+.item-badge {
+    position: absolute;
+    top: -8px;
+    right: 10px;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: bold;
+    z-index: 10;
+}
+
+.badge-new {
+    background: #22c55e;
+    color: white;
+}
+
+.badge-deleted {
+    background: #ff4444;
+    color: white;
+}
+
+.content-item-new {
+    background: rgba(34, 197, 94, 0.1);
+    border-left: 3px solid #22c55e;
+}
+
+.content-item-deleted {
+    background: rgba(255, 68, 68, 0.1);
+    border-left: 3px solid #ff4444;
+    opacity: 0.8;
+}
+
+.content-item-deleted input,
+.content-item-deleted textarea,
+.content-item-deleted select {
+    text-decoration: line-through;
+}

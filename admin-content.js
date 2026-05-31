@@ -1,9 +1,11 @@
 /**
  * admin-content.js - Kelola Konten Web
- * Dengan fitur Image URL untuk Galery (otomatis jadi <img>)
+ * Dengan Image URL untuk Headline, Openmember, Profil, Galery
+ * Tambah/hapus slot hanya di DOM (tidak langsung ke server)
  */
 
 let currentContentData = [];
+let hasUnsavedChanges = false;
 
 // Fungsi bantu ekstrak URL gambar dari Body
 function extractImageUrlFromBody(body) {
@@ -12,18 +14,16 @@ function extractImageUrlFromBody(body) {
     return match ? match[1] : '';
 }
 
-// Fungsi bantu ekstrak caption (teks setelah img) dari Body
+// Fungsi bantu ekstrak caption dari Body
 function extractCaptionFromBody(body) {
     if (!body) return '';
-    // Hapus semua tag img
     let text = body.replace(/<img[^>]*>/g, '');
-    // Hapus tag p jika kosong
     text = text.replace(/<\/?p>/g, '').trim();
     return text;
 }
 
 // Fungsi build Body dari imageUrl + caption
-function buildGalleryBody(imageUrl, caption) {
+function buildBody(imageUrl, caption) {
     let html = '';
     if (imageUrl && imageUrl.trim()) {
         html += `<img src="${escapeHtml(imageUrl.trim())}" style="max-width:100%; border-radius:12px; margin-bottom:10px;">`;
@@ -34,13 +34,11 @@ function buildGalleryBody(imageUrl, caption) {
     return html;
 }
 
+// Ambil data dari server (hanya sekali saat load)
 async function loadContentData() {
     console.log("loadContentData dipanggil");
     const container = document.getElementById('content-editor-container');
-    if (!container) {
-        console.log("Container content-editor-container tidak ditemukan");
-        return;
-    }
+    if (!container) return;
     
     container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data konten...</div>';
     
@@ -51,6 +49,7 @@ async function loadContentData() {
         if (data.status === 'success' && data.data) {
             currentContentData = data.data;
             renderContentEditor(currentContentData);
+            hasUnsavedChanges = false;
         } else {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data konten</div>';
         }
@@ -60,6 +59,7 @@ async function loadContentData() {
     }
 }
 
+// Render form editor
 function renderContentEditor(data) {
     const container = document.getElementById('content-editor-container');
     if (!container) return;
@@ -78,7 +78,8 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
                 <div class="content-item">
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(headline?.Header || '')}" data-rowid="${headline?.rowId || 2}" data-field="Header">
-                    <textarea class="content-body" placeholder="Body" data-rowid="${headline?.rowId || 2}" data-field="Body">${escapeHtml(headline?.Body || '')}</textarea>
+                    <input type="text" class="content-image-url" placeholder="URL Gambar (opsional)" value="${escapeHtml(extractImageUrlFromBody(headline?.Body || ''))}" data-rowid="${headline?.rowId || 2}" data-field="ImageUrl">
+                    <textarea class="content-caption" placeholder="Caption / Teks" data-rowid="${headline?.rowId || 2}" data-field="Caption">${escapeHtml(extractCaptionFromBody(headline?.Body || ''))}</textarea>
                 </div>
             </div>
             
@@ -87,7 +88,8 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-users"></i> OPEN MEMBER</h4>
                 <div class="content-item">
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(openmember?.Header || '')}" data-rowid="${openmember?.rowId || 3}" data-field="Header">
-                    <textarea class="content-body" placeholder="Body" data-rowid="${openmember?.rowId || 3}" data-field="Body">${escapeHtml(openmember?.Body || '')}</textarea>
+                    <input type="text" class="content-image-url" placeholder="URL Gambar (opsional)" value="${escapeHtml(extractImageUrlFromBody(openmember?.Body || ''))}" data-rowid="${openmember?.rowId || 3}" data-field="ImageUrl">
+                    <textarea class="content-caption" placeholder="Caption / Teks" data-rowid="${openmember?.rowId || 3}" data-field="Caption">${escapeHtml(extractCaptionFromBody(openmember?.Body || ''))}</textarea>
                 </div>
             </div>
             
@@ -96,17 +98,17 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-address-card"></i> PROFIL</h4>
                 <div id="profil-list">
                     ${profilList.map(item => `
-                        <div class="content-item">
+                        <div class="content-item" data-rowid="${item.rowId}">
                             <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
                             <textarea class="content-body" placeholder="Body" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
-                            <button class="btn-delete-item" onclick="deleteContentItem('profil', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                            <button class="btn-delete-item" onclick="deleteContentItem('profil', this.parentElement.dataset.rowid)"><i class="fas fa-trash"></i> Hapus</button>
                         </div>
                     `).join('')}
                 </div>
                 <button class="btn-add-item" onclick="addContentItem('profil')"><i class="fas fa-plus"></i> Tambah Profil</button>
             </div>
             
-            <!-- GALERY (dengan Image URL terpisah) -->
+            <!-- GALERY -->
             <div class="content-category">
                 <h4><i class="fas fa-images"></i> GALERY</h4>
                 <div id="galery-list">
@@ -114,11 +116,11 @@ function renderContentEditor(data) {
                         const imageUrl = extractImageUrlFromBody(item.Body || '');
                         const caption = extractCaptionFromBody(item.Body || '');
                         return `
-                            <div class="content-item">
+                            <div class="content-item" data-rowid="${item.rowId}">
                                 <input type="text" class="content-header" placeholder="Judul Event" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
                                 <input type="text" class="content-image-url" placeholder="URL Gambar" value="${escapeHtml(imageUrl)}" data-rowid="${item.rowId}" data-field="ImageUrl">
                                 <textarea class="content-caption" placeholder="Deskripsi / Caption" data-rowid="${item.rowId}" data-field="Caption">${escapeHtml(caption)}</textarea>
-                                <button class="btn-delete-item" onclick="deleteContentItem('galery', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                                <button class="btn-delete-item" onclick="deleteContentItem('galery', this.parentElement.dataset.rowid)"><i class="fas fa-trash"></i> Hapus</button>
                             </div>
                         `;
                     }).join('')}
@@ -131,9 +133,9 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-scroll"></i> RUNNING TEXT</h4>
                 <div id="runningtext-list">
                     ${runningTexts.map(item => `
-                        <div class="content-item">
+                        <div class="content-item" data-rowid="${item.rowId}">
                             <textarea class="content-body" placeholder="Text" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
-                            <button class="btn-delete-item" onclick="deleteContentItem('running_text', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                            <button class="btn-delete-item" onclick="deleteContentItem('running_text', this.parentElement.dataset.rowid)"><i class="fas fa-trash"></i> Hapus</button>
                         </div>
                     `).join('')}
                 </div>
@@ -145,107 +147,192 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-share-alt"></i> SOSMED</h4>
                 <div id="sosmed-list">
                     ${sosmedList.map(item => `
-                        <div class="content-item">
+                        <div class="content-item" data-rowid="${item.rowId}">
                             <select class="content-platform" data-rowid="${item.rowId}" data-field="Header">
                                 <option value="whatsapp" ${item.Header === 'whatsapp' ? 'selected' : ''}>WhatsApp</option>
                                 <option value="facebook" ${item.Header === 'facebook' ? 'selected' : ''}>Facebook</option>
                                 <option value="discord" ${item.Header === 'discord' ? 'selected' : ''}>Discord</option>
                             </select>
                             <input type="text" class="content-body" placeholder="URL" value="${escapeHtml(item.Body || '')}" data-rowid="${item.rowId}" data-field="Body">
-                            <button class="btn-delete-item" onclick="deleteContentItem('sosmed', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                            <button class="btn-delete-item" onclick="deleteContentItem('sosmed', this.parentElement.dataset.rowid)"><i class="fas fa-trash"></i> Hapus</button>
                         </div>
                     `).join('')}
                 </div>
                 <button class="btn-add-item" onclick="addContentItem('sosmed')"><i class="fas fa-plus"></i> Tambah Sosmed</button>
             </div>
-    `; 
+        </div>
+    `;
     
     container.innerHTML = html;
+    attachChangeListeners();
 }
 
+// Pasang listener untuk menandai ada perubahan
+function attachChangeListeners() {
+    document.querySelectorAll('input, textarea, select').forEach(el => {
+        el.addEventListener('change', () => { hasUnsavedChanges = true; });
+        el.addEventListener('input', () => { hasUnsavedChanges = true; });
+    });
+}
+
+// Tambah item (hanya di DOM, tidak ke server)
+window.addContentItem = function(category) {
+    const container = document.getElementById(`${category}-list`);
+    if (!container) return;
+    
+    const newRowId = -Date.now(); // ID sementara (negatif)
+    const newItem = {
+        rowId: newRowId,
+        ID: category,
+        Header: "",
+        Body: "",
+        ImageUrl: ""
+    };
+    
+    let newItemHtml = '';
+    if (category === 'profil') {
+        newItemHtml = `
+            <div class="content-item" data-rowid="${newRowId}">
+                <input type="text" class="content-header" placeholder="Header" data-rowid="${newRowId}" data-field="Header">
+                <textarea class="content-body" placeholder="Body" data-rowid="${newRowId}" data-field="Body"></textarea>
+                <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+            </div>
+        `;
+    } else if (category === 'galery') {
+        newItemHtml = `
+            <div class="content-item" data-rowid="${newRowId}">
+                <input type="text" class="content-header" placeholder="Judul Event" data-rowid="${newRowId}" data-field="Header">
+                <input type="text" class="content-image-url" placeholder="URL Gambar" data-rowid="${newRowId}" data-field="ImageUrl">
+                <textarea class="content-caption" placeholder="Deskripsi / Caption" data-rowid="${newRowId}" data-field="Caption"></textarea>
+                <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+            </div>
+        `;
+    } else if (category === 'running_text') {
+        newItemHtml = `
+            <div class="content-item" data-rowid="${newRowId}">
+                <textarea class="content-body" placeholder="Text" data-rowid="${newRowId}" data-field="Body"></textarea>
+                <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+            </div>
+        `;
+    } else if (category === 'sosmed') {
+        newItemHtml = `
+            <div class="content-item" data-rowid="${newRowId}">
+                <select class="content-platform" data-rowid="${newRowId}" data-field="Header">
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="discord">Discord</option>
+                </select>
+                <input type="text" class="content-body" placeholder="URL" data-rowid="${newRowId}" data-field="Body">
+                <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+            </div>
+        `;
+    }
+    
+    container.insertAdjacentHTML('beforeend', newItemHtml);
+    currentContentData.push(newItem);
+    hasUnsavedChanges = true;
+    window.showToast(`Item ${category} ditambahkan (belum disimpan)`);
+    
+    attachChangeListeners();
+};
+
+// Hapus item (hanya di DOM, tidak ke server)
+window.deleteContentItem = function(category, rowId) {
+    if (!confirm(`Hapus item ${category} ini?`)) return;
+    
+    const container = document.getElementById(`${category}-list`);
+    if (!container) return;
+    
+    const itemToRemove = Array.from(container.querySelectorAll('.content-item')).find(
+        item => parseInt(item.dataset.rowid) === rowId
+    );
+    if (itemToRemove) itemToRemove.remove();
+    
+    // Hapus dari currentContentData
+    const index = currentContentData.findIndex(item => item.rowId === rowId);
+    if (index !== -1) currentContentData.splice(index, 1);
+    
+    hasUnsavedChanges = true;
+    window.showToast(`Item ${category} dihapus (belum permanen)`);
+};
+
+// Kumpulkan semua perubahan
 function collectChangedFields() {
     const changes = [];
     
-    // Handle GALERY khusus (gabungkan ImageUrl + Caption jadi Body)
-    document.querySelectorAll('#galery-list .content-item').forEach(item => {
+    // Handle headline & openmember (ImageUrl + Caption → Body)
+    document.querySelectorAll('.content-category:first-child .content-item, .content-category:nth-child(2) .content-item').forEach(item => {
         const rowId = parseInt(item.querySelector('.content-header')?.dataset.rowid);
         const header = item.querySelector('.content-header')?.value || '';
         const imageUrl = item.querySelector('.content-image-url')?.value || '';
         const caption = item.querySelector('.content-caption')?.value || '';
         
-        const oldItem = currentContentData.find(d => d.rowId === rowId);
-        if (oldItem) {
-            const newBody = buildGalleryBody(imageUrl, caption);
+        if (rowId) {
+            const oldItem = currentContentData.find(d => d.rowId === rowId);
+            const newBody = buildBody(imageUrl, caption);
             
-            if (oldItem.Header !== header) {
-                changes.push({ rowId, field: 'Header', value: header });
-            }
-            if ((oldItem.Body || '') !== newBody) {
-                changes.push({ rowId, field: 'Body', value: newBody });
+            if (oldItem) {
+                if (oldItem.Header !== header) changes.push({ rowId, field: 'Header', value: header });
+                if ((oldItem.Body || '') !== newBody) changes.push({ rowId, field: 'Body', value: newBody });
             }
         }
     });
     
-    // Handle PROFIL
+    // Handle profil
     document.querySelectorAll('#profil-list .content-item').forEach(item => {
-        const rowId = parseInt(item.querySelector('.content-header')?.dataset.rowid);
+        const rowId = parseInt(item.dataset.rowid);
         const header = item.querySelector('.content-header')?.value || '';
         const body = item.querySelector('.content-body')?.value || '';
         
-        const oldItem = currentContentData.find(d => d.rowId === rowId);
-        if (oldItem) {
-            if (oldItem.Header !== header) {
-                changes.push({ rowId, field: 'Header', value: header });
-            }
-            if ((oldItem.Body || '') !== body) {
-                changes.push({ rowId, field: 'Body', value: body });
+        if (rowId && rowId > 0) { // hanya yang sudah ada di server
+            const oldItem = currentContentData.find(d => d.rowId === rowId);
+            if (oldItem) {
+                if (oldItem.Header !== header) changes.push({ rowId, field: 'Header', value: header });
+                if ((oldItem.Body || '') !== body) changes.push({ rowId, field: 'Body', value: body });
             }
         }
     });
     
-    // Handle HEADLINE & OPEN MEMBER
-    document.querySelectorAll('.content-category:not(:has(#profil-list)):not(:has(#galery-list)) .content-item').forEach(item => {
-        const rowId = parseInt(item.querySelector('.content-header, .content-body')?.dataset.rowid);
-        if (!rowId) return;
+    // Handle galery (ImageUrl + Caption → Body)
+    document.querySelectorAll('#galery-list .content-item').forEach(item => {
+        const rowId = parseInt(item.dataset.rowid);
+        const header = item.querySelector('.content-header')?.value || '';
+        const imageUrl = item.querySelector('.content-image-url')?.value || '';
+        const caption = item.querySelector('.content-caption')?.value || '';
         
-        const headerInput = item.querySelector('.content-header');
-        const bodyInput = item.querySelector('.content-body');
-        
-        const oldItem = currentContentData.find(d => d.rowId === rowId);
-        if (oldItem) {
-            if (headerInput && oldItem.Header !== headerInput.value) {
-                changes.push({ rowId, field: 'Header', value: headerInput.value });
-            }
-            if (bodyInput && (oldItem.Body || '') !== bodyInput.value) {
-                changes.push({ rowId, field: 'Body', value: bodyInput.value });
+        if (rowId && rowId > 0) {
+            const oldItem = currentContentData.find(d => d.rowId === rowId);
+            const newBody = buildBody(imageUrl, caption);
+            
+            if (oldItem) {
+                if (oldItem.Header !== header) changes.push({ rowId, field: 'Header', value: header });
+                if ((oldItem.Body || '') !== newBody) changes.push({ rowId, field: 'Body', value: newBody });
             }
         }
     });
     
-    // Handle RUNNING TEXT
+    // Handle running text
     document.querySelectorAll('#runningtext-list .content-item').forEach(item => {
-        const rowId = parseInt(item.querySelector('.content-body')?.dataset.rowid);
+        const rowId = parseInt(item.dataset.rowid);
         const body = item.querySelector('.content-body')?.value || '';
         
-        const oldItem = currentContentData.find(d => d.rowId === rowId);
-        if (oldItem && (oldItem.Body || '') !== body) {
-            changes.push({ rowId, field: 'Body', value: body });
+        if (rowId && rowId > 0) {
+            const oldItem = currentContentData.find(d => d.rowId === rowId);
+            if (oldItem && (oldItem.Body || '') !== body) changes.push({ rowId, field: 'Body', value: body });
         }
     });
     
-    // Handle SOSMED
+    // Handle sosmed
     document.querySelectorAll('#sosmed-list .content-item').forEach(item => {
-        const rowId = parseInt(item.querySelector('.content-platform')?.dataset.rowid);
+        const rowId = parseInt(item.dataset.rowid);
         const header = item.querySelector('.content-platform')?.value || '';
         const body = item.querySelector('.content-body')?.value || '';
         
-        const oldItem = currentContentData.find(d => d.rowId === rowId);
-        if (oldItem) {
-            if ((oldItem.Header || '') !== header) {
-                changes.push({ rowId, field: 'Header', value: header });
-            }
-            if ((oldItem.Body || '') !== body) {
-                changes.push({ rowId, field: 'Body', value: body });
+        if (rowId && rowId > 0) {
+            const oldItem = currentContentData.find(d => d.rowId === rowId);
+            if (oldItem) {
+                if ((oldItem.Header || '') !== header) changes.push({ rowId, field: 'Header', value: header });
+                if ((oldItem.Body || '') !== body) changes.push({ rowId, field: 'Body', value: body });
             }
         }
     });
@@ -253,10 +340,22 @@ function collectChangedFields() {
     return changes;
 }
 
+// Update semua konten ke server
 window.updateAllContent = async function() {
     const changes = collectChangedFields();
     
-    if (changes.length === 0) {
+    // Tambahkan item baru (rowId negatif) ke server
+    const newItems = currentContentData.filter(item => item.rowId < 0);
+    for (const newItem of newItems) {
+        try {
+            const url = `${window.GAS_ADMIN_URL}?action=addContentItem&category=${newItem.ID}`;
+            await fetch(url);
+        } catch(e) {
+            console.error("Add new item error:", e);
+        }
+    }
+    
+    if (changes.length === 0 && newItems.length === 0) {
         window.showToast("Tidak ada perubahan", true);
         return;
     }
@@ -269,28 +368,24 @@ window.updateAllContent = async function() {
     let successCount = 0;
     let failCount = 0;
     
+    // Update perubahan
     for (const change of changes) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=updateContent&rowId=${change.rowId}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
             const res = await fetch(url);
             const data = await res.json();
-            
-            if (data.status === 'success') {
-                successCount++;
-            } else {
-                failCount++;
-                console.error("Gagal update:", change, data);
-            }
+            if (data.status === 'success') successCount++;
+            else failCount++;
         } catch(e) {
             failCount++;
-            console.error("Error update:", change, e);
         }
     }
     
-    if (successCount > 0) {
+    if (successCount > 0 || newItems.length > 0) {
         await fetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache`);
-        window.showToast(`✅ ${successCount} item berhasil diperbarui${failCount > 0 ? `, ${failCount} gagal` : ''}`);
-        await loadContentData();
+        window.showToast(`✅ ${successCount + newItems.length} item berhasil diperbarui${failCount > 0 ? `, ${failCount} gagal` : ''}`);
+        await loadContentData(); // reload data fresh
+        hasUnsavedChanges = false;
     } else {
         window.showToast("❌ Gagal memperbarui konten", true);
     }
@@ -299,38 +394,14 @@ window.updateAllContent = async function() {
     btn.disabled = false;
 };
 
-window.addContentItem = async function(category) {
-    try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=addContentItem&category=${category}`);
-        const data = await res.json();
-        if (data.status === 'success') {
-            window.showToast("Item ditambahkan");
-            await loadContentData();
-        } else {
-            window.showToast("Gagal tambah item", true);
-        }
-    } catch(e) {
-        console.error("Add item error:", e);
-        window.showToast("Gagal koneksi", true);
+// Warning sebelum refresh jika ada perubahan
+window.addEventListener('beforeunload', function(e) {
+    if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Ada perubahan yang belum disimpan. Yakin ingin meninggalkan halaman?';
+        return e.returnValue;
     }
-};
-
-window.deleteContentItem = async function(category, rowId) {
-    if (!confirm(`Hapus item ${category} ini?`)) return;
-    try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteContentItem&rowId=${rowId}`);
-        const data = await res.json();
-        if (data.status === 'success') {
-            window.showToast("Item dihapus");
-            await loadContentData();
-        } else {
-            window.showToast("Gagal hapus item", true);
-        }
-    } catch(e) {
-        console.error("Delete item error:", e);
-        window.showToast("Gagal koneksi", true);
-    }
-};
+});
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -344,5 +415,7 @@ function escapeHtml(str) {
 
 window.loadContentData = loadContentData;
 window.updateAllContent = updateAllContent;
+window.addContentItem = addContentItem;
+window.deleteContentItem = deleteContentItem;
 
-console.log("✅ admin-content.js loaded (dengan Image URL untuk Galery)");
+console.log("✅ admin-content.js loaded (optimasi, image untuk headline/openmember)");

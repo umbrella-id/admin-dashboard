@@ -1,9 +1,8 @@
 /**
  * admin-content.js - Kelola Konten Web
- * - Update hanya field yang berubah
- * - Tambah/hapus slot DOM only
- * - Tanda untuk item yang diedit (badge)
- * - Tombol batal hapus untuk item yang ditandai hapus
+ * - 3 Badge: BARU (hijau), DIEDIT (kuning), DIHAPUS (merah)
+ * - Running text bisa ditambah/dihapus
+ * - Tombol batal hapus
  */
 
 let currentContentData = [];
@@ -63,7 +62,7 @@ async function loadContentData() {
     }
 }
 
-// Render form
+// Render form dengan badge
 function renderContentEditor(data) {
     const container = document.getElementById('content-editor-container');
     if (!container) return;
@@ -80,7 +79,8 @@ function renderContentEditor(data) {
             <!-- HEADLINE -->
             <div class="content-category">
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
-                <div class="content-item" data-rowid="${headline?.rowId || 2}" data-original='${JSON.stringify(headline || {})}'>
+                <div class="content-item" data-rowid="${headline?.rowId || 2}" data-status="normal">
+                    <div class="item-badge" style="display:none;"></div>
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(headline?.Header || '')}" data-rowid="${headline?.rowId || 2}" data-field="Header">
                     <textarea class="content-body" placeholder="Body" data-rowid="${headline?.rowId || 2}" data-field="Body">${escapeHtml(headline?.Body || '')}</textarea>
                 </div>
@@ -89,7 +89,8 @@ function renderContentEditor(data) {
             <!-- OPEN MEMBER -->
             <div class="content-category">
                 <h4><i class="fas fa-users"></i> OPEN MEMBER</h4>
-                <div class="content-item" data-rowid="${openmember?.rowId || 3}" data-original='${JSON.stringify(openmember || {})}'>
+                <div class="content-item" data-rowid="${openmember?.rowId || 3}" data-status="normal">
+                    <div class="item-badge" style="display:none;"></div>
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(openmember?.Header || '')}" data-rowid="${openmember?.rowId || 3}" data-field="Header">
                     <textarea class="content-body" placeholder="Body" data-rowid="${openmember?.rowId || 3}" data-field="Body">${escapeHtml(openmember?.Body || '')}</textarea>
                 </div>
@@ -100,7 +101,8 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-address-card"></i> PROFIL</h4>
                 <div id="profil-list">
                     ${profilList.map(item => `
-                        <div class="content-item" data-rowid="${item.rowId}" data-original='${JSON.stringify(item)}'>
+                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal">
+                            <div class="item-badge" style="display:none;"></div>
                             <div class="item-actions">
                                 <button class="btn-undo" onclick="undoDelete('profil', ${item.rowId})" style="display:none;">↩️ Batal</button>
                                 <button class="btn-delete-item" onclick="deleteContentItem('profil', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
@@ -121,7 +123,8 @@ function renderContentEditor(data) {
                         const imageUrl = extractImageUrlFromBody(item.Body || '');
                         const caption = extractCaptionFromBody(item.Body || '');
                         return `
-                            <div class="content-item" data-rowid="${item.rowId}" data-original='${JSON.stringify(item)}'>
+                            <div class="content-item" data-rowid="${item.rowId}" data-status="normal">
+                                <div class="item-badge" style="display:none;"></div>
                                 <div class="item-actions">
                                     <button class="btn-undo" onclick="undoDelete('galery', ${item.rowId})" style="display:none;">↩️ Batal</button>
                                     <button class="btn-delete-item" onclick="deleteContentItem('galery', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
@@ -141,7 +144,8 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-scroll"></i> RUNNING TEXT</h4>
                 <div id="runningtext-list">
                     ${runningTexts.map(item => `
-                        <div class="content-item" data-rowid="${item.rowId}" data-original='${JSON.stringify(item)}'>
+                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal">
+                            <div class="item-badge" style="display:none;"></div>
                             <div class="item-actions">
                                 <button class="btn-undo" onclick="undoDelete('running_text', ${item.rowId})" style="display:none;">↩️ Batal</button>
                                 <button class="btn-delete-item" onclick="deleteContentItem('running_text', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
@@ -158,7 +162,8 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-share-alt"></i> SOSMED</h4>
                 <div id="sosmed-list">
                     ${sosmedList.map(item => `
-                        <div class="content-item" data-rowid="${item.rowId}" data-original='${JSON.stringify(item)}'>
+                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal">
+                            <div class="item-badge" style="display:none;"></div>
                             <div class="item-actions">
                                 <button class="btn-undo" onclick="undoDelete('sosmed', ${item.rowId})" style="display:none;">↩️ Batal</button>
                                 <button class="btn-delete-item" onclick="deleteContentItem('sosmed', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
@@ -179,36 +184,60 @@ function renderContentEditor(data) {
     
     container.innerHTML = html;
     
-    // Pasang listener deteksi perubahan untuk badge "DIEDIT"
+    // Pasang listener untuk badge
     document.querySelectorAll('.content-item').forEach(item => {
-        const inputs = item.querySelectorAll('input, textarea, select');
-        const originalData = JSON.parse(item.dataset.original || '{}');
-        const badge = document.createElement('div');
-        badge.className = 'edit-badge';
-        badge.textContent = 'DIEDIT';
-        badge.style.display = 'none';
-        badge.style.cssText = 'position:absolute; top:-8px; right:10px; background:#f59e0b; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;';
-        item.style.position = 'relative';
-        item.appendChild(badge);
+        const rowId = parseInt(item.dataset.rowid);
+        const isNewItem = rowId < 0;
+        const badge = item.querySelector('.item-badge');
+        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
         
+        // Set badge awal untuk item baru
+        if (isNewItem && !item.hasAttribute('data-processed')) {
+            badge.textContent = 'BARU';
+            badge.style.cssText = 'position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px; font-weight:bold; z-index:10;';
+            badge.style.display = 'block';
+            item.style.position = 'relative';
+            item.style.background = 'rgba(34, 197, 94, 0.1)';
+            item.style.borderLeft = '3px solid #22c55e';
+            item.setAttribute('data-processed', 'true');
+        }
+        
+        // Pasang listener deteksi perubahan untuk badge DIEDIT
+        const inputs = item.querySelectorAll('input, textarea, select');
         const checkChanges = () => {
+            if (item.dataset.status === 'deleted') return;
+            
             let hasChanged = false;
             inputs.forEach(input => {
                 const field = input.dataset.field;
                 const originalValue = originalData[field] || '';
                 if (input.value !== originalValue) hasChanged = true;
             });
-            badge.style.display = hasChanged ? 'block' : 'none';
-            if (hasChanged) hasUnsavedChanges = true;
+            
+            if (hasChanged && !isNewItem && item.dataset.status !== 'edited') {
+                badge.textContent = 'DIEDIT';
+                badge.style.background = '#f59e0b';
+                badge.style.display = 'block';
+                item.style.background = 'rgba(245, 158, 11, 0.1)';
+                item.style.borderLeft = '3px solid #f59e0b';
+                item.dataset.status = 'edited';
+                hasUnsavedChanges = true;
+            } else if (!hasChanged && item.dataset.status === 'edited') {
+                badge.style.display = 'none';
+                item.style.background = '';
+                item.style.borderLeft = '';
+                item.dataset.status = 'normal';
+            }
         };
         
         inputs.forEach(input => {
             input.addEventListener('input', checkChanges);
+            if (input.tagName === 'SELECT') input.addEventListener('change', checkChanges);
         });
     });
 }
 
-// Kumpulkan perubahan (hanya field yang berubah)
+// Kumpulkan perubahan
 function collectChangedFields() {
     const changes = [];
     const newItems = [];
@@ -219,36 +248,33 @@ function collectChangedFields() {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId < 0) {
             const category = item.closest('.content-category')?.id?.replace('-list', '');
-            newItems.push({ category, rowId, item });
+            newItems.push({ category, rowId });
         }
     });
     
-    // Cari item yang dihapus (ditandai)
-    document.querySelectorAll('.content-item[data-deleted="true"]').forEach(item => {
+    // Cari item yang dihapus
+    document.querySelectorAll('.content-item[data-status="deleted"]').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId > 0) deletedRows.push(rowId);
     });
     
     // Cari perubahan field
-    document.querySelectorAll('.content-item:not([data-deleted="true"])').forEach(item => {
+    document.querySelectorAll('.content-item:not([data-status="deleted"])').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
         
-        const originalData = JSON.parse(item.dataset.original || '{}');
+        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
         
-        // Header
         const headerInput = item.querySelector('.content-header');
         if (headerInput && originalData.Header !== headerInput.value) {
             changes.push({ rowId, field: 'Header', value: headerInput.value });
         }
         
-        // Body (untuk running text, profil, headline, openmember)
         const bodyInput = item.querySelector('.content-body');
         if (bodyInput && originalData.Body !== bodyInput.value) {
             changes.push({ rowId, field: 'Body', value: bodyInput.value });
         }
         
-        // ImageUrl & Caption untuk galery
         const imageUrlInput = item.querySelector('.content-image-url');
         const captionInput = item.querySelector('.content-caption');
         if (imageUrlInput && captionInput) {
@@ -258,7 +284,6 @@ function collectChangedFields() {
             }
         }
         
-        // Platform untuk sosmed
         const platformSelect = item.querySelector('.content-platform');
         if (platformSelect && originalData.Header !== platformSelect.value) {
             changes.push({ rowId, field: 'Header', value: platformSelect.value });
@@ -287,9 +312,8 @@ window.updateAllContent = async function() {
     
     // Tambah item baru
     for (const newItem of newItems) {
-        const category = newItem.category;
         try {
-            const url = `${window.GAS_ADMIN_URL}?action=addContentItem&category=${category}`;
+            const url = `${window.GAS_ADMIN_URL}?action=addContentItem&category=${newItem.category}`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.status === 'success') successCount++;
@@ -332,7 +356,7 @@ window.updateAllContent = async function() {
     btn.disabled = false;
 };
 
-// TAMBAH ITEM (DOM only)
+// Tambah item
 window.addContentItem = function(category) {
     const container = document.getElementById(`${category}-list`);
     if (!container) return;
@@ -342,7 +366,8 @@ window.addContentItem = function(category) {
     let newItemHtml = '';
     if (category === 'profil') {
         newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" style="background: rgba(34, 197, 94, 0.1); border-left: 3px solid #22c55e;">
+            <div class="content-item" data-rowid="${newRowId}" data-status="new">
+                <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
                 <div class="item-actions">
                     <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
@@ -352,7 +377,8 @@ window.addContentItem = function(category) {
         `;
     } else if (category === 'galery') {
         newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" style="background: rgba(34, 197, 94, 0.1); border-left: 3px solid #22c55e;">
+            <div class="content-item" data-rowid="${newRowId}" data-status="new">
+                <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
                 <div class="item-actions">
                     <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
@@ -363,7 +389,8 @@ window.addContentItem = function(category) {
         `;
     } else if (category === 'running_text') {
         newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" style="background: rgba(34, 197, 94, 0.1); border-left: 3px solid #22c55e;">
+            <div class="content-item" data-rowid="${newRowId}" data-status="new">
+                <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
                 <div class="item-actions">
                     <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
@@ -372,7 +399,8 @@ window.addContentItem = function(category) {
         `;
     } else if (category === 'sosmed') {
         newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" style="background: rgba(34, 197, 94, 0.1); border-left: 3px solid #22c55e;">
+            <div class="content-item" data-rowid="${newRowId}" data-status="new">
+                <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
                 <div class="item-actions">
                     <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
@@ -391,7 +419,7 @@ window.addContentItem = function(category) {
     window.showToast(`Item ${category} ditambahkan (belum disimpan)`);
 };
 
-// HAPUS ITEM
+// Hapus item
 window.deleteContentItem = function(category, rowId) {
     if (!confirm(`Hapus item ${category} ini?`)) return;
     
@@ -407,14 +435,16 @@ window.deleteContentItem = function(category, rowId) {
         item.remove();
         window.showToast(`Item ${category} dihapus (belum disimpan)`);
     } else {
-        // Tandai dihapus
+        const badge = item.querySelector('.item-badge');
+        badge.textContent = 'DIHAPUS';
+        badge.style.background = '#ff4444';
+        badge.style.display = 'block';
         item.style.background = 'rgba(255, 68, 68, 0.1)';
         item.style.borderLeft = '3px solid #ff4444';
-        item.style.opacity = '0.7';
+        item.style.opacity = '0.8';
         item.querySelectorAll('input, textarea, select').forEach(el => el.disabled = true);
-        item.setAttribute('data-deleted', 'true');
+        item.dataset.status = 'deleted';
         
-        // Sembunyikan tombol hapus, tampilkan tombol batal
         const deleteBtn = item.querySelector('.btn-delete-item');
         const undoBtn = item.querySelector('.btn-undo');
         if (deleteBtn) deleteBtn.style.display = 'none';
@@ -425,7 +455,7 @@ window.deleteContentItem = function(category, rowId) {
     }
 };
 
-// BATAL HAPUS (UNDO)
+// Batal hapus
 window.undoDelete = function(category, rowId) {
     const container = document.getElementById(`${category}-list`);
     if (!container) return;
@@ -433,22 +463,18 @@ window.undoDelete = function(category, rowId) {
     const item = container.querySelector(`.content-item[data-rowid="${rowId}"]`);
     if (!item) return;
     
-    // Kembalikan ke tampilan normal
+    const badge = item.querySelector('.item-badge');
+    badge.style.display = 'none';
     item.style.background = '';
     item.style.borderLeft = '';
     item.style.opacity = '';
     item.querySelectorAll('input, textarea, select').forEach(el => el.disabled = false);
-    item.removeAttribute('data-deleted');
+    item.dataset.status = 'normal';
     
-    // Tampilkan tombol hapus, sembunyikan tombol batal
     const deleteBtn = item.querySelector('.btn-delete-item');
     const undoBtn = item.querySelector('.btn-undo');
     if (deleteBtn) deleteBtn.style.display = 'inline-block';
     if (undoBtn) undoBtn.style.display = 'none';
-    
-    // Hapus tanda _deleted dari currentContentData
-    const index = currentContentData.findIndex(d => d.rowId === rowId);
-    if (index !== -1) delete currentContentData[index]._deleted;
     
     window.showToast(`Hapus dibatalkan untuk item ${category}`);
     hasUnsavedChanges = true;
@@ -469,4 +495,4 @@ window.addContentItem = addContentItem;
 window.deleteContentItem = deleteContentItem;
 window.undoDelete = undoDelete;
 
-console.log("✅ admin-content.js loaded (dengan edit badge, undo delete, running text fix)");
+console.log("✅ admin-content.js loaded (3 badge: BARU, DIEDIT, DIHAPUS)");

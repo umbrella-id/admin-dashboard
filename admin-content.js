@@ -2,13 +2,16 @@
  * admin-content.js - Kelola Konten Web
  * - 3 Badge: BARU (hijau), DIEDIT (kuning), DIHAPUS (merah)
  * - Running text bisa ditambah/dihapus
+ * - Headline & Openmember bisa URL gambar
  * - Tombol batal hapus dengan styling rapi
  */
 
 let currentContentData = [];
 let hasUnsavedChanges = false;
 
-// Fungsi bantu
+// ==========================================
+// FUNGSI BANTU
+// ==========================================
 function extractImageUrlFromBody(body) {
     if (!body) return '';
     const match = body.match(/<img[^>]*src="([^"]+)"/);
@@ -38,7 +41,9 @@ function escapeHtml(str) {
     return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
 }
 
-// Load data
+// ==========================================
+// LOAD & RENDER DATA
+// ==========================================
 async function loadContentData() {
     const container = document.getElementById('content-editor-container');
     if (!container) return;
@@ -62,7 +67,6 @@ async function loadContentData() {
     }
 }
 
-// Render form
 function renderContentEditor(data) {
     const container = document.getElementById('content-editor-container');
     if (!container) return;
@@ -76,23 +80,25 @@ function renderContentEditor(data) {
     
     let html = `
         <div class="content-editor">
-            <!-- HEADLINE -->
+            <!-- HEADLINE (dengan URL Gambar) -->
             <div class="content-category">
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
                 <div class="content-item" data-rowid="${headline?.rowId || 2}" data-status="normal" style="position:relative;">
                     <div class="item-badge" style="display:none;"></div>
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(headline?.Header || '')}" data-rowid="${headline?.rowId || 2}" data-field="Header">
-                    <textarea class="content-body" placeholder="Body" data-rowid="${headline?.rowId || 2}" data-field="Body">${escapeHtml(headline?.Body || '')}</textarea>
+                    <input type="text" class="content-image-url" placeholder="URL Gambar (opsional)" value="${escapeHtml(extractImageUrlFromBody(headline?.Body || ''))}" data-rowid="${headline?.rowId || 2}" data-field="ImageUrl">
+                    <textarea class="content-caption" placeholder="Caption / Teks" data-rowid="${headline?.rowId || 2}" data-field="Caption">${escapeHtml(extractCaptionFromBody(headline?.Body || ''))}</textarea>
                 </div>
             </div>
             
-            <!-- OPEN MEMBER -->
+            <!-- OPEN MEMBER (dengan URL Gambar) -->
             <div class="content-category">
                 <h4><i class="fas fa-users"></i> OPEN MEMBER</h4>
                 <div class="content-item" data-rowid="${openmember?.rowId || 3}" data-status="normal" style="position:relative;">
                     <div class="item-badge" style="display:none;"></div>
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(openmember?.Header || '')}" data-rowid="${openmember?.rowId || 3}" data-field="Header">
-                    <textarea class="content-body" placeholder="Body" data-rowid="${openmember?.rowId || 3}" data-field="Body">${escapeHtml(openmember?.Body || '')}</textarea>
+                    <input type="text" class="content-image-url" placeholder="URL Gambar (opsional)" value="${escapeHtml(extractImageUrlFromBody(openmember?.Body || ''))}" data-rowid="${openmember?.rowId || 3}" data-field="ImageUrl">
+                    <textarea class="content-caption" placeholder="Caption / Teks" data-rowid="${openmember?.rowId || 3}" data-field="Caption">${escapeHtml(extractCaptionFromBody(openmember?.Body || ''))}</textarea>
                 </div>
             </div>
             
@@ -191,7 +197,6 @@ function renderContentEditor(data) {
         const badge = item.querySelector('.item-badge');
         const originalData = currentContentData.find(d => d.rowId === rowId) || {};
         
-        // Set badge awal untuk item baru
         if (isNewItem && !item.hasAttribute('data-processed')) {
             badge.textContent = 'BARU';
             badge.style.cssText = 'position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px; font-weight:bold; z-index:10;';
@@ -201,7 +206,6 @@ function renderContentEditor(data) {
             item.setAttribute('data-processed', 'true');
         }
         
-        // Pasang listener deteksi perubahan untuk badge DIEDIT
         const inputs = item.querySelectorAll('input, textarea, select');
         const checkChanges = () => {
             if (item.dataset.status === 'deleted') return;
@@ -213,7 +217,6 @@ function renderContentEditor(data) {
                 if (input.value !== originalValue) hasChanged = true;
             });
             
-            // Cek khusus galery (ImageUrl + Caption)
             const imageUrlInput = item.querySelector('.content-image-url');
             const captionInput = item.querySelector('.content-caption');
             if (imageUrlInput && captionInput) {
@@ -244,7 +247,9 @@ function renderContentEditor(data) {
     });
 }
 
-// Kumpulkan perubahan
+// ==========================================
+// KUMPULKAN PERUBAHAN
+// ==========================================
 function collectChangedFields() {
     const changes = [];
     const newItems = [];
@@ -265,42 +270,103 @@ function collectChangedFields() {
         if (rowId > 0) deletedRows.push(rowId);
     });
     
-    // Cari perubahan field
-    document.querySelectorAll('.content-item:not([data-status="deleted"])').forEach(item => {
+    // Handle HEADLINE & OPEN MEMBER (dengan ImageUrl + Caption)
+    document.querySelectorAll('.content-category:first-child .content-item, .content-category:nth-child(2) .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
         
+        const headerInput = item.querySelector('.content-header');
+        const imageUrlInput = item.querySelector('.content-image-url');
+        const captionInput = item.querySelector('.content-caption');
         const originalData = currentContentData.find(d => d.rowId === rowId) || {};
         
-        const headerInput = item.querySelector('.content-header');
         if (headerInput && originalData.Header !== headerInput.value) {
             changes.push({ rowId, field: 'Header', value: headerInput.value });
         }
         
-        const bodyInput = item.querySelector('.content-body');
-        if (bodyInput && originalData.Body !== bodyInput.value) {
-            changes.push({ rowId, field: 'Body', value: bodyInput.value });
-        }
-        
-        const imageUrlInput = item.querySelector('.content-image-url');
-        const captionInput = item.querySelector('.content-caption');
         if (imageUrlInput && captionInput) {
             const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
             if (originalData.Body !== newBody) {
                 changes.push({ rowId, field: 'Body', value: newBody });
             }
         }
+    });
+    
+    // Handle PROFIL
+    document.querySelectorAll('#profil-list .content-item:not([data-status="deleted"])').forEach(item => {
+        const rowId = parseInt(item.dataset.rowid);
+        if (rowId <= 0) return;
+        
+        const headerInput = item.querySelector('.content-header');
+        const bodyInput = item.querySelector('.content-body');
+        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+        
+        if (headerInput && originalData.Header !== headerInput.value) {
+            changes.push({ rowId, field: 'Header', value: headerInput.value });
+        }
+        if (bodyInput && originalData.Body !== bodyInput.value) {
+            changes.push({ rowId, field: 'Body', value: bodyInput.value });
+        }
+    });
+    
+    // Handle GALERY
+    document.querySelectorAll('#galery-list .content-item:not([data-status="deleted"])').forEach(item => {
+        const rowId = parseInt(item.dataset.rowid);
+        if (rowId <= 0) return;
+        
+        const headerInput = item.querySelector('.content-header');
+        const imageUrlInput = item.querySelector('.content-image-url');
+        const captionInput = item.querySelector('.content-caption');
+        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+        
+        if (headerInput && originalData.Header !== headerInput.value) {
+            changes.push({ rowId, field: 'Header', value: headerInput.value });
+        }
+        
+        if (imageUrlInput && captionInput) {
+            const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
+            if (originalData.Body !== newBody) {
+                changes.push({ rowId, field: 'Body', value: newBody });
+            }
+        }
+    });
+    
+    // Handle RUNNING TEXT
+    document.querySelectorAll('#runningtext-list .content-item:not([data-status="deleted"])').forEach(item => {
+        const rowId = parseInt(item.dataset.rowid);
+        if (rowId <= 0) return;
+        
+        const bodyInput = item.querySelector('.content-body');
+        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+        
+        if (bodyInput && originalData.Body !== bodyInput.value) {
+            changes.push({ rowId, field: 'Body', value: bodyInput.value });
+        }
+    });
+    
+    // Handle SOSMED
+    document.querySelectorAll('#sosmed-list .content-item:not([data-status="deleted"])').forEach(item => {
+        const rowId = parseInt(item.dataset.rowid);
+        if (rowId <= 0) return;
         
         const platformSelect = item.querySelector('.content-platform');
+        const bodyInput = item.querySelector('.content-body');
+        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+        
         if (platformSelect && originalData.Header !== platformSelect.value) {
             changes.push({ rowId, field: 'Header', value: platformSelect.value });
+        }
+        if (bodyInput && originalData.Body !== bodyInput.value) {
+            changes.push({ rowId, field: 'Body', value: bodyInput.value });
         }
     });
     
     return { changes, newItems, deletedRows };
 }
 
-// Update semua konten
+// ==========================================
+// UPDATE KE SERVER
+// ==========================================
 window.updateAllContent = async function() {
     const { changes, newItems, deletedRows } = collectChangedFields();
     
@@ -317,7 +383,7 @@ window.updateAllContent = async function() {
     let successCount = 0;
     let failCount = 0;
     
-    // Tambah item baru
+    // 1. Tambah item baru
     for (const newItem of newItems) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=addContentItem&category=${newItem.category}`;
@@ -328,7 +394,7 @@ window.updateAllContent = async function() {
         } catch(e) { failCount++; }
     }
     
-    // Hapus item yang ditandai
+    // 2. Hapus item yang ditandai
     for (const rowId of deletedRows) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=deleteContentItem&rowId=${rowId}`;
@@ -339,7 +405,7 @@ window.updateAllContent = async function() {
         } catch(e) { failCount++; }
     }
     
-    // Update perubahan
+    // 3. Update perubahan
     for (const change of changes) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=updateContent&rowId=${change.rowId}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
@@ -363,14 +429,20 @@ window.updateAllContent = async function() {
     btn.disabled = false;
 };
 
-// Tambah item
+// ==========================================
+// TAMBAH ITEM
+// ==========================================
 window.addContentItem = function(category) {
-    const container = document.getElementById(`${category}-list`);
-    if (!container) return;
+    const containerId = `${category}-list`;
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error("Container not found:", containerId);
+        return;
+    }
     
     const newRowId = -Date.now();
-    
     let newItemHtml = '';
+    
     if (category === 'profil') {
         newItemHtml = `
             <div class="content-item" data-rowid="${newRowId}" data-status="new" style="position:relative; background:rgba(34,197,94,0.1); border-left:3px solid #22c55e;">
@@ -426,11 +498,14 @@ window.addContentItem = function(category) {
     window.showToast(`Item ${category} ditambahkan (belum disimpan)`);
 };
 
-// Hapus item
+// ==========================================
+// HAPUS ITEM
+// ==========================================
 window.deleteContentItem = function(category, rowId) {
     if (!confirm(`Hapus item ${category} ini?`)) return;
     
-    const container = document.getElementById(`${category}-list`);
+    const containerId = `${category}-list`;
+    const container = document.getElementById(containerId);
     if (!container) return;
     
     const item = container.querySelector(`.content-item[data-rowid="${rowId}"]`);
@@ -462,9 +537,12 @@ window.deleteContentItem = function(category, rowId) {
     }
 };
 
-// Batal hapus
+// ==========================================
+// BATAL HAPUS
+// ==========================================
 window.undoDelete = function(category, rowId) {
-    const container = document.getElementById(`${category}-list`);
+    const containerId = `${category}-list`;
+    const container = document.getElementById(containerId);
     if (!container) return;
     
     const item = container.querySelector(`.content-item[data-rowid="${rowId}"]`);
@@ -473,7 +551,6 @@ window.undoDelete = function(category, rowId) {
     const badge = item.querySelector('.item-badge');
     const originalData = currentContentData.find(d => d.rowId === rowId) || {};
     
-    // Cek apakah item pernah diedit sebelumnya
     let hasChanges = false;
     const headerInput = item.querySelector('.content-header');
     const bodyInput = item.querySelector('.content-body');
@@ -489,14 +566,12 @@ window.undoDelete = function(category, rowId) {
     }
     if (platformSelect && originalData.Header !== platformSelect.value) hasChanges = true;
     
-    // Kembalikan ke tampilan normal
     item.style.background = '';
     item.style.borderLeft = '';
     item.style.opacity = '';
     item.querySelectorAll('input, textarea, select').forEach(el => el.disabled = false);
     item.dataset.status = hasChanges ? 'edited' : 'normal';
     
-    // Set badge sesuai status
     if (hasChanges) {
         badge.textContent = 'DIEDIT';
         badge.style.background = '#f59e0b';
@@ -507,13 +582,11 @@ window.undoDelete = function(category, rowId) {
         badge.style.display = 'none';
     }
     
-    // Tampilkan tombol hapus, sembunyikan tombol batal
     const deleteBtn = item.querySelector('.btn-delete-item');
     const undoBtn = item.querySelector('.btn-undo');
     if (deleteBtn) deleteBtn.style.display = 'inline-block';
     if (undoBtn) undoBtn.style.display = 'none';
     
-    // Hapus tanda deleted dari currentContentData
     const index = currentContentData.findIndex(d => d.rowId === rowId);
     if (index !== -1) delete currentContentData[index]._deleted;
     
@@ -521,7 +594,9 @@ window.undoDelete = function(category, rowId) {
     hasUnsavedChanges = true;
 };
 
-// Warning sebelum refresh
+// ==========================================
+// WARNING SEBELUM REFRESH
+// ==========================================
 window.addEventListener('beforeunload', function(e) {
     if (hasUnsavedChanges) {
         e.preventDefault();
@@ -530,10 +605,9 @@ window.addEventListener('beforeunload', function(e) {
     }
 });
 
+// ==========================================
+// EXPOSE
+// ==========================================
 window.loadContentData = loadContentData;
 window.updateAllContent = updateAllContent;
-window.addContentItem = addContentItem;
-window.deleteContentItem = deleteContentItem;
-window.undoDelete = undoDelete;
-
-console.log("✅ admin-content.js loaded (final)");
+window.addContentItem

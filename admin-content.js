@@ -1,7 +1,7 @@
 /**
  * admin-content.js - Kelola Konten Web
  * Toggle Publish: ubah ID antara huruf kecil (published) dan huruf besar (draft)
- * Semua perubahan disimpan saat klik "PERBARUI KONTEN"
+ * Item baru (belum disimpan) langsung dihapus, item lama ditandai merah
  */
 
 let currentContentData = [];
@@ -102,11 +102,6 @@ function storeOriginalValues(itemElement, rowId, fields) {
         if (el) {
             originalValues.set(`${rowId}_${field}`, el.value);
         }
-    }
-    // Simpan juga ID asli untuk toggle publish
-    const idEl = itemElement.querySelector('.publish-toggle');
-    if (idEl) {
-        originalValues.set(`${rowId}_publish`, idEl.checked);
     }
 }
 
@@ -332,15 +327,12 @@ function renderContentEditor(data) {
                 
                 let newId;
                 if (isChecked) {
-                    // Publish: huruf kecil
                     newId = currentId.toLowerCase();
                 } else {
-                    // Draft: huruf besar
                     newId = currentId.toUpperCase();
                 }
                 
                 if (currentId !== newId) {
-                    // Tandai ada perubahan ID di memory
                     const index = currentContentData.findIndex(d => d.rowId === rowId);
                     if (index !== -1) {
                         currentContentData[index]._newId = newId;
@@ -354,14 +346,14 @@ function renderContentEditor(data) {
 }
 
 // ==========================================
-// TAMBAH & HAPUS ITEM (DOM ONLY)
+// TAMBAH & HAPUS ITEM
 // ==========================================
 window.addContentItem = function(category) {
     const container = document.getElementById(`${category}-list`);
     if (!container) return;
     
     const newRowId = -Date.now();
-    const newId = category.toLowerCase(); // ID awal huruf kecil (published)
+    const newId = category.toLowerCase();
     
     let newItemHtml = '';
     if (category === 'profil') {
@@ -468,25 +460,37 @@ window.deleteContentItem = function(category, rowId) {
     if (!container) return;
     
     const item = container.querySelector(`.content-item[data-rowid="${rowId}"]`);
-    if (item && item.dataset.status !== 'deleted') {
-        updateItemStatus(item, rowId, 'deleted');
-        
-        item.querySelectorAll('input, textarea, select, button').forEach(el => {
-            if (el.classList && el.classList.contains('btn-delete-item')) {
-                el.style.display = 'none';
-            } else if (el.classList && el.classList.contains('publish-toggle')) {
-                el.disabled = true;
-            } else {
-                el.disabled = true;
-            }
-        });
-        
+    if (!item) return;
+    
+    const isNewItem = rowId < 0;
+    
+    if (isNewItem) {
+        // Item baru (belum disimpan): langsung hapus dari DOM dan memory
+        item.remove();
         const index = currentContentData.findIndex(d => d.rowId === rowId);
-        if (index !== -1) currentContentData[index]._status = 'deleted';
-        
-        hasUnsavedChanges = true;
-        window.showToast(`Item ${category} ditandai dihapus (belum permanen)`);
+        if (index !== -1) currentContentData.splice(index, 1);
+        window.showToast(`Item ${category} dihapus (belum disimpan)`);
+    } else {
+        // Item lama (sudah di server): tandai deleted
+        if (item.dataset.status !== 'deleted') {
+            updateItemStatus(item, rowId, 'deleted');
+            
+            item.querySelectorAll('input, textarea, select, button').forEach(el => {
+                if (el.classList && el.classList.contains('btn-delete-item')) {
+                    el.style.display = 'none';
+                } else {
+                    el.disabled = true;
+                }
+            });
+            
+            const index = currentContentData.findIndex(d => d.rowId === rowId);
+            if (index !== -1) currentContentData[index]._status = 'deleted';
+            
+            window.showToast(`Item ${category} ditandai dihapus (belum permanen)`);
+        }
     }
+    
+    hasUnsavedChanges = true;
 };
 
 // ==========================================
@@ -520,7 +524,6 @@ function collectChangedFields() {
                 if ((oldItem.Body || '') !== newBody) changes.push({ rowId, field: 'Body', value: newBody });
                 if (platform && oldItem.Header !== platform) changes.push({ rowId, field: 'Header', value: platform });
                 
-                // Cek perubahan ID (publish/draft)
                 if (oldItem._newId && oldItem.ID !== oldItem._newId) {
                     changes.push({ rowId, field: 'ID', value: oldItem._newId });
                 }
@@ -584,6 +587,7 @@ window.updateAllContent = async function() {
     }
     
     if (successCount > 0) {
+        // Refresh cache GAS 1 agar web segera mendapat data terbaru
         await fetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache`);
         window.showToast(`✅ ${successCount} item berhasil diperbarui${failCount > 0 ? `, ${failCount} gagal` : ''}`);
         await loadContentData();
@@ -616,4 +620,4 @@ window.updateAllContent = updateAllContent;
 window.addContentItem = addContentItem;
 window.deleteContentItem = deleteContentItem;
 
-console.log("✅ admin-content.js loaded (toggle publish hanya update memory)");
+console.log("✅ admin-content.js loaded (final)");

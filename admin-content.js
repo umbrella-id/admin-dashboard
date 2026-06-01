@@ -254,44 +254,71 @@ function collectChangedFields() {
     const newItems = [];
     const deletedRows = [];
     
-    // Cari item baru (rowId negatif) dari profil dan galery
+    // ========== 1. CARI ITEM BARU (rowId negatif) ==========
     document.querySelectorAll('#profil-list .content-item, #galery-list .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId < 0) {
-            const category = item.closest('.content-category')?.id?.replace('-list', '');
-            newItems.push({ category, rowId });
+            if (item.closest('#profil-list')) {
+                newItems.push({ category: 'profil', rowId });
+            } else if (item.closest('#galery-list')) {
+                newItems.push({ category: 'galery', rowId });
+            }
         }
     });
     
-    // Cari item yang dihapus (data-status="deleted")
+    // ========== 2. CARI ITEM YANG DIHAPUS ==========
     document.querySelectorAll('.content-item[data-status="deleted"]').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId > 0) deletedRows.push(rowId);
     });
     
-    // Handle HEADLINE & OPEN MEMBER
-    document.querySelectorAll('.content-category:first-child .content-item, .content-category:nth-child(2) .content-item').forEach(item => {
-        const rowId = parseInt(item.dataset.rowid);
-        if (rowId <= 0) return;
-        
-        const headerInput = item.querySelector('.content-header');
-        const imageUrlInput = item.querySelector('.content-image-url');
-        const captionInput = item.querySelector('.content-caption');
-        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
-        
-        if (headerInput && originalData.Header !== headerInput.value) {
-            changes.push({ rowId, field: 'Header', value: headerInput.value });
-        }
-        
-        if (imageUrlInput && captionInput) {
-            const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
-            if (originalData.Body !== newBody) {
-                changes.push({ rowId, field: 'Body', value: newBody });
+    // ========== 3. HEADLINE ==========
+    const headlineItem = document.querySelector('.content-category:first-child .content-item');
+    if (headlineItem) {
+        const rowId = parseInt(headlineItem.dataset.rowid);
+        if (rowId > 0) {
+            const headerInput = headlineItem.querySelector('.content-header');
+            const imageUrlInput = headlineItem.querySelector('.content-image-url');
+            const captionInput = headlineItem.querySelector('.content-caption');
+            const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+            
+            if (headerInput && originalData.Header !== headerInput.value) {
+                changes.push({ rowId, field: 'Header', value: headerInput.value });
+            }
+            
+            if (imageUrlInput && captionInput) {
+                const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
+                if (originalData.Body !== newBody) {
+                    changes.push({ rowId, field: 'Body', value: newBody });
+                }
             }
         }
-    });
+    }
     
-    // Handle PROFIL
+    // ========== 4. OPEN MEMBER ==========
+    const openmemberItem = document.querySelector('.content-category:nth-child(2) .content-item');
+    if (openmemberItem) {
+        const rowId = parseInt(openmemberItem.dataset.rowid);
+        if (rowId > 0) {
+            const headerInput = openmemberItem.querySelector('.content-header');
+            const imageUrlInput = openmemberItem.querySelector('.content-image-url');
+            const captionInput = openmemberItem.querySelector('.content-caption');
+            const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+            
+            if (headerInput && originalData.Header !== headerInput.value) {
+                changes.push({ rowId, field: 'Header', value: headerInput.value });
+            }
+            
+            if (imageUrlInput && captionInput) {
+                const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
+                if (originalData.Body !== newBody) {
+                    changes.push({ rowId, field: 'Body', value: newBody });
+                }
+            }
+        }
+    }
+    
+    // ========== 5. PROFIL ==========
     document.querySelectorAll('#profil-list .content-item:not([data-status="deleted"])').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
@@ -308,7 +335,7 @@ function collectChangedFields() {
         }
     });
     
-    // Handle GALERY
+    // ========== 6. GALERY ==========
     document.querySelectorAll('#galery-list .content-item:not([data-status="deleted"])').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
@@ -330,7 +357,7 @@ function collectChangedFields() {
         }
     });
     
-    // Handle RUNNING TEXT
+    // ========== 7. RUNNING TEXT ==========
     document.querySelectorAll('#runningtext-list .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
@@ -343,7 +370,7 @@ function collectChangedFields() {
         }
     });
     
-    // Handle SOSMED
+    // ========== 8. SOSMED ==========
     document.querySelectorAll('#sosmed-list .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;

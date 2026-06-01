@@ -1,28 +1,26 @@
 /**
  * admin-content.js - Kelola Konten Web
- * Dengan fitur Image URL untuk Galery (otomatis jadi <img>)
+ * Stabil: update hanya field yang berubah
+ * Tambah/hapus slot tanpa reload (DOM only)
  */
 
 let currentContentData = [];
+let hasUnsavedChanges = false;
 
-// Fungsi bantu ekstrak URL gambar dari Body
+// Fungsi bantu
 function extractImageUrlFromBody(body) {
     if (!body) return '';
     const match = body.match(/<img[^>]*src="([^"]+)"/);
     return match ? match[1] : '';
 }
 
-// Fungsi bantu ekstrak caption (teks setelah img) dari Body
 function extractCaptionFromBody(body) {
     if (!body) return '';
-    // Hapus semua tag img
     let text = body.replace(/<img[^>]*>/g, '');
-    // Hapus tag p jika kosong
     text = text.replace(/<\/?p>/g, '').trim();
     return text;
 }
 
-// Fungsi build Body dari imageUrl + caption
 function buildGalleryBody(imageUrl, caption) {
     let html = '';
     if (imageUrl && imageUrl.trim()) {
@@ -34,13 +32,15 @@ function buildGalleryBody(imageUrl, caption) {
     return html;
 }
 
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+}
+
+// Load data
 async function loadContentData() {
-    console.log("loadContentData dipanggil");
     const container = document.getElementById('content-editor-container');
-    if (!container) {
-        console.log("Container content-editor-container tidak ditemukan");
-        return;
-    }
+    if (!container) return;
     
     container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data konten...</div>';
     
@@ -51,6 +51,7 @@ async function loadContentData() {
         if (data.status === 'success' && data.data) {
             currentContentData = data.data;
             renderContentEditor(currentContentData);
+            hasUnsavedChanges = false;
         } else {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data konten</div>';
         }
@@ -60,6 +61,7 @@ async function loadContentData() {
     }
 }
 
+// Render form
 function renderContentEditor(data) {
     const container = document.getElementById('content-editor-container');
     if (!container) return;
@@ -96,7 +98,7 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-address-card"></i> PROFIL</h4>
                 <div id="profil-list">
                     ${profilList.map(item => `
-                        <div class="content-item">
+                        <div class="content-item" data-rowid="${item.rowId}">
                             <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
                             <textarea class="content-body" placeholder="Body" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
                             <button class="btn-delete-item" onclick="deleteContentItem('profil', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
@@ -106,7 +108,7 @@ function renderContentEditor(data) {
                 <button class="btn-add-item" onclick="addContentItem('profil')"><i class="fas fa-plus"></i> Tambah Profil</button>
             </div>
             
-            <!-- GALERY (dengan Image URL terpisah) -->
+            <!-- GALERY -->
             <div class="content-category">
                 <h4><i class="fas fa-images"></i> GALERY</h4>
                 <div id="galery-list">
@@ -114,7 +116,7 @@ function renderContentEditor(data) {
                         const imageUrl = extractImageUrlFromBody(item.Body || '');
                         const caption = extractCaptionFromBody(item.Body || '');
                         return `
-                            <div class="content-item">
+                            <div class="content-item" data-rowid="${item.rowId}">
                                 <input type="text" class="content-header" placeholder="Judul Event" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
                                 <input type="text" class="content-image-url" placeholder="URL Gambar" value="${escapeHtml(imageUrl)}" data-rowid="${item.rowId}" data-field="ImageUrl">
                                 <textarea class="content-caption" placeholder="Deskripsi / Caption" data-rowid="${item.rowId}" data-field="Caption">${escapeHtml(caption)}</textarea>
@@ -131,7 +133,7 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-scroll"></i> RUNNING TEXT</h4>
                 <div id="runningtext-list">
                     ${runningTexts.map(item => `
-                        <div class="content-item">
+                        <div class="content-item" data-rowid="${item.rowId}">
                             <textarea class="content-body" placeholder="Text" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
                             <button class="btn-delete-item" onclick="deleteContentItem('running_text', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
                         </div>
@@ -145,7 +147,7 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-share-alt"></i> SOSMED</h4>
                 <div id="sosmed-list">
                     ${sosmedList.map(item => `
-                        <div class="content-item">
+                        <div class="content-item" data-rowid="${item.rowId}">
                             <select class="content-platform" data-rowid="${item.rowId}" data-field="Header">
                                 <option value="whatsapp" ${item.Header === 'whatsapp' ? 'selected' : ''}>WhatsApp</option>
                                 <option value="facebook" ${item.Header === 'facebook' ? 'selected' : ''}>Facebook</option>
@@ -158,15 +160,17 @@ function renderContentEditor(data) {
                 </div>
                 <button class="btn-add-item" onclick="addContentItem('sosmed')"><i class="fas fa-plus"></i> Tambah Sosmed</button>
             </div>
-    `; 
+        </div>
+    `;
     
     container.innerHTML = html;
 }
 
+// Kumpulkan perubahan (hanya field yang berubah)
 function collectChangedFields() {
     const changes = [];
     
-    // Handle GALERY khusus (gabungkan ImageUrl + Caption jadi Body)
+    // GALERY
     document.querySelectorAll('#galery-list .content-item').forEach(item => {
         const rowId = parseInt(item.querySelector('.content-header')?.dataset.rowid);
         const header = item.querySelector('.content-header')?.value || '';
@@ -176,17 +180,12 @@ function collectChangedFields() {
         const oldItem = currentContentData.find(d => d.rowId === rowId);
         if (oldItem) {
             const newBody = buildGalleryBody(imageUrl, caption);
-            
-            if (oldItem.Header !== header) {
-                changes.push({ rowId, field: 'Header', value: header });
-            }
-            if ((oldItem.Body || '') !== newBody) {
-                changes.push({ rowId, field: 'Body', value: newBody });
-            }
+            if (oldItem.Header !== header) changes.push({ rowId, field: 'Header', value: header });
+            if ((oldItem.Body || '') !== newBody) changes.push({ rowId, field: 'Body', value: newBody });
         }
     });
     
-    // Handle PROFIL
+    // PROFIL
     document.querySelectorAll('#profil-list .content-item').forEach(item => {
         const rowId = parseInt(item.querySelector('.content-header')?.dataset.rowid);
         const header = item.querySelector('.content-header')?.value || '';
@@ -194,16 +193,12 @@ function collectChangedFields() {
         
         const oldItem = currentContentData.find(d => d.rowId === rowId);
         if (oldItem) {
-            if (oldItem.Header !== header) {
-                changes.push({ rowId, field: 'Header', value: header });
-            }
-            if ((oldItem.Body || '') !== body) {
-                changes.push({ rowId, field: 'Body', value: body });
-            }
+            if (oldItem.Header !== header) changes.push({ rowId, field: 'Header', value: header });
+            if ((oldItem.Body || '') !== body) changes.push({ rowId, field: 'Body', value: body });
         }
     });
     
-    // Handle HEADLINE & OPEN MEMBER
+    // HEADLINE & OPEN MEMBER
     document.querySelectorAll('.content-category:not(:has(#profil-list)):not(:has(#galery-list)) .content-item').forEach(item => {
         const rowId = parseInt(item.querySelector('.content-header, .content-body')?.dataset.rowid);
         if (!rowId) return;
@@ -213,27 +208,21 @@ function collectChangedFields() {
         
         const oldItem = currentContentData.find(d => d.rowId === rowId);
         if (oldItem) {
-            if (headerInput && oldItem.Header !== headerInput.value) {
-                changes.push({ rowId, field: 'Header', value: headerInput.value });
-            }
-            if (bodyInput && (oldItem.Body || '') !== bodyInput.value) {
-                changes.push({ rowId, field: 'Body', value: bodyInput.value });
-            }
+            if (headerInput && oldItem.Header !== headerInput.value) changes.push({ rowId, field: 'Header', value: headerInput.value });
+            if (bodyInput && (oldItem.Body || '') !== bodyInput.value) changes.push({ rowId, field: 'Body', value: bodyInput.value });
         }
     });
     
-    // Handle RUNNING TEXT
+    // RUNNING TEXT
     document.querySelectorAll('#runningtext-list .content-item').forEach(item => {
         const rowId = parseInt(item.querySelector('.content-body')?.dataset.rowid);
         const body = item.querySelector('.content-body')?.value || '';
         
         const oldItem = currentContentData.find(d => d.rowId === rowId);
-        if (oldItem && (oldItem.Body || '') !== body) {
-            changes.push({ rowId, field: 'Body', value: body });
-        }
+        if (oldItem && (oldItem.Body || '') !== body) changes.push({ rowId, field: 'Body', value: body });
     });
     
-    // Handle SOSMED
+    // SOSMED
     document.querySelectorAll('#sosmed-list .content-item').forEach(item => {
         const rowId = parseInt(item.querySelector('.content-platform')?.dataset.rowid);
         const header = item.querySelector('.content-platform')?.value || '';
@@ -241,18 +230,15 @@ function collectChangedFields() {
         
         const oldItem = currentContentData.find(d => d.rowId === rowId);
         if (oldItem) {
-            if ((oldItem.Header || '') !== header) {
-                changes.push({ rowId, field: 'Header', value: header });
-            }
-            if ((oldItem.Body || '') !== body) {
-                changes.push({ rowId, field: 'Body', value: body });
-            }
+            if ((oldItem.Header || '') !== header) changes.push({ rowId, field: 'Header', value: header });
+            if ((oldItem.Body || '') !== body) changes.push({ rowId, field: 'Body', value: body });
         }
     });
     
     return changes;
 }
 
+// Update hanya field yang berubah
 window.updateAllContent = async function() {
     const changes = collectChangedFields();
     
@@ -274,17 +260,9 @@ window.updateAllContent = async function() {
             const url = `${window.GAS_ADMIN_URL}?action=updateContent&rowId=${change.rowId}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
             const res = await fetch(url);
             const data = await res.json();
-            
-            if (data.status === 'success') {
-                successCount++;
-            } else {
-                failCount++;
-                console.error("Gagal update:", change, data);
-            }
-        } catch(e) {
-            failCount++;
-            console.error("Error update:", change, e);
-        }
+            if (data.status === 'success') successCount++;
+            else failCount++;
+        } catch(e) { failCount++; }
     }
     
     if (successCount > 0) {
@@ -299,50 +277,110 @@ window.updateAllContent = async function() {
     btn.disabled = false;
 };
 
-window.addContentItem = async function(category) {
-    try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=addContentItem&category=${category}`);
-        const data = await res.json();
-        if (data.status === 'success') {
-            window.showToast("Item ditambahkan");
-            await loadContentData();
-        } else {
-            window.showToast("Gagal tambah item", true);
-        }
-    } catch(e) {
-        console.error("Add item error:", e);
-        window.showToast("Gagal koneksi", true);
+// TAMBAH ITEM (DOM only, tidak reload)
+window.addContentItem = function(category) {
+    const container = document.getElementById(`${category}-list`);
+    if (!container) return;
+    
+    const newRowId = -Date.now();
+    
+    let newItemHtml = '';
+    if (category === 'profil') {
+        newItemHtml = `
+            <div class="content-item" data-rowid="${newRowId}" style="background: rgba(34, 197, 94, 0.1); border-left: 3px solid #22c55e;">
+                <input type="text" class="content-header" placeholder="Header" data-rowid="${newRowId}" data-field="Header">
+                <textarea class="content-body" placeholder="Body" data-rowid="${newRowId}" data-field="Body"></textarea>
+                <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+            </div>
+        `;
+    } else if (category === 'galery') {
+        newItemHtml = `
+            <div class="content-item" data-rowid="${newRowId}" style="background: rgba(34, 197, 94, 0.1); border-left: 3px solid #22c55e;">
+                <input type="text" class="content-header" placeholder="Judul Event" data-rowid="${newRowId}" data-field="Header">
+                <input type="text" class="content-image-url" placeholder="URL Gambar" data-rowid="${newRowId}" data-field="ImageUrl">
+                <textarea class="content-caption" placeholder="Deskripsi / Caption" data-rowid="${newRowId}" data-field="Caption"></textarea>
+                <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+            </div>
+        `;
+    } else if (category === 'running_text') {
+        newItemHtml = `
+            <div class="content-item" data-rowid="${newRowId}" style="background: rgba(34, 197, 94, 0.1); border-left: 3px solid #22c55e;">
+                <textarea class="content-body" placeholder="Text" data-rowid="${newRowId}" data-field="Body"></textarea>
+                <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+            </div>
+        `;
+    } else if (category === 'sosmed') {
+        newItemHtml = `
+            <div class="content-item" data-rowid="${newRowId}" style="background: rgba(34, 197, 94, 0.1); border-left: 3px solid #22c55e;">
+                <select class="content-platform" data-rowid="${newRowId}" data-field="Header">
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="discord">Discord</option>
+                </select>
+                <input type="text" class="content-body" placeholder="URL" data-rowid="${newRowId}" data-field="Body">
+                <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+            </div>
+        `;
     }
-};
-
-window.deleteContentItem = async function(category, rowId) {
-    if (!confirm(`Hapus item ${category} ini?`)) return;
-    try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteContentItem&rowId=${rowId}`);
-        const data = await res.json();
-        if (data.status === 'success') {
-            window.showToast("Item dihapus");
-            await loadContentData();
-        } else {
-            window.showToast("Gagal hapus item", true);
-        }
-    } catch(e) {
-        console.error("Delete item error:", e);
-        window.showToast("Gagal koneksi", true);
-    }
-};
-
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
+    
+    container.insertAdjacentHTML('beforeend', newItemHtml);
+    currentContentData.push({
+        rowId: newRowId,
+        ID: category,
+        Header: "",
+        Body: "",
+        _temp: true
     });
-}
+    hasUnsavedChanges = true;
+    window.showToast(`Item ${category} ditambahkan (belum disimpan)`);
+};
+
+// HAPUS ITEM
+window.deleteContentItem = function(category, rowId) {
+    if (!confirm(`Hapus item ${category} ini?`)) return;
+    
+    const container = document.getElementById(`${category}-list`);
+    if (!container) return;
+    
+    const item = container.querySelector(`.content-item[data-rowid="${rowId}"]`);
+    if (!item) return;
+    
+    // Cek apakah item baru (belum disimpan)
+    const isNewItem = rowId < 0;
+    
+    if (isNewItem) {
+        // Item baru: langsung hapus dari DOM
+        item.remove();
+        const index = currentContentData.findIndex(d => d.rowId === rowId);
+        if (index !== -1) currentContentData.splice(index, 1);
+        window.showToast(`Item ${category} dihapus (belum disimpan)`);
+    } else {
+        // Item lama: tandai merah (akan dihapus saat update)
+        item.style.background = 'rgba(255, 68, 68, 0.1)';
+        item.style.borderLeft = '3px solid #ff4444';
+        item.style.opacity = '0.7';
+        item.querySelectorAll('input, textarea, select').forEach(el => el.disabled = true);
+        item.dataset.deleted = 'true';
+        
+        const index = currentContentData.findIndex(d => d.rowId === rowId);
+        if (index !== -1) currentContentData[index]._deleted = true;
+        hasUnsavedChanges = true;
+        window.showToast(`Item ${category} ditandai dihapus (belum permanen)`);
+    }
+};
+
+// Warning sebelum refresh
+window.addEventListener('beforeunload', function(e) {
+    if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Ada perubahan yang belum disimpan. Yakin ingin meninggalkan halaman?';
+        return e.returnValue;
+    }
+});
 
 window.loadContentData = loadContentData;
 window.updateAllContent = updateAllContent;
+window.addContentItem = addContentItem;
+window.deleteContentItem = deleteContentItem;
 
-console.log("✅ admin-content.js loaded (dengan Image URL untuk Galery)");
+console.log("✅ admin-content.js loaded (stabil, DOM only)");

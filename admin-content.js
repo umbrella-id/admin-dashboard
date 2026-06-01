@@ -454,46 +454,128 @@ window.updateAllContent = async function() {
 // ==========================================
 // TAMBAH ITEM (hanya untuk profil dan galery)
 // ==========================================
-window.addContentItem = function(category) {
-    const containerId = `${category}-list`;
-    const container = document.getElementById(containerId);
-    if (!container) {
-        console.error("Container not found:", containerId);
-        return;
+window.addContentItem = async function(category) {
+    const container = document.getElementById(`${category}-list`);
+    if (!container) return;
+    
+    // Tampilkan form loading (sementara)
+    const tempRowId = -Date.now();
+    const loadingHtml = `
+        <div class="content-item" data-rowid="${tempRowId}" style="opacity:0.5;">
+            <div class="item-actions"><button disabled>⏳ Menyimpan...</button></div>
+            <input type="text" class="content-header" placeholder="Header" disabled>
+            <textarea class="content-body" placeholder="Body" disabled></textarea>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', loadingHtml);
+    
+    try {
+        // Kirim ke server
+        const url = `${window.GAS_ADMIN_URL}?action=addContentItem&category=${category}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.status === 'success' && data.rowId) {
+            // Ganti loading form dengan form aktif (pakai rowId asli dari server)
+            const tempItem = container.querySelector(`.content-item[data-rowid="${tempRowId}"]`);
+            const newItemHtml = getNewItemHtml(category, data.rowId);
+            tempItem.outerHTML = newItemHtml;
+            
+            // Tambahkan ke currentContentData
+            currentContentData.push({
+                rowId: data.rowId,
+                ID: category,
+                Header: "",
+                Body: "",
+                _status: "new"
+            });
+            
+            // Pasang listener untuk item baru
+            const newItem = container.querySelector(`.content-item[data-rowid="${data.rowId}"]`);
+            attachItemListeners(newItem, data.rowId);
+            
+            window.showToast(`Item ${category} berhasil ditambahkan`);
+        } else {
+            // Gagal: hapus loading form
+            const tempItem = container.querySelector(`.content-item[data-rowid="${tempRowId}"]`);
+            if (tempItem) tempItem.remove();
+            window.showToast("Gagal menambahkan item", true);
+        }
+    } catch(e) {
+        console.error("Add item error:", e);
+        const tempItem = container.querySelector(`.content-item[data-rowid="${tempRowId}"]`);
+        if (tempItem) tempItem.remove();
+        window.showToast("Gagal koneksi", true);
     }
     
-    const newRowId = -Date.now();
-    let newItemHtml = '';
-    
+    hasUnsavedChanges = true;
+};
+
+// ==========================================
+// FUNGSI BANTU UNTUK ITEM BARU
+// ==========================================
+function getNewItemHtml(category, rowId) {
     if (category === 'profil') {
-        newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" data-status="new" style="position:relative; background:rgba(34,197,94,0.1); border-left:3px solid #22c55e;">
-                <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
+        return `
+            <div class="content-item" data-rowid="${rowId}" data-status="normal" style="position:relative;">
+                <div class="item-badge" style="display:none;"></div>
                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                    <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
+                    <button class="btn-delete-item" onclick="deleteContentItem('profil', ${rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
-                <input type="text" class="content-header" placeholder="Header" data-rowid="${newRowId}" data-field="Header">
-                <textarea class="content-body" placeholder="Body" data-rowid="${newRowId}" data-field="Body"></textarea>
+                <input type="text" class="content-header" placeholder="Header" data-rowid="${rowId}" data-field="Header">
+                <textarea class="content-body" placeholder="Body" data-rowid="${rowId}" data-field="Body"></textarea>
             </div>
         `;
     } else if (category === 'galery') {
-        newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" data-status="new" style="position:relative; background:rgba(34,197,94,0.1); border-left:3px solid #22c55e;">
-                <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
+        return `
+            <div class="content-item" data-rowid="${rowId}" data-status="normal" style="position:relative;">
+                <div class="item-badge" style="display:none;"></div>
                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                    <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
+                    <button class="btn-delete-item" onclick="deleteContentItem('galery', ${rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
-                <input type="text" class="content-header" placeholder="Judul Event" data-rowid="${newRowId}" data-field="Header">
-                <input type="text" class="content-image-url" placeholder="URL Gambar" data-rowid="${newRowId}" data-field="ImageUrl">
-                <textarea class="content-caption" placeholder="Deskripsi / Caption" data-rowid="${newRowId}" data-field="Caption"></textarea>
+                <input type="text" class="content-header" placeholder="Judul Event" data-rowid="${rowId}" data-field="Header">
+                <input type="text" class="content-image-url" placeholder="URL Gambar" data-rowid="${rowId}" data-field="ImageUrl">
+                <textarea class="content-caption" placeholder="Deskripsi / Caption" data-rowid="${rowId}" data-field="Caption"></textarea>
             </div>
         `;
     }
+    return '';
+}
+
+function attachItemListeners(item, rowId) {
+    const badge = item.querySelector('.item-badge');
+    const originalData = { Header: "", Body: "", ImageUrl: "", Caption: "" };
+    const inputs = item.querySelectorAll('input, textarea, select');
     
-    container.insertAdjacentHTML('beforeend', newItemHtml);
-    hasUnsavedChanges = true;
-    window.showToast(`Item ${category} ditambahkan (belum disimpan)`);
-};
+    const checkChanges = () => {
+        let hasChanged = false;
+        inputs.forEach(input => {
+            const field = input.dataset.field;
+            const originalValue = originalData[field] || '';
+            if (input.value !== originalValue) hasChanged = true;
+        });
+        
+        if (hasChanged) {
+            badge.textContent = 'DIEDIT';
+            badge.style.background = '#f59e0b';
+            badge.style.display = 'block';
+            item.style.background = 'rgba(245, 158, 11, 0.1)';
+            item.style.borderLeft = '3px solid #f59e0b';
+            item.dataset.status = 'edited';
+            hasUnsavedChanges = true;
+        } else {
+            badge.style.display = 'none';
+            item.style.background = '';
+            item.style.borderLeft = '';
+            item.dataset.status = 'normal';
+        }
+    };
+    
+    inputs.forEach(input => {
+        input.addEventListener('input', checkChanges);
+        if (input.tagName === 'SELECT') input.addEventListener('change', checkChanges);
+    });
+}
 
 // ==========================================
 // HAPUS ITEM (hanya untuk profil dan galery)

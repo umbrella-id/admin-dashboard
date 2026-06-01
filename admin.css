@@ -1310,3 +1310,198 @@ input:checked + .toggle-slider:before {
     width: 100%;
     margin-top: 10px;
 }
+
+/* KAS SYSTEM STYLES */
+.kas-dashboard {
+    padding: 10px 0;
+}
+
+.kas-saldo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.kas-saldo-card {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 16px;
+    padding: 15px;
+    text-align: center;
+}
+
+.kas-saldo-name {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.kas-saldo-amount {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.kas-saldo-unit {
+    font-size: 0.7rem;
+    font-weight: normal;
+}
+
+.kas-mode-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-line);
+    padding-bottom: 10px;
+}
+
+.kas-mode-btn {
+    background: transparent;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 30px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.kas-mode-btn.active {
+    background: var(--color-primary);
+    color: white;
+}
+
+.kas-mode-btn:active {
+    transform: scale(0.96);
+}
+
+.kas-form {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.kas-form-group {
+    margin-bottom: 15px;
+}
+
+.kas-form-group label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.kas-input {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-line);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: white;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.kas-input:focus {
+    border-color: var(--color-primary);
+}
+
+.kas-ign-selector {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.kas-ign-selector select,
+.kas-ign-selector input {
+    flex: 1;
+}
+
+.kas-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.kas-radio-group {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.kas-radio-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--text-main);
+}
+
+.kas-btn-submit {
+    width: 100%;
+    background: var(--color-primary);
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 10px;
+}
+
+.kas-btn-submit:active {
+    transform: scale(0.97);
+}
+
+.kas-history {
+    margin-top: 24px;
+}
+
+.kas-history h4 {
+    margin-bottom: 12px;
+    color: var(--text-main);
+}
+
+.kas-table-wrapper {
+    overflow-x: auto;
+}
+
+.kas-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+}
+
+.kas-table th,
+.kas-table td {
+    padding: 10px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-line);
+}
+
+.kas-table th {
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.kas-positive {
+    color: #4ade80;
+}
+
+.kas-negative {
+    color: #ff8888;
+}
+
+.required {
+    color: #ff8888;
+}

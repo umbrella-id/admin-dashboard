@@ -522,10 +522,16 @@ function renderBottomNav() {
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
-            // ✅ TAMBAHKAN: Load konten saat tab "Konten" diklik
+            // Load konten saat tab "Konten" diklik
             if (tabId === 'manage-content' && typeof window.loadContentData === 'function') {
                 console.log("📥 Memuat data konten...");
                 window.loadContentData();
+            }
+            
+            // 🆕 Load KAS saat tab "Kas" diklik
+            if (tabId === 'kas' && typeof window.initKasDashboard === 'function') {
+                console.log("💰 Memuat dashboard KAS...");
+                window.initKasDashboard(currentAdmin);
             }
         });
     });

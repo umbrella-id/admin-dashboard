@@ -1,9 +1,9 @@
 /**
  * admin-content.js - Kelola Konten Web
- * - 3 Badge: BARU (hijau), DIEDIT (kuning), DIHAPUS (merah)
- * - Running text bisa ditambah/dihapus
- * - Headline & Openmember bisa URL gambar
- * - Tombol batal hapus dengan styling rapi
+ * - Profil & Galery: bisa tambah/hapus (dengan badge)
+ * - Headline & Openmember: slot tetap, bisa edit + URL gambar
+ * - Running Text: slot tetap, hanya edit Body
+ * - Sosmed: slot tetap (3 platform), hanya edit URL
  */
 
 let currentContentData = [];
@@ -80,7 +80,7 @@ function renderContentEditor(data) {
     
     let html = `
         <div class="content-editor">
-            <!-- HEADLINE (dengan URL Gambar) -->
+            <!-- HEADLINE (slot tetap, dengan URL gambar) -->
             <div class="content-category">
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
                 <div class="content-item" data-rowid="${headline?.rowId || 2}" data-status="normal" style="position:relative;">
@@ -91,7 +91,7 @@ function renderContentEditor(data) {
                 </div>
             </div>
             
-            <!-- OPEN MEMBER (dengan URL Gambar) -->
+            <!-- OPEN MEMBER (slot tetap, dengan URL gambar) -->
             <div class="content-category">
                 <h4><i class="fas fa-users"></i> OPEN MEMBER</h4>
                 <div class="content-item" data-rowid="${openmember?.rowId || 3}" data-status="normal" style="position:relative;">
@@ -102,7 +102,7 @@ function renderContentEditor(data) {
                 </div>
             </div>
             
-            <!-- PROFIL -->
+            <!-- PROFIL (bisa tambah/hapus) -->
             <div class="content-category">
                 <h4><i class="fas fa-address-card"></i> PROFIL</h4>
                 <div id="profil-list">
@@ -121,7 +121,7 @@ function renderContentEditor(data) {
                 <button class="btn-add-item" onclick="addContentItem('profil')"><i class="fas fa-plus"></i> Tambah Profil</button>
             </div>
             
-            <!-- GALERY -->
+            <!-- GALERY (bisa tambah/hapus) -->
             <div class="content-category">
                 <h4><i class="fas fa-images"></i> GALERY</h4>
                 <div id="galery-list">
@@ -145,45 +145,44 @@ function renderContentEditor(data) {
                 <button class="btn-add-item" onclick="addContentItem('galery')"><i class="fas fa-plus"></i> Tambah Galery</button>
             </div>
             
-            <!-- RUNNING TEXT -->
+            <!-- RUNNING TEXT (slot tetap, hanya body) -->
             <div class="content-category">
                 <h4><i class="fas fa-scroll"></i> RUNNING TEXT</h4>
                 <div id="runningtext-list">
                     ${runningTexts.map(item => `
                         <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
                             <div class="item-badge" style="display:none;"></div>
-                            <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                                <button class="btn-undo" onclick="undoDelete('running_text', ${item.rowId})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
-                                <button class="btn-delete-item" onclick="deleteContentItem('running_text', ${item.rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
-                            </div>
                             <textarea class="content-body" placeholder="Text" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
                         </div>
                     `).join('')}
                 </div>
-                <button class="btn-add-item" onclick="addContentItem('running_text')"><i class="fas fa-plus"></i> Tambah Running Text</button>
             </div>
             
-            <!-- SOSMED -->
+            <!-- SOSMED (slot tetap, 3 platform, hanya edit URL) -->
             <div class="content-category">
                 <h4><i class="fas fa-share-alt"></i> SOSMED</h4>
                 <div id="sosmed-list">
-                    ${sosmedList.map(item => `
-                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
-                            <div class="item-badge" style="display:none;"></div>
-                            <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                                <button class="btn-undo" onclick="undoDelete('sosmed', ${item.rowId})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
-                                <button class="btn-delete-item" onclick="deleteContentItem('sosmed', ${item.rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
+                    ${sosmedList.map(item => {
+                        let iconClass = 'fa-brands fa-discord';
+                        let label = 'Discord';
+                        if (item.Header === 'whatsapp') {
+                            iconClass = 'fa-brands fa-whatsapp';
+                            label = 'WhatsApp';
+                        } else if (item.Header === 'facebook') {
+                            iconClass = 'fa-brands fa-facebook';
+                            label = 'Facebook';
+                        }
+                        return `
+                            <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
+                                <div class="item-badge" style="display:none;"></div>
+                                <div class="platform-label" style="margin-bottom:8px; color:var(--color-primary); font-weight:bold;">
+                                    <i class="${iconClass}"></i> ${label}
+                                </div>
+                                <input type="text" class="content-body" placeholder="URL" value="${escapeHtml(item.Body || '')}" data-rowid="${item.rowId}" data-field="Body">
                             </div>
-                            <select class="content-platform" data-rowid="${item.rowId}" data-field="Header">
-                                <option value="whatsapp" ${item.Header === 'whatsapp' ? 'selected' : ''}>WhatsApp</option>
-                                <option value="facebook" ${item.Header === 'facebook' ? 'selected' : ''}>Facebook</option>
-                                <option value="discord" ${item.Header === 'discord' ? 'selected' : ''}>Discord</option>
-                            </select>
-                            <input type="text" class="content-body" placeholder="URL" value="${escapeHtml(item.Body || '')}" data-rowid="${item.rowId}" data-field="Body">
-                        </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
-                <button class="btn-add-item" onclick="addContentItem('sosmed')"><i class="fas fa-plus"></i> Tambah Sosmed</button>
             </div>
         </div>
     `;
@@ -255,8 +254,8 @@ function collectChangedFields() {
     const newItems = [];
     const deletedRows = [];
     
-    // Cari item baru (rowId negatif)
-    document.querySelectorAll('.content-item').forEach(item => {
+    // Cari item baru (rowId negatif) dari profil dan galery
+    document.querySelectorAll('#profil-list .content-item, #galery-list .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId < 0) {
             const category = item.closest('.content-category')?.id?.replace('-list', '');
@@ -264,13 +263,13 @@ function collectChangedFields() {
         }
     });
     
-    // Cari item yang dihapus
+    // Cari item yang dihapus (data-status="deleted")
     document.querySelectorAll('.content-item[data-status="deleted"]').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId > 0) deletedRows.push(rowId);
     });
     
-    // Handle HEADLINE & OPEN MEMBER (dengan ImageUrl + Caption)
+    // Handle HEADLINE & OPEN MEMBER
     document.querySelectorAll('.content-category:first-child .content-item, .content-category:nth-child(2) .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
@@ -332,7 +331,7 @@ function collectChangedFields() {
     });
     
     // Handle RUNNING TEXT
-    document.querySelectorAll('#runningtext-list .content-item:not([data-status="deleted"])').forEach(item => {
+    document.querySelectorAll('#runningtext-list .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
         
@@ -345,17 +344,13 @@ function collectChangedFields() {
     });
     
     // Handle SOSMED
-    document.querySelectorAll('#sosmed-list .content-item:not([data-status="deleted"])').forEach(item => {
+    document.querySelectorAll('#sosmed-list .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
         
-        const platformSelect = item.querySelector('.content-platform');
         const bodyInput = item.querySelector('.content-body');
         const originalData = currentContentData.find(d => d.rowId === rowId) || {};
         
-        if (platformSelect && originalData.Header !== platformSelect.value) {
-            changes.push({ rowId, field: 'Header', value: platformSelect.value });
-        }
         if (bodyInput && originalData.Body !== bodyInput.value) {
             changes.push({ rowId, field: 'Body', value: bodyInput.value });
         }
@@ -383,7 +378,7 @@ window.updateAllContent = async function() {
     let successCount = 0;
     let failCount = 0;
     
-    // 1. Tambah item baru
+    // 1. Tambah item baru (profil/galery)
     for (const newItem of newItems) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=addContentItem&category=${newItem.category}`;
@@ -430,7 +425,7 @@ window.updateAllContent = async function() {
 };
 
 // ==========================================
-// TAMBAH ITEM
+// TAMBAH ITEM (hanya untuk profil dan galery)
 // ==========================================
 window.addContentItem = function(category) {
     const containerId = `${category}-list`;
@@ -466,31 +461,6 @@ window.addContentItem = function(category) {
                 <textarea class="content-caption" placeholder="Deskripsi / Caption" data-rowid="${newRowId}" data-field="Caption"></textarea>
             </div>
         `;
-    } else if (category === 'running_text') {
-        newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" data-status="new" style="position:relative; background:rgba(34,197,94,0.1); border-left:3px solid #22c55e;">
-                <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
-                <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                    <button class="btn-delete-item" onclick="deleteContentItem('running_text', ${newRowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
-                </div>
-                <textarea class="content-body" placeholder="Text" data-rowid="${newRowId}" data-field="Body"></textarea>
-            </div>
-        `;
-    } else if (category === 'sosmed') {
-        newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" data-status="new" style="position:relative; background:rgba(34,197,94,0.1); border-left:3px solid #22c55e;">
-                <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
-                <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                    <button class="btn-delete-item" onclick="deleteContentItem('sosmed', ${newRowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
-                </div>
-                <select class="content-platform" data-rowid="${newRowId}" data-field="Header">
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="facebook">Facebook</option>
-                    <option value="discord">Discord</option>
-                </select>
-                <input type="text" class="content-body" placeholder="URL" data-rowid="${newRowId}" data-field="Body">
-            </div>
-        `;
     }
     
     container.insertAdjacentHTML('beforeend', newItemHtml);
@@ -499,7 +469,7 @@ window.addContentItem = function(category) {
 };
 
 // ==========================================
-// HAPUS ITEM
+// HAPUS ITEM (hanya untuk profil dan galery)
 // ==========================================
 window.deleteContentItem = function(category, rowId) {
     if (!confirm(`Hapus item ${category} ini?`)) return;
@@ -538,7 +508,7 @@ window.deleteContentItem = function(category, rowId) {
 };
 
 // ==========================================
-// BATAL HAPUS
+// BATAL HAPUS (hanya untuk profil dan galery)
 // ==========================================
 window.undoDelete = function(category, rowId) {
     const containerId = `${category}-list`;
@@ -556,7 +526,6 @@ window.undoDelete = function(category, rowId) {
     const bodyInput = item.querySelector('.content-body');
     const imageUrlInput = item.querySelector('.content-image-url');
     const captionInput = item.querySelector('.content-caption');
-    const platformSelect = item.querySelector('.content-platform');
     
     if (headerInput && originalData.Header !== headerInput.value) hasChanges = true;
     if (bodyInput && originalData.Body !== bodyInput.value) hasChanges = true;
@@ -564,7 +533,6 @@ window.undoDelete = function(category, rowId) {
         const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
         if (originalData.Body !== newBody) hasChanges = true;
     }
-    if (platformSelect && originalData.Header !== platformSelect.value) hasChanges = true;
     
     item.style.background = '';
     item.style.borderLeft = '';
@@ -610,4 +578,8 @@ window.addEventListener('beforeunload', function(e) {
 // ==========================================
 window.loadContentData = loadContentData;
 window.updateAllContent = updateAllContent;
-window.addContentItem
+window.addContentItem = addContentItem;
+window.deleteContentItem = deleteContentItem;
+window.undoDelete = undoDelete;
+
+console.log("✅ admin-content.js loaded (final stabil)");

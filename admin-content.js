@@ -2,7 +2,7 @@
  * admin-content.js - Kelola Konten Web
  * - 3 Badge: BARU (hijau), DIEDIT (kuning), DIHAPUS (merah)
  * - Running text bisa ditambah/dihapus
- * - Tombol batal hapus
+ * - Tombol batal hapus dengan styling rapi
  */
 
 let currentContentData = [];
@@ -62,7 +62,7 @@ async function loadContentData() {
     }
 }
 
-// Render form dengan badge
+// Render form
 function renderContentEditor(data) {
     const container = document.getElementById('content-editor-container');
     if (!container) return;
@@ -79,7 +79,7 @@ function renderContentEditor(data) {
             <!-- HEADLINE -->
             <div class="content-category">
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
-                <div class="content-item" data-rowid="${headline?.rowId || 2}" data-status="normal">
+                <div class="content-item" data-rowid="${headline?.rowId || 2}" data-status="normal" style="position:relative;">
                     <div class="item-badge" style="display:none;"></div>
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(headline?.Header || '')}" data-rowid="${headline?.rowId || 2}" data-field="Header">
                     <textarea class="content-body" placeholder="Body" data-rowid="${headline?.rowId || 2}" data-field="Body">${escapeHtml(headline?.Body || '')}</textarea>
@@ -89,7 +89,7 @@ function renderContentEditor(data) {
             <!-- OPEN MEMBER -->
             <div class="content-category">
                 <h4><i class="fas fa-users"></i> OPEN MEMBER</h4>
-                <div class="content-item" data-rowid="${openmember?.rowId || 3}" data-status="normal">
+                <div class="content-item" data-rowid="${openmember?.rowId || 3}" data-status="normal" style="position:relative;">
                     <div class="item-badge" style="display:none;"></div>
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(openmember?.Header || '')}" data-rowid="${openmember?.rowId || 3}" data-field="Header">
                     <textarea class="content-body" placeholder="Body" data-rowid="${openmember?.rowId || 3}" data-field="Body">${escapeHtml(openmember?.Body || '')}</textarea>
@@ -101,11 +101,11 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-address-card"></i> PROFIL</h4>
                 <div id="profil-list">
                     ${profilList.map(item => `
-                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal">
+                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
                             <div class="item-badge" style="display:none;"></div>
-                            <div class="item-actions">
-                                <button class="btn-undo" onclick="undoDelete('profil', ${item.rowId})" style="display:none;">↩️ Batal</button>
-                                <button class="btn-delete-item" onclick="deleteContentItem('profil', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                            <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+                                <button class="btn-undo" onclick="undoDelete('profil', ${item.rowId})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
+                                <button class="btn-delete-item" onclick="deleteContentItem('profil', ${item.rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                             </div>
                             <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
                             <textarea class="content-body" placeholder="Body" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
@@ -123,11 +123,11 @@ function renderContentEditor(data) {
                         const imageUrl = extractImageUrlFromBody(item.Body || '');
                         const caption = extractCaptionFromBody(item.Body || '');
                         return `
-                            <div class="content-item" data-rowid="${item.rowId}" data-status="normal">
+                            <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
                                 <div class="item-badge" style="display:none;"></div>
-                                <div class="item-actions">
-                                    <button class="btn-undo" onclick="undoDelete('galery', ${item.rowId})" style="display:none;">↩️ Batal</button>
-                                    <button class="btn-delete-item" onclick="deleteContentItem('galery', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                                <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+                                    <button class="btn-undo" onclick="undoDelete('galery', ${item.rowId})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
+                                    <button class="btn-delete-item" onclick="deleteContentItem('galery', ${item.rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                                 </div>
                                 <input type="text" class="content-header" placeholder="Judul Event" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
                                 <input type="text" class="content-image-url" placeholder="URL Gambar" value="${escapeHtml(imageUrl)}" data-rowid="${item.rowId}" data-field="ImageUrl">
@@ -144,11 +144,11 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-scroll"></i> RUNNING TEXT</h4>
                 <div id="runningtext-list">
                     ${runningTexts.map(item => `
-                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal">
+                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
                             <div class="item-badge" style="display:none;"></div>
-                            <div class="item-actions">
-                                <button class="btn-undo" onclick="undoDelete('running_text', ${item.rowId})" style="display:none;">↩️ Batal</button>
-                                <button class="btn-delete-item" onclick="deleteContentItem('running_text', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                            <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+                                <button class="btn-undo" onclick="undoDelete('running_text', ${item.rowId})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
+                                <button class="btn-delete-item" onclick="deleteContentItem('running_text', ${item.rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                             </div>
                             <textarea class="content-body" placeholder="Text" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
                         </div>
@@ -162,11 +162,11 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-share-alt"></i> SOSMED</h4>
                 <div id="sosmed-list">
                     ${sosmedList.map(item => `
-                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal">
+                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
                             <div class="item-badge" style="display:none;"></div>
-                            <div class="item-actions">
-                                <button class="btn-undo" onclick="undoDelete('sosmed', ${item.rowId})" style="display:none;">↩️ Batal</button>
-                                <button class="btn-delete-item" onclick="deleteContentItem('sosmed', ${item.rowId})"><i class="fas fa-trash"></i> Hapus</button>
+                            <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+                                <button class="btn-undo" onclick="undoDelete('sosmed', ${item.rowId})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
+                                <button class="btn-delete-item" onclick="deleteContentItem('sosmed', ${item.rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                             </div>
                             <select class="content-platform" data-rowid="${item.rowId}" data-field="Header">
                                 <option value="whatsapp" ${item.Header === 'whatsapp' ? 'selected' : ''}>WhatsApp</option>
@@ -196,7 +196,6 @@ function renderContentEditor(data) {
             badge.textContent = 'BARU';
             badge.style.cssText = 'position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px; font-weight:bold; z-index:10;';
             badge.style.display = 'block';
-            item.style.position = 'relative';
             item.style.background = 'rgba(34, 197, 94, 0.1)';
             item.style.borderLeft = '3px solid #22c55e';
             item.setAttribute('data-processed', 'true');
@@ -213,6 +212,14 @@ function renderContentEditor(data) {
                 const originalValue = originalData[field] || '';
                 if (input.value !== originalValue) hasChanged = true;
             });
+            
+            // Cek khusus galery (ImageUrl + Caption)
+            const imageUrlInput = item.querySelector('.content-image-url');
+            const captionInput = item.querySelector('.content-caption');
+            if (imageUrlInput && captionInput) {
+                const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
+                if (originalData.Body !== newBody) hasChanged = true;
+            }
             
             if (hasChanged && !isNewItem && item.dataset.status !== 'edited') {
                 badge.textContent = 'DIEDIT';
@@ -366,10 +373,10 @@ window.addContentItem = function(category) {
     let newItemHtml = '';
     if (category === 'profil') {
         newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" data-status="new">
+            <div class="content-item" data-rowid="${newRowId}" data-status="new" style="position:relative; background:rgba(34,197,94,0.1); border-left:3px solid #22c55e;">
                 <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
-                <div class="item-actions">
-                    <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+                <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+                    <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
                 <input type="text" class="content-header" placeholder="Header" data-rowid="${newRowId}" data-field="Header">
                 <textarea class="content-body" placeholder="Body" data-rowid="${newRowId}" data-field="Body"></textarea>
@@ -377,10 +384,10 @@ window.addContentItem = function(category) {
         `;
     } else if (category === 'galery') {
         newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" data-status="new">
+            <div class="content-item" data-rowid="${newRowId}" data-status="new" style="position:relative; background:rgba(34,197,94,0.1); border-left:3px solid #22c55e;">
                 <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
-                <div class="item-actions">
-                    <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+                <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+                    <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
                 <input type="text" class="content-header" placeholder="Judul Event" data-rowid="${newRowId}" data-field="Header">
                 <input type="text" class="content-image-url" placeholder="URL Gambar" data-rowid="${newRowId}" data-field="ImageUrl">
@@ -389,20 +396,20 @@ window.addContentItem = function(category) {
         `;
     } else if (category === 'running_text') {
         newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" data-status="new">
+            <div class="content-item" data-rowid="${newRowId}" data-status="new" style="position:relative; background:rgba(34,197,94,0.1); border-left:3px solid #22c55e;">
                 <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
-                <div class="item-actions">
-                    <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+                <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+                    <button class="btn-delete-item" onclick="deleteContentItem('running_text', ${newRowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
                 <textarea class="content-body" placeholder="Text" data-rowid="${newRowId}" data-field="Body"></textarea>
             </div>
         `;
     } else if (category === 'sosmed') {
         newItemHtml = `
-            <div class="content-item" data-rowid="${newRowId}" data-status="new">
+            <div class="content-item" data-rowid="${newRowId}" data-status="new" style="position:relative; background:rgba(34,197,94,0.1); border-left:3px solid #22c55e;">
                 <div class="item-badge" style="position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px;">BARU</div>
-                <div class="item-actions">
-                    <button class="btn-delete-item" onclick="deleteContentItem('${category}', ${newRowId})"><i class="fas fa-trash"></i> Hapus</button>
+                <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+                    <button class="btn-delete-item" onclick="deleteContentItem('sosmed', ${newRowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
                 <select class="content-platform" data-rowid="${newRowId}" data-field="Header">
                     <option value="whatsapp">WhatsApp</option>
@@ -464,17 +471,51 @@ window.undoDelete = function(category, rowId) {
     if (!item) return;
     
     const badge = item.querySelector('.item-badge');
-    badge.style.display = 'none';
+    const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+    
+    // Cek apakah item pernah diedit sebelumnya
+    let hasChanges = false;
+    const headerInput = item.querySelector('.content-header');
+    const bodyInput = item.querySelector('.content-body');
+    const imageUrlInput = item.querySelector('.content-image-url');
+    const captionInput = item.querySelector('.content-caption');
+    const platformSelect = item.querySelector('.content-platform');
+    
+    if (headerInput && originalData.Header !== headerInput.value) hasChanges = true;
+    if (bodyInput && originalData.Body !== bodyInput.value) hasChanges = true;
+    if (imageUrlInput && captionInput) {
+        const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
+        if (originalData.Body !== newBody) hasChanges = true;
+    }
+    if (platformSelect && originalData.Header !== platformSelect.value) hasChanges = true;
+    
+    // Kembalikan ke tampilan normal
     item.style.background = '';
     item.style.borderLeft = '';
     item.style.opacity = '';
     item.querySelectorAll('input, textarea, select').forEach(el => el.disabled = false);
-    item.dataset.status = 'normal';
+    item.dataset.status = hasChanges ? 'edited' : 'normal';
     
+    // Set badge sesuai status
+    if (hasChanges) {
+        badge.textContent = 'DIEDIT';
+        badge.style.background = '#f59e0b';
+        badge.style.display = 'block';
+        item.style.background = 'rgba(245, 158, 11, 0.1)';
+        item.style.borderLeft = '3px solid #f59e0b';
+    } else {
+        badge.style.display = 'none';
+    }
+    
+    // Tampilkan tombol hapus, sembunyikan tombol batal
     const deleteBtn = item.querySelector('.btn-delete-item');
     const undoBtn = item.querySelector('.btn-undo');
     if (deleteBtn) deleteBtn.style.display = 'inline-block';
     if (undoBtn) undoBtn.style.display = 'none';
+    
+    // Hapus tanda deleted dari currentContentData
+    const index = currentContentData.findIndex(d => d.rowId === rowId);
+    if (index !== -1) delete currentContentData[index]._deleted;
     
     window.showToast(`Hapus dibatalkan untuk item ${category}`);
     hasUnsavedChanges = true;
@@ -495,4 +536,4 @@ window.addContentItem = addContentItem;
 window.deleteContentItem = deleteContentItem;
 window.undoDelete = undoDelete;
 
-console.log("✅ admin-content.js loaded (3 badge: BARU, DIEDIT, DIHAPUS)");
+console.log("✅ admin-content.js loaded (final)");

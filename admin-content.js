@@ -1,6 +1,7 @@
 /**
  * admin-content.js - Kelola Konten Web
- * Fitur: Image URL, Status BARU/DIEDIT/DIHAPUS, Toggle Publish (ID + / -off)
+ * Toggle Publish: ubah ID antara huruf kecil (published) dan huruf besar (draft)
+ * Semua perubahan disimpan saat klik "PERBARUI KONTEN"
  */
 
 let currentContentData = [];
@@ -140,7 +141,7 @@ function renderContentEditor(data) {
     const container = document.getElementById('content-editor-container');
     if (!container) return;
     
-    // Gunakan includes() untuk mendeteksi kategori (termasuk draft dengan suffix -off)
+    // Gunakan includes() untuk mendeteksi kategori (case-insensitive)
     const headline = data.find(item => {
         const id = item.ID?.toLowerCase() || '';
         return id.includes('headline');
@@ -166,9 +167,9 @@ function renderContentEditor(data) {
         return id.includes('sosmed');
     });
     
-    // Cek status publish (apakah ID berakhiran -off)
+    // Cek status publish (apakah ID huruf kecil = published, huruf besar = draft)
     const isPublished = (id) => {
-        return id && !id.toLowerCase().endsWith('-off');
+        return id && id === id.toLowerCase();
     };
     
     let html = `
@@ -300,7 +301,7 @@ function renderContentEditor(data) {
                         </div>
                     `).join('')}
                 </div>
-                <button class="btn-add-item" onclick="addContentItem('sosmed')"><i class="fasfa-plus"></i> Tambah Sosmed</button>
+                <button class="btn-add-item" onclick="addContentItem('sosmed')"><i class="fas fa-plus"></i> Tambah Sosmed</button>
             </div>
         </div>
     `;
@@ -320,43 +321,32 @@ function renderContentEditor(data) {
         storeOriginalValues(item, rowId, fields);
         attachChangeListener(item, rowId, fields);
         
-        // Listener untuk toggle publish
+        // Listener untuk toggle publish (hanya update memory, tidak ke server)
         const toggle = item.querySelector('.publish-toggle');
         if (toggle) {
-            toggle.addEventListener('change', async (e) => {
+            toggle.addEventListener('change', (e) => {
                 e.stopPropagation();
                 const isChecked = toggle.checked;
+                const rowId = parseInt(toggle.dataset.rowid);
                 const currentId = currentContentData.find(d => d.rowId === rowId)?.ID || '';
+                
                 let newId;
                 if (isChecked) {
-                    // Publish: hapus suffix -off
-                    newId = currentId.replace(/-off$/i, '');
+                    // Publish: huruf kecil
+                    newId = currentId.toLowerCase();
                 } else {
-                    // Draft: tambah suffix -off
-                    newId = currentId + '-off';
+                    // Draft: huruf besar
+                    newId = currentId.toUpperCase();
                 }
                 
                 if (currentId !== newId) {
-                    try {
-                        const url = `${window.GAS_ADMIN_URL}?action=updateContent&rowId=${rowId}&field=ID&value=${encodeURIComponent(newId)}`;
-                        const res = await fetch(url);
-                        const data = await res.json();
-                        if (data.status === 'success') {
-                            // Update currentContentData
-                            const idx = currentContentData.findIndex(d => d.rowId === rowId);
-                            if (idx !== -1) currentContentData[idx].ID = newId;
-                            window.showToast(isChecked ? 'Item dipublikasikan' : 'Item dijadikan draft');
-                            hasUnsavedChanges = true;
-                            updateItemStatus(item, rowId, 'edited');
-                        } else {
-                            window.showToast('Gagal mengubah status publish', true);
-                            toggle.checked = !isChecked;
-                        }
-                    } catch(e) {
-                        console.error("Toggle publish error:", e);
-                        window.showToast('Gagal koneksi', true);
-                        toggle.checked = !isChecked;
+                    // Tandai ada perubahan ID di memory
+                    const index = currentContentData.findIndex(d => d.rowId === rowId);
+                    if (index !== -1) {
+                        currentContentData[index]._newId = newId;
                     }
+                    hasUnsavedChanges = true;
+                    updateItemStatus(item, rowId, 'edited');
                 }
             });
         }
@@ -371,7 +361,7 @@ window.addContentItem = function(category) {
     if (!container) return;
     
     const newRowId = -Date.now();
-    const newId = category; // ID awal (published)
+    const newId = category.toLowerCase(); // ID awal huruf kecil (published)
     
     let newItemHtml = '';
     if (category === 'profil') {
@@ -529,6 +519,11 @@ function collectChangedFields() {
                 if (oldItem.Header !== header) changes.push({ rowId, field: 'Header', value: header });
                 if ((oldItem.Body || '') !== newBody) changes.push({ rowId, field: 'Body', value: newBody });
                 if (platform && oldItem.Header !== platform) changes.push({ rowId, field: 'Header', value: platform });
+                
+                // Cek perubahan ID (publish/draft)
+                if (oldItem._newId && oldItem.ID !== oldItem._newId) {
+                    changes.push({ rowId, field: 'ID', value: oldItem._newId });
+                }
             }
         }
     });
@@ -555,7 +550,7 @@ window.updateAllContent = async function() {
     let successCount = 0;
     let failCount = 0;
     
-    // Tambah item baru
+    // 1. Tambah item baru
     for (const newItem of newItems) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=addContentItem&category=${newItem.category}`;
@@ -566,7 +561,7 @@ window.updateAllContent = async function() {
         } catch(e) { failCount++; }
     }
     
-    // Hapus item
+    // 2. Hapus item
     for (const rowId of deletedRows) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=deleteContentItem&rowId=${rowId}`;
@@ -577,7 +572,7 @@ window.updateAllContent = async function() {
         } catch(e) { failCount++; }
     }
     
-    // Update perubahan
+    // 3. Update perubahan
     for (const change of changes) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=updateContent&rowId=${change.rowId}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
@@ -621,4 +616,4 @@ window.updateAllContent = updateAllContent;
 window.addContentItem = addContentItem;
 window.deleteContentItem = deleteContentItem;
 
-console.log("✅ admin-content.js loaded (final - draft dengan suffix -off)");
+console.log("✅ admin-content.js loaded (toggle publish hanya update memory)");

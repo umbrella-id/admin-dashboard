@@ -435,6 +435,10 @@ async function doLogin() {
             
             renderBottomNav();
             if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
+            const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
+            if (activeTab === 'kas' && typeof window.initKasDashboard === 'function') {
+                window.initKasDashboard(currentAdmin);
+            }
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
             startStandbyPresence();
             if (typeof window.loadContentData === 'function') {
@@ -476,6 +480,10 @@ function checkSession() {
             // ✅ TAMBAHKAN JEDA 500ms SEBELUM REFRESH MAILBOX
             setTimeout(() => {
                 if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
+                const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
+                if (activeTab === 'kas' && typeof window.initKasDashboard === 'function') {
+                    window.initKasDashboard(currentAdmin);
+                }
             }, 500);
             
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();

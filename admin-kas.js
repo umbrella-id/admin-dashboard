@@ -1,15 +1,29 @@
 // ==========================================
-// admin-kas.js - DEBUG VERSION
+// admin-kas.js - FINAL CLEAN VERSION
 // ==========================================
 
 console.log("🚀 admin-kas.js loaded");
 
-// admin-kas.js - MINIMAL WORKING VERSION
-console.log("admin-kas.js loaded");
-
+// Helper functions
 function formatNumber(num) {
     if (num === undefined || num === null) return "0";
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function formatDate(date) {
+    if (!date) return "-";
+    const d = new Date(date);
+    return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear().toString().slice(-2)} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+
+function escapeHtml(str) {
+    if (!str) return "";
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === "&") return "&amp;";
+        if (m === "<") return "&lt;";
+        if (m === ">") return "&gt;";
+        return m;
+    });
 }
 
 function showToast(msg, isError = false) {
@@ -21,35 +35,12 @@ function showToast(msg, isError = false) {
     setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
-let currentAdmin = null;
-
-async function loadDashboardData() {
-    const container = document.getElementById("kas-container");
-    container.innerHTML = '<div class="loading-state">Loading...</div>';
-    
-    const res = await fetch(`${window.GAS_ADMIN_URL}?action=getDashboardData`);
-    const result = await res.json();
-    
-    if (result.status === "success") {
-        container.innerHTML = `<pre>${JSON.stringify(result.data, null, 2)}</pre>`;
-        showToast("Data loaded");
-    } else {
-        container.innerHTML = "Gagal load data";
-    }
-}
-
-async function initKasDashboard(admin) {
-    currentAdmin = admin;
-    alert("KAS: " + admin?.nama);
-    await loadDashboardData();
-}
-
-window.initKasDashboard = initKasDashboard;
-
+// Variables
 let currentMode = "setoran";
 let currentAdmin = null;
 let kasData = null;
 
+// Load data from GAS
 async function loadDashboardData() {
     console.log("📥 1. loadDashboardData START");
     const container = document.getElementById("kas-container");
@@ -66,7 +57,7 @@ async function loadDashboardData() {
         if (result.status === "success") {
             console.log("📥 5. Setting kasData, members count:", result.data.members?.length);
             kasData = result.data;
-            window.kasData = result.data; // backup
+            window.kasData = result.data;
             console.log("📥 6. Calling renderKasUI...");
             renderKasUI();
         } else {
@@ -82,6 +73,7 @@ async function loadDashboardData() {
     }
 }
 
+// Render UI
 function renderKasUI() {
     console.log("🎨 renderKasUI called, kasData:", kasData);
     console.log("🎨 kasData type:", typeof kasData);
@@ -102,6 +94,7 @@ function renderKasUI() {
     console.log("🎨 Render complete");
 }
 
+// Main entry point
 async function initKasDashboard(admin) {
     console.log("🎯 initKasDashboard START, admin:", admin?.nama);
     currentAdmin = admin;

@@ -476,6 +476,11 @@ function checkSession() {
             // ✅ TAMBAHKAN JEDA 500ms SEBELUM REFRESH MAILBOX
             setTimeout(() => {
                 if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
+                // Load data Kas di background (tanpa menampilkan tab)
+                if (typeof window.initKasDashboard === 'function') {
+                    // Ambil data tapi jangan render dulu (cukup simpan di cache)
+                    window.preloadKasData?.(currentAdmin);
+                }
             }, 500);
             
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
@@ -824,6 +829,20 @@ async function executePromoteLeader(targetId) {
     } catch(e) { showToast("Gagal koneksi", true); }
 }
 
+async function preloadKasData(admin) {
+    console.log("📥 Preload Kas data...");
+    try {
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getDashboardData`);
+        const result = await res.json();
+        if (result.status === "success") {
+            window.kasDataCache = result.data;
+            console.log("✅ Kas data cached");
+        }
+    } catch(e) {
+        console.error("Preload Kas error:", e);
+    }
+}
+
 // ==========================================
 // EXPOSE
 // ==========================================
@@ -844,6 +863,7 @@ window.saveAdminRole = saveAdminRole;
 window.resetPasskey = resetPasskey;
 window.promoteToLeader = promoteToLeader;
 window.executePromoteLeader = executePromoteLeader;
+window.preloadKasData = preloadKasData;
 
 checkSession();
 console.log("✅ admin.js loaded");

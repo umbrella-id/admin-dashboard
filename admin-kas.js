@@ -555,11 +555,6 @@ window.refreshKas = function() {
     loadKasDashboard();
 };
 
-function getPendingCountForAdmin() {
-  // Implementasi sederhana
-  return 0;
-}
-
 // ==========================================
 // EXPOSE GLOBAL FUNCTIONS
 // ==========================================
@@ -569,6 +564,5 @@ window.submitTransferRequest = submitTransferRequest;
 window.approveTransferRequest = approveTransferRequest;
 window.rejectTransferRequest = rejectTransferRequest;
 window.cancelTransferRequest = cancelTransferRequest;
-window.getPendingCountForAdmin = getPendingCountForAdmin;
 
 console.log("✅ admin-kas.js loaded");

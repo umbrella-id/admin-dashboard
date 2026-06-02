@@ -476,9 +476,10 @@ function checkSession() {
             // ✅ TAMBAHKAN JEDA 500ms SEBELUM REFRESH MAILBOX
             setTimeout(() => {
                 if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
+                
+                // 🆕 Auto-load Kas (sama seperti Mailbox)
                 if (typeof window.initKasDashboard === 'function') {
-                    // Ambil data tapi jangan render dulu (cukup simpan di cache)
-                    window.preloadKasData?.(currentAdmin);
+                    window.initKasDashboard(currentAdmin);
                 }
             }, 500);
             

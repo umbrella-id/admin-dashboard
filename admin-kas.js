@@ -10,6 +10,13 @@ function formatNumber(num) {
     if (num === undefined || num === null) return "0";
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
+
+async function loadDashboardData() {
+    console.log("loadDashboardData called");
+    // Sementara kosong
+}
+
+
 // TEST: apakah alert masih muncul?
 
 window.initKasDashboard = initKasDashboard;

@@ -17,21 +17,11 @@ function escapeHtml(str) {
     });
 }
 
-function showToast(msg, isError = false) {
-    const toast = document.getElementById("toast");
-    if (!toast) return;
-    toast.innerText = msg;
-    toast.style.borderColor = isError ? "#ff4444" : "var(--color-primary)";
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 3000);
-}
-
 function initKasDashboard(admin) {
     console.log("initKasDashboard called", admin);
     alert("KAS Dashboard: " + admin?.nama);
     console.log("Test formatDate:", formatDate(new Date()));
     console.log("Test escapeHtml:", escapeHtml("<test>"));
-    showToast("Test toast from KAS");
 }
 
 window.initKasDashboard = initKasDashboard;

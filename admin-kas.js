@@ -4,8 +4,47 @@
 
 console.log("🚀 admin-kas.js loaded");
 
-// Helper functions (formatNumber, formatDate, escapeHtml, showToast) tetap sama
-// ... (salin dari versi yang berhasil) ...
+// admin-kas.js - MINIMAL WORKING VERSION
+console.log("admin-kas.js loaded");
+
+function formatNumber(num) {
+    if (num === undefined || num === null) return "0";
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function showToast(msg, isError = false) {
+    const toast = document.getElementById("toast");
+    if (!toast) return;
+    toast.innerText = msg;
+    toast.style.borderColor = isError ? "#ff4444" : "var(--color-primary)";
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 3000);
+}
+
+let currentAdmin = null;
+
+async function loadDashboardData() {
+    const container = document.getElementById("kas-container");
+    container.innerHTML = '<div class="loading-state">Loading...</div>';
+    
+    const res = await fetch(`${window.GAS_ADMIN_URL}?action=getDashboardData`);
+    const result = await res.json();
+    
+    if (result.status === "success") {
+        container.innerHTML = `<pre>${JSON.stringify(result.data, null, 2)}</pre>`;
+        showToast("Data loaded");
+    } else {
+        container.innerHTML = "Gagal load data";
+    }
+}
+
+async function initKasDashboard(admin) {
+    currentAdmin = admin;
+    alert("KAS: " + admin?.nama);
+    await loadDashboardData();
+}
+
+window.initKasDashboard = initKasDashboard;
 
 let currentMode = "setoran";
 let currentAdmin = null;

@@ -466,6 +466,10 @@ async function doLogin() {
             renderBottomNav();
             if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
+            if (typeof window.loadKasDashboard === 'function') {
+                console.log("💰 Memuat data kas...");
+                window.loadKasDashboard();
+            }
             if (shouldEnableHeartbeat()) {
                 startStandbyPresence();
             } else {
@@ -511,7 +515,15 @@ function checkSession() {
             setTimeout(() => {
                 if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
             }, 500);
-            
+            if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA') {
+                // Preload kas data di background agar saat tab diklik sudah siap
+                setTimeout(() => {
+                    if (typeof window.loadKasDashboard === 'function') {
+                        console.log("💰 Preload data kas...");
+                        window.loadKasDashboard();
+                    }
+                }, 1000);
+            }
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
             if (shouldEnableHeartbeat()) {
                 startStandbyPresence();

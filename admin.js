@@ -470,6 +470,7 @@ async function doLogin() {
                 startStandbyPresence();
             } else {
                 console.log("🔕 Silent login untuk BENDAHARA, tanpa detak");
+            }
             if (typeof window.loadContentData === 'function') {
                 window.loadContentData(); 
             }
@@ -516,7 +517,7 @@ function checkSession() {
                 startStandbyPresence();
             } else {
                 console.log("🔕 Silent login untuk BENDAHARA, tanpa detak");
-                
+            }
             history.pushState({ dashboard: true }, "");
         } catch(e) {
             localStorage.removeItem('umbrella_admin_session');

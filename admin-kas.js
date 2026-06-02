@@ -16,6 +16,10 @@ async function loadDashboardData() {
     // Sementara kosong
 }
 
+function renderKasUI() {
+    console.log("renderKasUI called");
+    document.getElementById("kas-container").innerHTML = "<div>Test KAS UI</div>";
+}
 
 // TEST: apakah alert masih muncul?
 

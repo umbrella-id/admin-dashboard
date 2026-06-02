@@ -1,21 +1,14 @@
-// Pastikan URL GAS tersedia
-if (typeof window.GAS_ADMIN_URL === 'undefined') {
-    window.GAS_ADMIN_URL = "https://script.google.com/macros/s/AKfycbx1VqwGfC0Bz_tXNacdEe6s3Lu7USX9uRy7JbrOet4qu_bjA6PR9r780Ne7LP73UwUs/exec";
-    console.log("GAS_ADMIN_URL manually set");
-}
-
-
 // ==========================================
-// admin-kas.js - TAHAP 1C (DENGAN FIX URL)
+// admin-kas.js - KAS SYSTEM (STANDALONE)
 // ==========================================
+
+// DEFINISI URL GAS (TIDAK BERGANTUNG PADA admin.js)
+window.GAS_ADMIN_URL = "https://script.google.com/macros/s/AKfycbx1VqwGfC0Bz_tXNacdEe6s3Lu7USX9uRy7JbrOet4qu_bjA6PR9r780Ne7LP73UwUs/exec";
+window.GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbwqsSUeVxPg4V5hMc9ph92eMQ2cFqTQI7SJZOG9f-FDlPii4IaXGEfOZ7zdRG35zbIhnw/exec";
+
+console.log("✅ URLs defined:", window.GAS_ADMIN_URL);
 
 console.log("admin-kas.js loaded");
-
-// FIX: Pastikan URL GAS tersedia
-if (typeof window.GAS_ADMIN_URL === 'undefined') {
-    window.GAS_ADMIN_URL = "https://script.google.com/macros/s/AKfycbx1VqwGfC0Bz_tXNacdEe6s3Lu7USX9uRy7JbrOet4qu_bjA6PR9r780Ne7LP73UwUs/exec";
-    console.log("✅ GAS_ADMIN_URL manually set");
-}
 
 function formatNumber(num) {
     if (num === undefined || num === null) return "0";

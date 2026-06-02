@@ -15,23 +15,10 @@ function escapeHtml(str) {
     });
 }
 
-let currentAdmin = null;
-
-async function initKasDashboard(admin) {
-    console.log("initKasDashboard called", admin);
-    currentAdmin = admin;
-    alert("Loading data...");
-    
-    const res = await fetch(`${window.GAS_ADMIN_URL}?action=getDashboardData`);
-    const result = await res.json();
-    console.log("Fetch result:", result);
-    
-    if (result.status === "success") {
-        document.getElementById("kas-container").innerHTML = "<pre>" + JSON.stringify(result.data, null, 2) + "</pre>";
-        alert("Data loaded! " + result.data.members.length + " members");
-    } else {
-        document.getElementById("kas-container").innerHTML = "Gagal load data";
-    }
+function initKasDashboard(admin) {
+    alert("KAS Dashboard: " + admin?.nama);
+    let test = escapeHtml("<test>");
+    document.getElementById("kas-container").innerHTML = "<h2>Test escapeHtml: " + test + "</h2>";
 }
 
 window.initKasDashboard = initKasDashboard;

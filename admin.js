@@ -314,6 +314,22 @@ async function sendStandbyAndUpdateAll() {
     
     console.log("🟡 [STANDBY] Selesai pengecekan\n");
 }
+
+// ==========================================
+// FUNGSI BANTU: Apakah role ini perlu detak?
+// ==========================================
+function shouldEnableHeartbeat() {
+    if (!currentAdmin) return false;
+    
+    // Role yang perlu detak (online/standby, notifikasi, chat)
+    const hasHeartbeat = (currentAdmin.role1 === 'LEADER' || 
+                          currentAdmin.role1 === 'CO-LEAD' || 
+                          currentAdmin.role2 === 'CO-LEAD');
+    
+    // BENDAHARA murni → tidak perlu detak
+    return hasHeartbeat;
+}
+
 // ==========================================
 // ANDROID BACK BUTTON
 // ==========================================
@@ -336,7 +352,7 @@ document.addEventListener('visibilitychange', function() {
     if (!document.hidden && currentAdmin) {
         console.log("🟢 Tab aktif kembali");
         
-        // Cek apakah tab SURAT yang aktif
+        // ========== 1. URUSAN MAILBOX (semua role bisa) ==========
         const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
         
         if (activeTab === 'mailbox') {
@@ -353,29 +369,37 @@ document.addEventListener('visibilitychange', function() {
             }
         }
         
-        // Gunakan render dari cache
+        // Render mailbox dari cache (semua role boleh)
         if (typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
         } else if (typeof window.refreshMailbox === 'function') {
             window.refreshMailbox();
         }
         
-        // ✅ TAMBAH: Kembalikan status ONLINE jika chat terbuka
-        if (window.isChatOpen && window.isChatOpen()) {
+        // ========== 2. URUSAN CHAT & PRESENCE (HANYA LEADER/CO-LEAD) ==========
+        // ✅ TAMBAHKAN PENGECEKAN ROLE DI SINI!
+        if (shouldEnableHeartbeat() && window.isChatOpen && window.isChatOpen()) {
             console.log("💬 Chat terbuka, kembalikan status online");
-            window.sendPresence('active');  // ← BARIS INI YANG HILANG
+            window.sendPresence('active');
             
             if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
             if (typeof window.fetchOnlineUsers === 'function') window.fetchOnlineUsers();
+        } else if (!shouldEnableHeartbeat()) {
+            console.log("🔕 BENDAHARA: skip presence & chat (silent mode)");
         }
         
     } else if (document.hidden && currentAdmin) {
         console.log("🔴 Tab tidak aktif, paksa status standby");
         
-        window.sendPresence('standby');
-        
-        if (typeof window.stopActivePresence === 'function') {
-            window.stopActivePresence();
+        // ✅ HANYA JIKA ROLE PERLU DETAK
+        if (shouldEnableHeartbeat()) {
+            window.sendPresence('standby');
+            
+            if (typeof window.stopActivePresence === 'function') {
+                window.stopActivePresence();
+            }
+        } else {
+            console.log("🔕 BENDAHARA: skip standby (silent mode)");
         }
     }
 });
@@ -384,6 +408,12 @@ document.addEventListener('visibilitychange', function() {
 // STANDBY TIMER
 // ==========================================
 function startStandbyPresence() {
+    // ✅ CEK APAKAH ROLE PERLU DETAK
+    if (!shouldEnableHeartbeat()) {
+        console.log("🔕 Role ini tidak memerlukan detak (silent login)");
+        return;
+    }
+    
     if (standbyInterval) clearInterval(standbyInterval);
     sendStandbyAndUpdateAll();
     standbyInterval = setInterval(() => {
@@ -436,7 +466,10 @@ async function doLogin() {
             renderBottomNav();
             if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
-            startStandbyPresence();
+            if (shouldEnableHeartbeat()) {
+                startStandbyPresence();
+            } else {
+                console.log("🔕 Silent login untuk BENDAHARA, tanpa detak");
             if (typeof window.loadContentData === 'function') {
                 window.loadContentData(); 
             }
@@ -479,7 +512,11 @@ function checkSession() {
             }, 500);
             
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
-            startStandbyPresence();
+            if (shouldEnableHeartbeat()) {
+                startStandbyPresence();
+            } else {
+                console.log("🔕 Silent login untuk BENDAHARA, tanpa detak");
+                
             history.pushState({ dashboard: true }, "");
         } catch(e) {
             localStorage.removeItem('umbrella_admin_session');
@@ -645,6 +682,13 @@ async function changeMyPasskey() {
 function logout() {
     if (standbyInterval) clearInterval(standbyInterval);
     if (typeof window.stopActivePresence === 'function') window.stopActivePresence();
+    
+    // ✅ HANYA KIRIM OFFLINE JIKA SEBELUMNYA PUNYA DETAK
+    if (shouldEnableHeartbeat() && currentAdmin) {
+        // Opsional: kirim sinyal offline ke GAS 2
+        fetch(`${window.GAS_SYNC_URL}?role=admin&uid=${currentAdmin.id}&mode=offline`);
+    }
+    
     localStorage.removeItem('umbrella_admin_session');
     currentAdmin = null;
     location.reload();

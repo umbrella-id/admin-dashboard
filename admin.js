@@ -471,17 +471,11 @@ function checkSession() {
                 setTimeout(() => { if(typeof window.initChat === 'function') window.initChat(currentAdmin); }, 500);
             }
             
+            renderBottomNav();
+            
+            // ✅ TAMBAHKAN JEDA 500ms SEBELUM REFRESH MAILBOX
             setTimeout(() => {
-                console.log("⏰ setTimeout di checkSession() dieksekusi");
-                
                 if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
-                
-                if (typeof window.initKasDashboard === 'function') {
-                    console.log("💰 Memanggil initKasDashboard");
-                    window.initKasDashboard(currentAdmin);
-                } else {
-                    console.log("❌ initKasDashboard NOT a function");
-                }
             }, 500);
             
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
@@ -532,10 +526,6 @@ function renderBottomNav() {
             if (tabId === 'manage-content' && typeof window.loadContentData === 'function') {
                 console.log("📥 Memuat data konten...");
                 window.loadContentData();
-            }
-            if (tabId === 'kas' && typeof window.initKasDashboard === 'function') {
-                console.log("💰 Memuat data kas...");
-                window.initKasDashboard(currentAdmin);
             }
         });
     });
@@ -830,20 +820,6 @@ async function executePromoteLeader(targetId) {
     } catch(e) { showToast("Gagal koneksi", true); }
 }
 
-async function preloadKasData(admin) {
-    console.log("📥 Preload Kas data...");
-    try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getDashboardData`);
-        const result = await res.json();
-        if (result.status === "success") {
-            window.kasDataCache = result.data;
-            console.log("✅ Kas data cached");
-        }
-    } catch(e) {
-        console.error("Preload Kas error:", e);
-    }
-}
-
 // ==========================================
 // EXPOSE
 // ==========================================
@@ -864,7 +840,6 @@ window.saveAdminRole = saveAdminRole;
 window.resetPasskey = resetPasskey;
 window.promoteToLeader = promoteToLeader;
 window.executePromoteLeader = executePromoteLeader;
-window.preloadKasData = preloadKasData;
 
 checkSession();
 console.log("✅ admin.js loaded");

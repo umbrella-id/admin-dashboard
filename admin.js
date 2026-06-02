@@ -471,15 +471,16 @@ function checkSession() {
                 setTimeout(() => { if(typeof window.initChat === 'function') window.initChat(currentAdmin); }, 500);
             }
             
-            renderBottomNav();
-            
-            // ✅ TAMBAHKAN JEDA 500ms SEBELUM REFRESH MAILBOX
             setTimeout(() => {
+                console.log("⏰ setTimeout di checkSession() dieksekusi");
+                
                 if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
                 
-                // 🆕 Auto-load Kas (sama seperti Mailbox)
                 if (typeof window.initKasDashboard === 'function') {
+                    console.log("💰 Memanggil initKasDashboard");
                     window.initKasDashboard(currentAdmin);
+                } else {
+                    console.log("❌ initKasDashboard NOT a function");
                 }
             }, 500);
             

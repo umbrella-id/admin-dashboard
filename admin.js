@@ -436,9 +436,6 @@ async function doLogin() {
             renderBottomNav();
             if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
             const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
-            if (activeTab === 'kas' && typeof window.initKasDashboard === 'function') {
-                window.initKasDashboard(currentAdmin);
-            }
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
             startStandbyPresence();
             if (typeof window.loadContentData === 'function') {
@@ -481,6 +478,7 @@ function checkSession() {
             setTimeout(() => {
                 if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
                 const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
+                }
             }, 500);
             
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
@@ -531,7 +529,7 @@ function renderBottomNav() {
             if (tabId === 'manage-content' && typeof window.loadContentData === 'function') {
                 console.log("📥 Memuat data konten...");
                 window.loadContentData();
-            }
+            };
             
             // 🆕 Load KAS saat tab "Kas" diklik
             if (tabId === 'kas' && typeof window.initKasDashboard === 'function') {

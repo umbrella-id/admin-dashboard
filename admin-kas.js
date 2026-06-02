@@ -11,6 +11,15 @@ function formatNumber(num) {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
+console.log("admin-kas.js loaded");
+
+function initKasDashboard(admin) {
+    console.log("initKasDashboard called", admin);
+    alert("KAS Dashboard: " + admin?.nama);
+}
+
+window.initKasDashboard = initKasDashboard;
+
 async function loadDashboardData() {
     console.log("loadDashboardData called");
     // Sementara kosong

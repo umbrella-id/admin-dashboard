@@ -1,0 +1,466 @@
+/* ==========================================
+   MODUL KAS - LAYOUT LENGKAP
+   ========================================== */
+
+/* Container utama kas */
+#kas-container {
+    padding: 0 0 20px 0;
+}
+
+/* Section card */
+.kas-section {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.kas-section h4 {
+    color: var(--color-primary);
+    margin: 0 0 16px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-line);
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Grid saldo bendahara */
+.kas-saldo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+}
+
+.kas-saldo-card {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 16px;
+    padding: 14px;
+    text-align: center;
+    border: 1px solid var(--border-line);
+    transition: all 0.2s;
+}
+
+.kas-saldo-name {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+
+.kas-saldo-amount {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4ade80;
+}
+
+.kas-saldo-amount.negative {
+    color: #ff8888;
+}
+
+/* Tabs */
+.kas-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-line);
+    padding-bottom: 8px;
+}
+
+.kas-tab-btn {
+    background: transparent;
+    border: none;
+    padding: 10px 20px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 30px;
+    transition: all 0.2s;
+}
+
+.kas-tab-btn.active {
+    background: var(--color-primary);
+    color: white;
+}
+
+.kas-tab-btn:not(.active):hover {
+    background: rgba(168, 85, 247, 0.1);
+    color: var(--color-primary);
+}
+
+/* Form */
+.kas-form {
+    display: none;
+}
+
+.kas-form.active {
+    display: block;
+}
+
+/* Mode selector radio */
+.kas-mode-selector {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.kas-radio-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: 30px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.kas-radio-label:has(input:checked) {
+    background: rgba(168, 85, 247, 0.2);
+    color: var(--color-primary);
+}
+
+.kas-radio-label input[type="radio"] {
+    accent-color: var(--color-primary);
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
+
+/* Form group */
+.kas-form-group {
+    margin-bottom: 18px;
+}
+
+.kas-form-group label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+
+.kas-form-group label i {
+    width: 20px;
+    color: var(--color-primary);
+}
+
+.kas-form-group input,
+.kas-form-group select {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-line);
+    border-radius: 14px;
+    padding: 12px 16px;
+    color: white;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.kas-form-group input:focus,
+.kas-form-group select:focus {
+    border-color: var(--color-primary);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+}
+
+/* Submit button */
+.kas-submit-btn {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    border: none;
+    border-radius: 14px;
+    padding: 14px;
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s;
+    margin-top: 8px;
+}
+
+.kas-submit-btn:active {
+    transform: scale(0.98);
+}
+
+/* Badge */
+.kas-badge {
+    background: var(--color-primary);
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 10px;
+    border-radius: 30px;
+    margin-left: 10px;
+}
+
+.kas-badge-warning {
+    background: #f59e0b;
+}
+
+/* Request List */
+.kas-request-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.kas-request-item {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 16px;
+    padding: 14px;
+    border-left: 4px solid var(--border-line);
+}
+
+.kas-request-item.pending {
+    border-left-color: var(--color-primary);
+    background: rgba(168, 85, 247, 0.05);
+}
+
+.kas-request-item.approved {
+    border-left-color: #22c55e;
+}
+
+.kas-request-item.rejected,
+.kas-request-item.cancelled {
+    border-left-color: #ff4444;
+}
+
+.kas-request-item.expired {
+    border-left-color: #64748b;
+    opacity: 0.7;
+}
+
+.kas-request-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.kas-request-from,
+.kas-request-to {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: white;
+}
+
+.kas-request-amount {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #4ade80;
+}
+
+.kas-request-status {
+    font-size: 0.65rem;
+    padding: 3px 10px;
+    border-radius: 30px;
+    font-weight: 500;
+}
+
+.status-pending {
+    background: var(--color-primary);
+    color: white;
+}
+
+.status-approved {
+    background: #22c55e;
+    color: white;
+}
+
+.status-rejected,
+.status-cancelled {
+    background: #ff4444;
+    color: white;
+}
+
+.status-expired {
+    background: #64748b;
+    color: white;
+}
+
+.kas-request-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.kas-request-notes {
+    word-break: break-word;
+}
+
+.kas-request-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.kas-btn-approve {
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid #22c55e;
+    border-radius: 10px;
+    padding: 6px 16px;
+    color: #4ade80;
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.kas-btn-reject {
+    background: rgba(255, 68, 68, 0.15);
+    border: 1px solid #ff4444;
+    border-radius: 10px;
+    padding: 6px 16px;
+    color: #ff8888;
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.kas-btn-cancel {
+    background: rgba(100, 116, 139, 0.15);
+    border: 1px solid #64748b;
+    border-radius: 10px;
+    padding: 6px 16px;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.kas-btn-approve:active,
+.kas-btn-reject:active,
+.kas-btn-cancel:active {
+    transform: scale(0.96);
+}
+
+/* History List */
+.kas-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.kas-history-item {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 14px;
+    padding: 12px;
+    border-left: 3px solid var(--color-primary);
+}
+
+.kas-history-time {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.kas-history-detail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 0.8rem;
+}
+
+.kas-history-ign {
+    font-weight: bold;
+    color: white;
+    min-width: 100px;
+}
+
+.kas-history-amount {
+    font-weight: bold;
+    font-family: monospace;
+}
+
+.kas-history-amount.positive {
+    color: #4ade80;
+}
+
+.kas-history-amount.negative {
+    color: #ff8888;
+}
+
+.kas-history-notes {
+    color: var(--text-muted);
+    flex: 1;
+    font-size: 0.7rem;
+    word-break: break-word;
+}
+
+.kas-history-adm {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+}
+
+/* Loading & Empty */
+.loading-state,
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+}
+
+/* Responsive Mobile */
+@media (max-width: 640px) {
+    .kas-saldo-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .kas-saldo-card {
+        padding: 10px;
+    }
+    
+    .kas-saldo-amount {
+        font-size: 1rem;
+    }
+    
+    .kas-tabs {
+        gap: 8px;
+    }
+    
+    .kas-tab-btn {
+        padding: 8px 16px;
+        font-size: 0.75rem;
+    }
+    
+    .kas-mode-selector {
+        gap: 12px;
+    }
+    
+    .kas-radio-label {
+        padding: 4px 10px;
+        font-size: 0.7rem;
+    }
+    
+    .kas-request-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .kas-history-detail {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .kas-history-ign {
+        min-width: auto;
+    }
+}

@@ -1,5 +1,5 @@
 /* ==========================================
-   MODUL KAS - LAYOUT LENGKAP
+   MODUL KAS - LAYOUT FINAL
    ========================================== */
 
 /* Container utama kas */
@@ -7,97 +7,297 @@
     padding: 0 0 20px 0;
 }
 
-/* Section card */
-.kas-section {
-    background: var(--bg-solid-form);
+/* ==========================================
+   NOTIFIKASI BAR (🔔)
+   ========================================== */
+.kas-notif-bar {
+    background: rgba(168, 85, 247, 0.1);
     border: 1px solid var(--border-line);
-    border-radius: 20px;
-    padding: 20px;
-    margin-bottom: 24px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.kas-section h4 {
-    color: var(--color-primary);
-    margin: 0 0 16px 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-line);
-    font-size: 1rem;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
     display: flex;
     align-items: center;
-    gap: 8px;
-}
-
-/* Grid saldo bendahara */
-.kas-saldo-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 12px;
-}
-
-.kas-saldo-card {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 16px;
-    padding: 14px;
-    text-align: center;
-    border: 1px solid var(--border-line);
+    cursor: pointer;
     transition: all 0.2s;
 }
 
-.kas-saldo-name {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-    letter-spacing: 0.5px;
+.kas-notif-bar:hover {
+    background: rgba(168, 85, 247, 0.2);
+    border-color: var(--color-primary);
 }
 
-.kas-saldo-amount {
+.kas-notif-icon {
+    position: relative;
+    display: inline-flex;
+}
+
+.kas-notif-icon i {
+    font-size: 1.3rem;
+    color: var(--color-primary);
+}
+
+.kas-notif-badge {
+    position: absolute;
+    top: -8px;
+    right: -12px;
+    background: #ff4444;
+    color: white;
+    font-size: 0.6rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 20px;
+    min-width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kas-notif-label {
+    font-size: 0.8rem;
+    color: var(--text-main);
+}
+
+/* ==========================================
+   SALDO BENDAHARA & TOTAL
+   ========================================== */
+.kas-saldo-section {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.kas-saldo-list {
+    flex: 2;
+    min-width: 150px;
+}
+
+.kas-saldo-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--border-line);
+    font-size: 0.75rem;
+}
+
+.kas-saldo-row:last-child {
+    border-bottom: none;
+}
+
+.kas-saldo-name {
+    color: var(--text-muted);
+}
+
+.kas-saldo-value {
+    color: #4ade80;
+    font-weight: 500;
+    font-family: monospace;
+}
+
+.kas-total-box {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(168, 85, 247, 0.05));
+    border: 1px solid var(--color-primary);
+    border-radius: 16px;
+    padding: 12px 20px;
+    text-align: center;
+    min-width: 140px;
+}
+
+.kas-total-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.kas-total-value {
     font-size: 1.2rem;
     font-weight: bold;
-    color: #4ade80;
+    color: var(--color-primary);
 }
 
-.kas-saldo-amount.negative {
-    color: #ff8888;
+/* ==========================================
+   PENDING SECTION (REQUEST TRANSFER)
+   ========================================== */
+.kas-pending-section {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
 }
 
-/* Tabs */
-.kas-tabs {
+.kas-pending-header {
     display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-line);
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.kas-pending-badge {
+    background: var(--color-primary);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+
+.kas-pending-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.kas-pending-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    border-left: 3px solid var(--border-line);
+}
+
+.kas-pending-item.incoming {
+    border-left-color: var(--color-primary);
+}
+
+.kas-pending-item.outgoing {
+    border-left-color: #f59e0b;
+}
+
+.kas-pending-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 2;
+    min-width: 150px;
+}
+
+.kas-pending-icon {
+    font-size: 1rem;
+}
+
+.kas-pending-desc {
+    font-size: 0.75rem;
+    color: var(--text-main);
+}
+
+.kas-pending-amount {
+    font-weight: bold;
+    color: #4ade80;
+    margin-left: 8px;
+    font-family: monospace;
+}
+
+.kas-pending-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.kas-btn-approve {
+    background: rgba(34, 197, 94, 0.2);
+    border: 1px solid #22c55e;
+    border-radius: 8px;
+    padding: 5px 12px;
+    color: #4ade80;
+    cursor: pointer;
+    font-size: 0.65rem;
+    transition: all 0.2s;
+}
+
+.kas-btn-reject {
+    background: rgba(255, 68, 68, 0.2);
+    border: 1px solid #ff4444;
+    border-radius: 8px;
+    padding: 5px 12px;
+    color: #ff8888;
+    cursor: pointer;
+    font-size: 0.65rem;
+    transition: all 0.2s;
+}
+
+.kas-btn-cancel {
+    background: rgba(100, 116, 139, 0.2);
+    border: 1px solid #64748b;
+    border-radius: 8px;
+    padding: 5px 12px;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 0.65rem;
+    transition: all 0.2s;
+}
+
+.kas-btn-approve:active,
+.kas-btn-reject:active,
+.kas-btn-cancel:active {
+    transform: scale(0.95);
+}
+
+/* ==========================================
+   FORM SECTION (2 KOLOM)
+   ========================================== */
+.kas-forms-section {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.kas-form-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
     border-bottom: 1px solid var(--border-line);
     padding-bottom: 8px;
 }
 
-.kas-tab-btn {
+.kas-form-tab {
+    flex: 1;
     background: transparent;
     border: none;
-    padding: 10px 20px;
+    padding: 8px 12px;
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: 500;
     cursor: pointer;
-    border-radius: 30px;
+    border-radius: 20px;
     transition: all 0.2s;
 }
 
-.kas-tab-btn.active {
+.kas-form-tab.active {
     background: var(--color-primary);
     color: white;
 }
 
-.kas-tab-btn:not(.active):hover {
+.kas-form-tab:not(.active):hover {
     background: rgba(168, 85, 247, 0.1);
     color: var(--color-primary);
 }
 
-/* Form */
-.kas-form {
+.kas-form-panel {
     display: none;
 }
 
-.kas-form.active {
+.kas-form-panel.active {
     display: block;
 }
 
@@ -113,10 +313,10 @@
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
-    padding: 6px 12px;
-    border-radius: 30px;
+    padding: 4px 10px;
+    border-radius: 20px;
     background: rgba(255, 255, 255, 0.03);
 }
 
@@ -127,27 +327,22 @@
 
 .kas-radio-label input[type="radio"] {
     accent-color: var(--color-primary);
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     margin: 0;
 }
 
 /* Form group */
 .kas-form-group {
-    margin-bottom: 18px;
+    margin-bottom: 16px;
 }
 
 .kas-form-group label {
     display: block;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
     margin-bottom: 6px;
     letter-spacing: 0.5px;
-}
-
-.kas-form-group label i {
-    width: 20px;
-    color: var(--color-primary);
 }
 
 .kas-form-group input,
@@ -155,10 +350,10 @@
     width: 100%;
     background: var(--bg-dark);
     border: 1px solid var(--border-line);
-    border-radius: 14px;
-    padding: 12px 16px;
+    border-radius: 10px;
+    padding: 10px 14px;
     color: white;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     transition: all 0.2s;
 }
 
@@ -166,18 +361,18 @@
 .kas-form-group select:focus {
     border-color: var(--color-primary);
     outline: none;
-    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.1);
 }
 
 /* Submit button */
 .kas-submit-btn {
     background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
     border: none;
-    border-radius: 14px;
-    padding: 14px;
+    border-radius: 10px;
+    padding: 12px;
     color: white;
     font-weight: bold;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     cursor: pointer;
     width: 100%;
     transition: all 0.2s;
@@ -185,208 +380,65 @@
 }
 
 .kas-submit-btn:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
 }
 
-/* Badge */
-.kas-badge {
-    background: var(--color-primary);
-    color: white;
-    font-size: 0.65rem;
-    padding: 2px 10px;
-    border-radius: 30px;
-    margin-left: 10px;
-}
-
-.kas-badge-warning {
-    background: #f59e0b;
-}
-
-/* Request List */
-.kas-request-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-.kas-request-item {
-    background: rgba(0, 0, 0, 0.3);
+/* ==========================================
+   RIWAYAT TRANSAKSI
+   ========================================== */
+.kas-history-section {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
     border-radius: 16px;
-    padding: 14px;
-    border-left: 4px solid var(--border-line);
+    padding: 16px;
 }
 
-.kas-request-item.pending {
-    border-left-color: var(--color-primary);
-    background: rgba(168, 85, 247, 0.05);
-}
-
-.kas-request-item.approved {
-    border-left-color: #22c55e;
-}
-
-.kas-request-item.rejected,
-.kas-request-item.cancelled {
-    border-left-color: #ff4444;
-}
-
-.kas-request-item.expired {
-    border-left-color: #64748b;
-    opacity: 0.7;
-}
-
-.kas-request-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 10px;
-}
-
-.kas-request-from,
-.kas-request-to {
-    font-size: 0.85rem;
-    font-weight: bold;
-    color: white;
-}
-
-.kas-request-amount {
-    font-size: 0.9rem;
-    font-weight: bold;
-    color: #4ade80;
-}
-
-.kas-request-status {
-    font-size: 0.65rem;
-    padding: 3px 10px;
-    border-radius: 30px;
-    font-weight: 500;
-}
-
-.status-pending {
-    background: var(--color-primary);
-    color: white;
-}
-
-.status-approved {
-    background: #22c55e;
-    color: white;
-}
-
-.status-rejected,
-.status-cancelled {
-    background: #ff4444;
-    color: white;
-}
-
-.status-expired {
-    background: #64748b;
-    color: white;
-}
-
-.kas-request-detail {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+.kas-history-header {
     margin-bottom: 12px;
-    font-size: 0.7rem;
-    color: var(--text-muted);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-line);
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: var(--color-primary);
 }
 
-.kas-request-notes {
-    word-break: break-word;
-}
-
-.kas-request-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-}
-
-.kas-btn-approve {
-    background: rgba(34, 197, 94, 0.15);
-    border: 1px solid #22c55e;
-    border-radius: 10px;
-    padding: 6px 16px;
-    color: #4ade80;
-    cursor: pointer;
-    font-size: 0.7rem;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.kas-btn-reject {
-    background: rgba(255, 68, 68, 0.15);
-    border: 1px solid #ff4444;
-    border-radius: 10px;
-    padding: 6px 16px;
-    color: #ff8888;
-    cursor: pointer;
-    font-size: 0.7rem;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.kas-btn-cancel {
-    background: rgba(100, 116, 139, 0.15);
-    border: 1px solid #64748b;
-    border-radius: 10px;
-    padding: 6px 16px;
-    color: #94a3b8;
-    cursor: pointer;
-    font-size: 0.7rem;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.kas-btn-approve:active,
-.kas-btn-reject:active,
-.kas-btn-cancel:active {
-    transform: scale(0.96);
-}
-
-/* History List */
 .kas-history-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 400px;
+    max-height: 300px;
     overflow-y: auto;
 }
 
-.kas-history-item {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 14px;
-    padding: 12px;
-    border-left: 3px solid var(--color-primary);
+.kas-history-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 100px 1fr 60px 30px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.7rem;
 }
 
-.kas-history-time {
-    font-size: 0.6rem;
+.kas-history-row:last-child {
+    border-bottom: none;
+}
+
+.kas-history-date {
     color: var(--text-muted);
-    margin-bottom: 6px;
-}
-
-.kas-history-detail {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 12px;
-    font-size: 0.8rem;
+    font-family: monospace;
+    font-size: 0.65rem;
 }
 
 .kas-history-ign {
     font-weight: bold;
     color: white;
-    min-width: 100px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .kas-history-amount {
     font-weight: bold;
     font-family: monospace;
+    text-align: right;
 }
 
 .kas-history-amount.positive {
@@ -399,68 +451,136 @@
 
 .kas-history-notes {
     color: var(--text-muted);
-    flex: 1;
-    font-size: 0.7rem;
-    word-break: break-word;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .kas-history-adm {
+    color: var(--text-muted);
+    font-size: 0.6rem;
+    text-align: center;
+}
+
+.kas-history-actions {
+    text-align: center;
+}
+
+.kas-edit-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 4px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.kas-edit-btn:hover {
+    color: var(--color-primary);
+    background: rgba(168, 85, 247, 0.1);
+}
+
+/* ==========================================
+   NOTIFIKASI MODAL
+   ========================================== */
+.kas-notif-modal-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.kas-notif-modal-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    border-left: 3px solid var(--border-line);
+}
+
+.kas-notif-modal-item.approved {
+    border-left-color: #22c55e;
+}
+
+.kas-notif-modal-item.rejected {
+    border-left-color: #ff4444;
+}
+
+.kas-notif-modal-item.expired {
+    border-left-color: #f59e0b;
+}
+
+.kas-notif-modal-icon {
+    font-size: 1.2rem;
+}
+
+.kas-notif-modal-content {
+    flex: 1;
+}
+
+.kas-notif-modal-title {
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.kas-notif-modal-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+
+.kas-notif-modal-time {
     font-size: 0.6rem;
     color: var(--text-muted);
 }
 
-/* Loading & Empty */
-.loading-state,
-.empty-state {
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+@media (max-width: 640px) {
+    .kas-saldo-section {
+        flex-direction: column;
+    }
+    
+    .kas-total-box {
+        width: 100%;
+    }
+    
+    .kas-history-row {
+        grid-template-columns: 70px 0.8fr 80px 0.8fr 40px 25px;
+        gap: 6px;
+        font-size: 0.65rem;
+    }
+    
+    .kas-pending-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .kas-pending-actions {
+        align-self: flex-end;
+    }
+    
+    .kas-pending-info {
+        width: 100%;
+    }
+}
+
+/* ==========================================
+   LOADING & EMPTY STATE
+   ========================================== */
+.loading-state {
     text-align: center;
     padding: 40px;
     color: var(--text-muted);
 }
 
-/* Responsive Mobile */
-@media (max-width: 640px) {
-    .kas-saldo-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-    }
-    
-    .kas-saldo-card {
-        padding: 10px;
-    }
-    
-    .kas-saldo-amount {
-        font-size: 1rem;
-    }
-    
-    .kas-tabs {
-        gap: 8px;
-    }
-    
-    .kas-tab-btn {
-        padding: 8px 16px;
-        font-size: 0.75rem;
-    }
-    
-    .kas-mode-selector {
-        gap: 12px;
-    }
-    
-    .kas-radio-label {
-        padding: 4px 10px;
-        font-size: 0.7rem;
-    }
-    
-    .kas-request-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .kas-history-detail {
-        flex-direction: column;
-        gap: 4px;
-    }
-    
-    .kas-history-ign {
-        min-width: auto;
-    }
+.empty-state {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
 }

@@ -287,7 +287,7 @@ function renderKasDashboard() {
                         <div class="kas-history-adm">${escapeHtml(log.adm || '?')}</div>
                         ${log.adm === currentAdmin.nama ? `
                             <div class="kas-history-actions">
-                                <button class="kas-edit-btn" onclick="editTransaction('${log.rowId}', '${escapeHtml(log.notes)}', ${log.spina})" title="Edit">✏️</button>
+                                <button class="kas-edit-btn" onclick="editTransaction(${log.rowId}, '${escapeHtml(log.notes)}', ${log.spina})" title="Edit">✏️</button>
                             </div>
                         ` : '<div class="kas-history-actions"></div>'}
                     </div>

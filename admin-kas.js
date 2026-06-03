@@ -32,44 +32,28 @@ async function loadKasDashboard() {
     container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data kas...</div>';
     
     try {
-        // Load semua data secara paralel
-        const [dashboardRes, incomingRes, myRequestsRes, pendingCountRes] = await Promise.all([
-            fetch(`${window.GAS_ADMIN_URL}?action=getDashboardData`),
-            fetch(`${window.GAS_ADMIN_URL}?action=getIncomingRequests&adminId=${currentAdmin.id}`),
-            fetch(`${window.GAS_ADMIN_URL}?action=getMyRequestHistory&adminId=${currentAdmin.id}`),
-            fetch(`${window.GAS_ADMIN_URL}?action=getAllPendingCount&adminId=${currentAdmin.id}`)
-        ]);
+        // ✅ SEKARANG CUKUP 1 REQUEST SAJA!
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`);
+        const result = await response.json();
         
-        const dashboard = await dashboardRes.json();
-        const incoming = await incomingRes.json();
-        const myRequests = await myRequestsRes.json();
-        const pendingCount = await pendingCountRes.json();
-        
-        if (dashboard.status === 'success' && dashboard.data) {
-            kasData.saldo = dashboard.data.saldo || {};
-            kasData.members = dashboard.data.members || [];
-            kasData.history = dashboard.data.history || [];
+        if (result.status === 'success' && result.data) {
+            kasData.saldo = result.data.saldo || {};
+            kasData.members = result.data.members || [];
+            kasData.history = result.data.history || [];
             kasData.bendahara = Object.keys(kasData.saldo);
+            kasData.incomingRequests = result.data.incomingRequests || [];
+            kasData.myRequests = result.data.myRequests || [];
+            kasData.pendingIncomingCount = result.data.pendingCount?.incoming || 0;
+            kasData.pendingMyCount = result.data.pendingCount?.myPending || 0;
+            
+            renderKasDashboard();
+        } else {
+            container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
         }
-        
-        if (incoming.status === 'success') {
-            kasData.incomingRequests = incoming.data || [];
-        }
-        
-        if (myRequests.status === 'success') {
-            kasData.myRequests = myRequests.data || [];
-        }
-        
-        if (pendingCount.status === 'success') {
-            kasData.pendingIncomingCount = pendingCount.data?.incomingCount || 0;
-            kasData.pendingMyCount = pendingCount.data?.myPendingCount || 0;
-        }
-        
-        renderKasDashboard();
         
     } catch(e) {
         console.error("Load kas error:", e);
-        container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
+        container.innerHTML = '<div class="empty-state">⚠️ Gagal koneksi</div>';
     } finally {
         kasLoading = false;
     }

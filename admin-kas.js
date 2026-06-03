@@ -23,7 +23,7 @@ let kasLoading = false;
 async function loadKasDashboard() {
     if (!currentAdmin) return;
     
-    const container = document.getElementById('kas-container');
+    const container = document.ElementById('kas-container');
     if (!container) return;
     
     if (kasLoading) return;
@@ -34,7 +34,7 @@ async function loadKasDashboard() {
     try {
         // Load semua data secara paralel
         const [dashboardRes, incomingRes, myRequestsRes, pendingCountRes] = await Promise.all([
-            fetch(`${window.GAS_ADMIN_URL}?action=getDashboardData`),
+            fetch(`${window.GAS_ADMIN_URL}?action=getDashboardData&adminId=${currentAdmin.id}`),
             fetch(`${window.GAS_ADMIN_URL}?action=getIncomingRequests&adminId=${currentAdmin.id}`),
             fetch(`${window.GAS_ADMIN_URL}?action=getMyRequestHistory&adminId=${currentAdmin.id}`),
             fetch(`${window.GAS_ADMIN_URL}?action=getAllPendingCount&adminId=${currentAdmin.id}`)
@@ -277,14 +277,14 @@ function renderKasDashboard() {
             document.querySelectorAll('.kas-tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             document.querySelectorAll('.kas-form').forEach(form => form.classList.remove('active'));
-            document.getElementById(`kas-form-${kasCurrentTab}`).classList.add('active');
+            document.ElementById(`kas-form-${kasCurrentTab}`).classList.add('active');
         });
     });
     
     // Event listener untuk radio mode member
     const radioList = document.querySelector('input[name="member-mode"][value="list"]');
     const radioNew = document.querySelector('input[name="member-mode"][value="new"]');
-    const memberInput = document.getElementById('kas-member-name');
+    const memberInput = document.ElementById('kas-member-name');
     
     if (radioList && radioNew && memberInput) {
         const toggleMemberMode = () => {
@@ -311,9 +311,9 @@ async function submitSetoran() {
     const radioList = document.querySelector('input[name="member-mode"][value="list"]');
     const isListMode = radioList ? radioList.checked : true;
     
-    let memberName = document.getElementById('kas-member-name')?.value.trim();
-    const spina = parseInt(document.getElementById('kas-spina')?.value);
-    const notes = document.getElementById('kas-notes-setoran')?.value || "";
+    let memberName = document.ElementById('kas-member-name')?.value.trim();
+    const spina = parseInt(document.ElementById('kas-spina')?.value);
+    const notes = document.ElementById('kas-notes-setoran')?.value || "";
     
     if (!memberName) {
         window.showToast("Nama member harus diisi", true);
@@ -345,9 +345,9 @@ async function submitSetoran() {
         
         if (data.status === 'success') {
             window.showToast(`✅ Setoran ${formatRupiah(spina)} untuk ${memberName} berhasil`);
-            document.getElementById('kas-member-name').value = '';
-            document.getElementById('kas-spina').value = '';
-            document.getElementById('kas-notes-setoran').value = '';
+            document.ElementById('kas-member-name').value = '';
+            document.ElementById('kas-spina').value = '';
+            document.ElementById('kas-notes-setoran').value = '';
             await loadKasDashboard();
         } else {
             window.showToast(data.message || "Gagal menyimpan", true);
@@ -365,9 +365,9 @@ async function submitSetoran() {
 // SUBMIT TRANSFER REQUEST
 // ==========================================
 async function submitTransferRequest() {
-    const to = document.getElementById('kas-transfer-to')?.value;
-    const amount = parseInt(document.getElementById('kas-transfer-amount')?.value);
-    const notes = document.getElementById('kas-notes-transfer')?.value || "";
+    const to = document.ElementById('kas-transfer-to')?.value;
+    const amount = parseInt(document.ElementById('kas-transfer-amount')?.value);
+    const notes = document.ElementById('kas-notes-transfer')?.value || "";
     
     if (!to) {
         window.showToast("Pilih penerima dana terlebih dahulu", true);
@@ -400,9 +400,9 @@ async function submitTransferRequest() {
         
         if (data.status === 'success') {
             window.showToast(`✅ Request transfer ${formatRupiah(amount)} ke ${to} terkirim, menunggu persetujuan`);
-            document.getElementById('kas-transfer-to').value = '';
-            document.getElementById('kas-transfer-amount').value = '';
-            document.getElementById('kas-notes-transfer').value = '';
+            document.ElementById('kas-transfer-to').value = '';
+            document.ElementById('kas-transfer-amount').value = '';
+            document.ElementById('kas-notes-transfer').value = '';
             await loadKasDashboard();
         } else {
             window.showToast(data.message || "Gagal mengirim request", true);
@@ -421,7 +421,7 @@ async function submitTransferRequest() {
 // ==========================================
 async function approveTransferRequest(requestId) {
     window.showConfirmModal('Setujui transfer ini? Setelah disetujui, saldo akan langsung berubah.', async () => {
-        const btn = event?.target;
+        const btn = event?.tar;
         const originalHtml = btn?.innerHTML || 'Setujui';
         if (btn) {
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -456,7 +456,7 @@ async function approveTransferRequest(requestId) {
 // ==========================================
 async function rejectTransferRequest(requestId) {
     window.showConfirmModal('Tolak transfer ini?', async () => {
-        const btn = event?.target;
+        const btn = event?.tar;
         const originalHtml = btn?.innerHTML || 'Tolak';
         if (btn) {
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -537,7 +537,7 @@ function formatDate(timestamp) {
     }
 }
 
-function getStatusLabel(status) {
+function StatusLabel(status) {
     const labels = {
         'PENDING': '⏳ Menunggu',
         'APPROVED': '✅ Disetujui',

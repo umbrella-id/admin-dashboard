@@ -444,6 +444,7 @@ async function doLogin() {
             currentAdmin = data.admin;
             localStorage.setItem('umbrella_admin_session', JSON.stringify({
                 admin: currentAdmin,
+                adminPasskey: passkey,
                 loggedInAt: Date.now()
             }));
             

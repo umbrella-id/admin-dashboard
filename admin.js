@@ -563,7 +563,7 @@ async function validateSessionInBackground(admin) {
         
         if (!data.valid) {
             console.log("🔴 Session tidak valid, logout otomatis");
-            alert("Akun Anda sudah tidak aktif. Silakan hubungi LEADER.");
+            alert("Session tidak valid. Silakan login ulang.");
             logout();
             return;
         }

@@ -34,7 +34,7 @@ async function loadKasDashboard() {
     try {
         // Load semua data secara paralel
         const [dashboardRes, incomingRes, myRequestsRes, pendingCountRes] = await Promise.all([
-            fetch(`${window.GAS_ADMIN_URL}?action=getDashboardData`),
+            fetch(`${window.GAS_ADMIN_URL}?action=getDashboardData&adminId=${currentAdmin.id}`),
             fetch(`${window.GAS_ADMIN_URL}?action=getIncomingRequests&adminId=${currentAdmin.id}`),
             fetch(`${window.GAS_ADMIN_URL}?action=getMyRequestHistory&adminId=${currentAdmin.id}`),
             fetch(`${window.GAS_ADMIN_URL}?action=getAllPendingCount&adminId=${currentAdmin.id}`)

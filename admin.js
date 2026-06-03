@@ -502,83 +502,96 @@ async function doLogin() {
 
 async function checkSession() {
     const session = localStorage.getItem('umbrella_admin_session');
-    if (session) {
-        try {
-            const data = JSON.parse(session);
-            const admin = data.admin;
-            
-            // ✅ VALIDASI SESSION KE SERVER
-            console.log("🔍 Memvalidasi session...");
-            const validateRes = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}`);
-            const validateData = await validateRes.json();
-            
-            if (!validateData.valid) {
-                console.log("🔴 Session tidak valid, admin sudah dihapus/dinonaktifkan");
-                localStorage.removeItem('umbrella_admin_session');
-                alert("Akun Anda sudah tidak aktif. Silakan hubungi LEADER.");
-                location.reload();
-                return;
-            }
-            
-            // Gunakan data terbaru dari server (jika ada perubahan nama/role)
-            const currentAdminData = validateData.admin || admin;
-            
-            currentAdmin = currentAdminData;
-            
-            // Update localStorage dengan data terbaru
+    const loginScreen = document.getElementById('login-screen');
+    const dashboard = document.getElementById('dashboard');
+    
+    if (!session) {
+        loginScreen.style.display = 'flex';
+        dashboard.style.display = 'none';
+        return;
+    }
+    
+    try {
+        const data = JSON.parse(session);
+        const admin = data.admin;
+        
+        // Set currentAdmin sementara (dari localStorage)
+        currentAdmin = admin;
+        
+        // ✅ LANGSUNG TAMPILKAN DASHBOARD
+        loginScreen.style.display = 'none';
+        dashboard.style.display = 'flex';
+        document.getElementById('admin-name-display').innerText = currentAdmin.nama;
+        const roleText = currentAdmin.role2 ? `${currentAdmin.role1} + ${currentAdmin.role2}` : currentAdmin.role1;
+        document.getElementById('admin-role-display').innerText = roleText;
+        
+        // ✅ LANGSUNG MULAI LOADING DATA (tidak nunggu validasi)
+        renderBottomNav();
+        
+        setTimeout(() => {
+            if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
+        }, 500);
+        
+        if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA') {
+            setTimeout(() => {
+                if (typeof window.loadKasDashboard === 'function') window.loadKasDashboard();
+            }, 1000);
+        }
+        
+        if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
+        
+        if (shouldEnableHeartbeat()) {
+            startStandbyPresence();
+        } else {
+            console.log("🔕 Silent login untuk BENDAHARA, tanpa detak");
+        }
+        
+        if (typeof window.loadContentData === 'function') window.loadContentData();
+        
+        history.pushState({ dashboard: true }, "");
+        
+        // ✅ VALIDASI DI BACKGROUND (paralel, tidak nge-blok)
+        validateSessionInBackground(admin);
+        
+    } catch(e) {
+        console.error("Session error:", e);
+        localStorage.removeItem('umbrella_admin_session');
+        location.reload();
+    }
+}
+
+// ✅ Fungsi validasi di background
+async function validateSessionInBackground(admin) {
+    try {
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}`);
+        const data = await res.json();
+        
+        if (!data.valid) {
+            console.log("🔴 Session tidak valid, logout otomatis");
+            alert("Akun Anda sudah tidak aktif. Silakan hubungi LEADER.");
+            logout();
+            return;
+        }
+        
+        // Jika ada perubahan data (nama/role), update dashboard
+        if (data.admin && JSON.stringify(data.admin) !== JSON.stringify(currentAdmin)) {
+            console.log("🔄 Update data admin terbaru");
+            currentAdmin = data.admin;
             localStorage.setItem('umbrella_admin_session', JSON.stringify({
                 admin: currentAdmin,
                 loggedInAt: Date.now()
             }));
-            
             document.getElementById('admin-name-display').innerText = currentAdmin.nama;
             const roleText = currentAdmin.role2 ? `${currentAdmin.role1} + ${currentAdmin.role2}` : currentAdmin.role1;
             document.getElementById('admin-role-display').innerText = roleText;
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('dashboard').style.display = 'flex';
-            
-            if (notificationEnabled && Notification.permission !== 'granted') {
-                Notification.requestPermission();
-            }
-            
-            const hasChat = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
-            if (hasChat) {
-                document.getElementById('floating-chat').style.display = 'block';
-                setTimeout(() => { if(typeof window.initChat === 'function') window.initChat(currentAdmin); }, 500);
-            }
-            
-            renderBottomNav();
-            
-            setTimeout(() => {
-                if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
-            }, 500);
-            
-            if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA') {
-                setTimeout(() => {
-                    if (typeof window.loadKasDashboard === 'function') {
-                        console.log("💰 Preload data kas...");
-                        window.loadKasDashboard();
-                    }
-                }, 1000);
-            }
-            
-            if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
-            
-            if (shouldEnableHeartbeat()) {
-                startStandbyPresence();
-            } else {
-                console.log("🔕 Silent login untuk BENDAHARA, tanpa detak");
-            }
-            
-            history.pushState({ dashboard: true }, "");
-            
-        } catch(e) {
-            console.error("Session validation error:", e);
-            // Jika error koneksi, tetap logout untuk keamanan
-            localStorage.removeItem('umbrella_admin_session');
-            alert("Gagal memvalidasi session. Silakan login ulang.");
-            location.reload();
+            renderBottomNav(); // Re-render jika role berubah
         }
+        
+        console.log("✅ Session valid");
+        
+    } catch(e) {
+        console.error("Background validation error:", e);
+        // Jangan logout jika error koneksi, biarkan user tetap pakai dashboard
     }
 }
 

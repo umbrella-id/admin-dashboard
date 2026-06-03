@@ -374,30 +374,27 @@ async function submitTransferRequest() {
         return;
     }
     
-    const from = currentAdmin.nama;
-    const fromId = currentAdmin.id;
-    
-    // Cari ID penerima dari daftar bendahara (perlu mapping)
-    // Untuk sementara, kita kirim nama dulu, ID akan dicari di backend
-    // Tapi lebih baik kita punya mapping nama → id
-    
     const btn = document.querySelector('#kas-form-transfer .kas-submit-btn');
     const originalHtml = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim request...';
     btn.disabled = true;
     
     try {
-        // Cari toId dari nama penerima (perlu endpoint tambahan atau mapping)
-        // Sementara kirim dengan nama, backend akan cari sendiri
-        const url = `${window.GAS_ADMIN_URL}?action=requestTransfer&fromId=${fromId}&fromName=${encodeURIComponent(from)}&toName=${encodeURIComponent(to)}&amount=${amount}&notes=${encodeURIComponent(notes)}`;
-        const res = await fetch(url);
-        const data = await res.json();
+        // ✅ CUKUP KIRIM NAMA PENERIMA (toName)
+        const url = `${window.GAS_ADMIN_URL}?action=requestTransfer&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toName=${encodeURIComponent(to)}&amount=${amount}&notes=${encodeURIComponent(notes)}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
         
         if (data.status === 'success') {
-            window.showToast(`✅ Request transfer ${formatRupiah(amount)} ke ${to} terkirim, menunggu persetujuan`);
+            window.showToast(`✅ Request transfer ${formatRupiah(amount)} ke ${to} terkirim`);
+            
+            // Reset form
             document.getElementById('kas-transfer-to').value = '';
             document.getElementById('kas-transfer-amount').value = '';
             document.getElementById('kas-notes-transfer').value = '';
+            
+            // Refresh data (panggil getKasFullData)
             await loadKasDashboard();
         } else {
             window.showToast(data.message || "Gagal mengirim request", true);

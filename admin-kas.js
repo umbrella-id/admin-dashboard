@@ -573,10 +573,20 @@ async function cancelTransferRequest(requestId) {
 }
 
 // ==========================================
-// EDIT TRANSACTION (hanya untuk pencatat)
+// EDIT TRANSACTION - BUKA MODAL EDIT
 // ==========================================
 async function editTransaction(rowId, oldNotes, oldAmount) {
-    // Modal edit sederhana
+    console.log("🔍 editTransaction dipanggil dengan rowId:", rowId, "typeof:", typeof rowId);
+    
+    // Validasi rowId
+    const parsedRowId = parseInt(rowId);
+    if (isNaN(parsedRowId) || parsedRowId <= 0) {
+        console.error("❌ rowId tidak valid:", rowId);
+        window.showToast("Error: ID transaksi tidak valid", true);
+        return;
+    }
+    
+    // Modal edit
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 350px;">
@@ -591,46 +601,62 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
                 <input type="text" id="edit-notes" value="${escapeHtml(oldNotes)}" placeholder="Keterangan...">
             </div>
             <div class="modal-buttons">
-                <button onclick="saveEditTransaction(${rowId})" style="background:var(--color-primary);">Simpan</button>
+                <button id="save-edit-btn" style="background:var(--color-primary);">Simpan</button>
                 <button onclick="closeModal()" style="background:#333;">Batal</button>
             </div>
         </div>
     `;
     modal.style.display = 'flex';
+    
+    // Pasang event listener untuk tombol simpan
+    document.getElementById('save-edit-btn').onclick = () => {
+        saveEditTransaction(parsedRowId);
+    };
 }
 
+// ==========================================
+// SAVE EDIT TRANSACTION - SIMPAN PERUBAHAN
+// ==========================================
 async function saveEditTransaction(rowId) {
-    console.log("📝 rowId:", rowId);
+    console.log("📝 saveEditTransaction dipanggil dengan rowId:", rowId, "typeof:", typeof rowId);
     
+    // Validasi rowId
+    const parsedRowId = parseInt(rowId);
+    if (isNaN(parsedRowId) || parsedRowId <= 0) {
+        console.error("❌ rowId tidak valid:", rowId);
+        window.showToast("Error: ID transaksi tidak valid", true);
+        return;
+    }
+    
+    // Ambil nilai dari form
     const newAmount = parseInt(document.getElementById('edit-amount')?.value);
     const newNotes = document.getElementById('edit-notes')?.value || "";
     
     console.log("📝 newAmount:", newAmount);
     console.log("📝 newNotes:", newNotes);
-    console.log("📝 currentAdmin.nama:", currentAdmin.nama);
+    console.log("📝 currentAdmin.nama:", currentAdmin?.nama);
     
-    // Validasi
-    if (!rowId || rowId === undefined) {
-        window.showToast("Error: ID transaksi tidak valid", true);
-        return;
-    }
-    
+    // Validasi amount
     if (isNaN(newAmount) || newAmount <= 0) {
         window.showToast("Nominal harus lebih dari 0", true);
         return;
     }
     
+    // Validasi admin
     if (!currentAdmin || !currentAdmin.nama) {
         window.showToast("Error: Data admin tidak ditemukan", true);
         return;
     }
     
+    // Tutup modal dulu
     closeModal();
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${rowId}&amount=${newAmount}&notes=${encodeURIComponent(newNotes)}&adminName=${encodeURIComponent(currentAdmin.nama)}`;
+        // Buat URL request
+        const url = `${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&notes=${encodeURIComponent(newNotes)}&adminName=${encodeURIComponent(currentAdmin.nama)}`;
         console.log("📡 Fetch URL:", url);
         
+        // Kirim request ke GAS
         const response = await fetch(url);
         const data = await response.json();
         
@@ -638,7 +664,10 @@ async function saveEditTransaction(rowId) {
         
         if (data.status === 'success') {
             window.showToast("✅ Transaksi diperbarui");
+            // Refresh dashboard
             await loadKasDashboard();
+            // Refresh notifikasi count
+            if (typeof loadNotifCount === 'function') loadNotifCount();
         } else {
             window.showToast(data.message || "Gagal mengupdate", true);
         }
@@ -665,9 +694,9 @@ window.submitTransferRequest = submitTransferRequest;
 window.approveTransferRequest = approveTransferRequest;
 window.rejectTransferRequest = rejectTransferRequest;
 window.cancelTransferRequest = cancelTransferRequest;
-window.saveEditTransaction = saveEditTransaction;
-window.editTransaction = editTransaction;
 window.openKasNotification = openKasNotification;
 window.refreshKas = refreshKas;
+window.editTransaction = editTransaction;
+window.saveEditTransaction = saveEditTransaction;
 
 console.log("✅ admin-kas.js loaded");

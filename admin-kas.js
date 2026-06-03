@@ -324,15 +324,26 @@ async function submitSetoran() {
     
     try {
         const url = `${window.GAS_ADMIN_URL}?action=addSetoran&ign=${encodeURIComponent(memberName)}&spina=${spina}&notes=${encodeURIComponent(notes)}&adm=${encodeURIComponent(currentAdmin.nama)}`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const response = await fetch(url);
+        const data = await response.json();
         
-        if (data.status === 'success') {
-            window.showToast(`✅ Setoran ${formatRupiah(spina)} untuk ${memberName} berhasil`);
+        if (data.status === 'success' && data.data) {
+            window.showToast("✅ Setoran berhasil");
+            
+            // Update hanya data yang berubah (global data)
+            kasData.saldo = data.data.saldo || {};
+            kasData.members = data.data.members || [];
+            kasData.history = data.data.history || [];
+            kasData.bendahara = Object.keys(kasData.saldo);
+            
+            // Render ulang dashboard
+            renderKasDashboard();
+            
+            // Reset form
             document.getElementById('kas-member-name').value = '';
             document.getElementById('kas-spina').value = '';
             document.getElementById('kas-notes-setoran').value = '';
-            await loadKasDashboard();
+            
         } else {
             window.showToast(data.message || "Gagal menyimpan", true);
         }

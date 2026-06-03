@@ -441,7 +441,20 @@ async function doLogin() {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=login&passkey=${encodeURIComponent(passkey)}`);
         const data = await res.json();
         if (data.status === 'success') {
-            currentAdmin = data.admin;
+            const admin = data.admin;
+            
+            // ✅ VALIDASI TAMBAHAN (pastikan admin masih aktif)
+            const validateRes = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}`);
+            const validateData = await validateRes.json();
+            
+            if (!validateData.valid) {
+                document.getElementById('login-error').innerText = 'Akun tidak valid atau sudah dinonaktifkan!';
+                return;
+            }
+            
+            // Gunakan data terbaru dari server
+            currentAdmin = validateData.admin || admin;
+            
             localStorage.setItem('umbrella_admin_session', JSON.stringify({
                 admin: currentAdmin,
                 loggedInAt: Date.now()
@@ -487,12 +500,37 @@ async function doLogin() {
     }
 }
 
-function checkSession() {
+async function checkSession() {
     const session = localStorage.getItem('umbrella_admin_session');
     if (session) {
         try {
             const data = JSON.parse(session);
-            currentAdmin = data.admin;
+            const admin = data.admin;
+            
+            // ✅ VALIDASI SESSION KE SERVER
+            console.log("🔍 Memvalidasi session...");
+            const validateRes = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}`);
+            const validateData = await validateRes.json();
+            
+            if (!validateData.valid) {
+                console.log("🔴 Session tidak valid, admin sudah dihapus/dinonaktifkan");
+                localStorage.removeItem('umbrella_admin_session');
+                alert("Akun Anda sudah tidak aktif. Silakan hubungi LEADER.");
+                location.reload();
+                return;
+            }
+            
+            // Gunakan data terbaru dari server (jika ada perubahan nama/role)
+            const currentAdminData = validateData.admin || admin;
+            
+            currentAdmin = currentAdminData;
+            
+            // Update localStorage dengan data terbaru
+            localStorage.setItem('umbrella_admin_session', JSON.stringify({
+                admin: currentAdmin,
+                loggedInAt: Date.now()
+            }));
+            
             document.getElementById('admin-name-display').innerText = currentAdmin.nama;
             const roleText = currentAdmin.role2 ? `${currentAdmin.role1} + ${currentAdmin.role2}` : currentAdmin.role1;
             document.getElementById('admin-role-display').innerText = roleText;
@@ -511,12 +549,11 @@ function checkSession() {
             
             renderBottomNav();
             
-            // ✅ TAMBAHKAN JEDA 500ms SEBELUM REFRESH MAILBOX
             setTimeout(() => {
                 if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
             }, 500);
+            
             if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA') {
-                // Preload kas data di background agar saat tab diklik sudah siap
                 setTimeout(() => {
                     if (typeof window.loadKasDashboard === 'function') {
                         console.log("💰 Preload data kas...");
@@ -524,15 +561,23 @@ function checkSession() {
                     }
                 }, 1000);
             }
+            
             if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
+            
             if (shouldEnableHeartbeat()) {
                 startStandbyPresence();
             } else {
                 console.log("🔕 Silent login untuk BENDAHARA, tanpa detak");
             }
+            
             history.pushState({ dashboard: true }, "");
+            
         } catch(e) {
+            console.error("Session validation error:", e);
+            // Jika error koneksi, tetap logout untuk keamanan
             localStorage.removeItem('umbrella_admin_session');
+            alert("Gagal memvalidasi session. Silakan login ulang.");
+            location.reload();
         }
     }
 }

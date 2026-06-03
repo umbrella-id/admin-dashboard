@@ -502,6 +502,7 @@ async function doLogin() {
     }
 }
 
+
 async function checkSession() {
     const session = localStorage.getItem('umbrella_admin_session');
     const loginScreen = document.getElementById('login-screen');
@@ -565,7 +566,13 @@ async function checkSession() {
 // ✅ Fungsi validasi di background
 async function validateSessionInBackground(admin) {
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}`);
+        // Ambil session untuk mendapatkan adminName dan adminPasskey
+        const session = JSON.parse(localStorage.getItem('umbrella_admin_session'));
+        const adminName = session.adminName;
+        const adminPasskey = session.adminPasskey;
+        
+        // ✅ Kirim lengkap: ID + Nama + Passkey
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}&adminName=${encodeURIComponent(adminName)}&adminPasskey=${encodeURIComponent(adminPasskey)}`);
         const data = await res.json();
         
         if (!data.valid) {
@@ -579,23 +586,27 @@ async function validateSessionInBackground(admin) {
         if (data.admin && JSON.stringify(data.admin) !== JSON.stringify(currentAdmin)) {
             console.log("🔄 Update data admin terbaru");
             currentAdmin = data.admin;
+            
+            // Ambil passkey lama dari session
+            const oldPasskey = session.adminPasskey;
+            
             localStorage.setItem('umbrella_admin_session', JSON.stringify({
                 admin: currentAdmin,
                 adminName: currentAdmin.nama, 
-                adminPasskey: passkey,
+                adminPasskey: oldPasskey,  // ✅ passkey tetap pakai yang lama
                 loggedInAt: Date.now()
             }));
+            
             document.getElementById('admin-name-display').innerText = currentAdmin.nama;
             const roleText = currentAdmin.role2 ? `${currentAdmin.role1} + ${currentAdmin.role2}` : currentAdmin.role1;
             document.getElementById('admin-role-display').innerText = roleText;
-            renderBottomNav(); // Re-render jika role berubah
+            renderBottomNav();
         }
         
         console.log("✅ Session valid");
         
     } catch(e) {
         console.error("Background validation error:", e);
-        // Jangan logout jika error koneksi, biarkan user tetap pakai dashboard
     }
 }
 

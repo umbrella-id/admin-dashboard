@@ -600,8 +600,12 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
 }
 
 async function saveEditTransaction(rowId) {
+    console.log("📝 saveEditTransaction dipanggil untuk rowId:", rowId);
+    
     const newAmount = parseInt(document.getElementById('edit-amount')?.value);
     const newNotes = document.getElementById('edit-notes')?.value || "";
+    
+    console.log("📝 newAmount:", newAmount, "newNotes:", newNotes);
     
     if (isNaN(newAmount) || newAmount <= 0) {
         window.showToast("Nominal harus lebih dari 0", true);
@@ -611,14 +615,24 @@ async function saveEditTransaction(rowId) {
     closeModal();
     
     try {
-        // Update di GAS
-        await fetch(`${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${rowId}&amount=${newAmount}&notes=${encodeURIComponent(newNotes)}`);
+        const url = `${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${rowId}&amount=${newAmount}&notes=${encodeURIComponent(newNotes)}&adminName=${encodeURIComponent(currentAdmin.nama)}`;
+        console.log("📡 Fetch URL:", url);
         
-        window.showToast("✅ Transaksi diperbarui");
-        await loadKasDashboard();
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        console.log("📡 Response:", data);
+        
+        if (data.status === 'success') {
+            window.showToast("✅ Transaksi diperbarui");
+            console.log("🔄 Refresh dashboard...");
+            await loadKasDashboard();
+        } else {
+            window.showToast(data.message || "Gagal mengupdate", true);
+        }
     } catch(e) {
-        console.error("Edit transaction error:", e);
-        window.showToast("Gagal mengupdate", true);
+        console.error("❌ Edit transaction error:", e);
+        window.showToast("Gagal koneksi", true);
     }
 }
 

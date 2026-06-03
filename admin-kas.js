@@ -1,6 +1,13 @@
 /**
- * admin-kas.js - Modul Kas (Setoran Member & Transfer Request)
- * Terintegrasi dengan GAS 4 yang sudah di-deploy
+ * admin-kas.js - Modul Kas Lengkap
+ * - Saldo bendahara & total kas guild
+ * - Request transfer (PENDING) dengan badge
+ * - Notifikasi 🔔 (APPROVED/REJECTED/EXPIRED)
+ * - Input setoran member
+ * - Transfer antar bendahara
+ * - Riwayat transaksi (50 terakhir) dengan edit (hanya untuk pencatat)
+ * 
+ * Semua operasi AJAX, tanpa reload halaman
  */
 
 let kasData = {
@@ -8,49 +15,88 @@ let kasData = {
     bendahara: [],
     saldo: {},
     history: [],
-    incomingRequests: [],
-    myRequests: [],
-    pendingIncomingCount: 0,
-    pendingMyCount: 0
+    incomingRequests: [],  // PENDING yang ditujukan ke admin login
+    outgoingRequests: [],  // PENDING yang dibuat admin login
+    notifications: [],
+    unreadNotifCount: 0,
+    totalSaldo: 0
 };
 
-let kasCurrentTab = 'setoran';
 let kasLoading = false;
+let kasCurrentForm = 'setoran'; // 'setoran' atau 'transfer'
 
 // ==========================================
-// LOAD ALL KAS DATA
+// UTILITY FUNCTIONS
+// ==========================================
+function formatRupiah(angka) {
+    if (angka === undefined || angka === null) return 'Rp 0';
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(angka);
+}
+
+function formatDate(timestamp) {
+    if (!timestamp) return '-';
+    try {
+        const date = new Date(timestamp);
+        return date.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch(e) {
+        return timestamp.toString();
+    }
+}
+
+// ==========================================
+// LOAD DASHBOARD (1 TEMBAKAN)
 // ==========================================
 async function loadKasDashboard() {
-    if (!currentAdmin) return;
+    if (!currentAdmin || kasLoading) return;
     
     const container = document.getElementById('kas-container');
     if (!container) return;
     
-    if (kasLoading) return;
     kasLoading = true;
-    
     container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data kas...</div>';
     
     try {
-        // ✅ SEKARANG CUKUP 1 REQUEST SAJA!
+        // 1 TEMBAKAN AMBIL SEMUA DATA
         const response = await fetch(`${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`);
         const result = await response.json();
         
         if (result.status === 'success' && result.data) {
-            kasData.saldo = result.data.saldo || {};
-            kasData.members = result.data.members || [];
-            kasData.history = result.data.history || [];
+            const data = result.data;
+            
+            // Data global
+            kasData.members = data.members || [];
+            kasData.saldo = data.saldo || {};
+            kasData.history = data.history || [];
             kasData.bendahara = Object.keys(kasData.saldo);
-            kasData.incomingRequests = result.data.incomingRequests || [];
-            kasData.myRequests = result.data.myRequests || [];
-            kasData.pendingIncomingCount = result.data.pendingCount?.incoming || 0;
-            kasData.pendingMyCount = result.data.pendingCount?.myPending || 0;
+            
+            // Hitung total saldo
+            kasData.totalSaldo = kasData.bendahara.reduce((sum, nama) => sum + (kasData.saldo[nama] || 0), 0);
+            
+            // Pisahkan incoming dan outgoing dari incomingRequests (karena data dari GAS sudah terpisah)
+            // GAS mengirim incomingRequests (ke admin ini) dan myRequests (dari admin ini)
+            kasData.incomingRequests = data.incomingRequests || [];
+            kasData.outgoingRequests = (data.myRequests || []).filter(r => r.status === 'PENDING');
+            
+            // Notifikasi count
+            kasData.unreadNotifCount = data.pendingCount?.notifications || 0;
             
             renderKasDashboard();
+            
+            // Load notifikasi count terpisah (opsional)
+            loadNotifCount();
         } else {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
         }
-        
     } catch(e) {
         console.error("Load kas error:", e);
         container.innerHTML = '<div class="empty-state">⚠️ Gagal koneksi</div>';
@@ -60,192 +106,190 @@ async function loadKasDashboard() {
 }
 
 // ==========================================
-// RENDER DASHBOARD KAS
+// LOAD NOTIF COUNT
+// ==========================================
+async function loadNotifCount() {
+    try {
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getUnreadKasNotificationsCount&adminId=${currentAdmin.id}`);
+        const data = await res.json();
+        kasData.unreadNotifCount = data.count || 0;
+        updateNotifBadge();
+    } catch(e) {
+        console.error("Load notif count error:", e);
+    }
+}
+
+function updateNotifBadge() {
+    const badge = document.getElementById('kas-notif-badge');
+    if (badge) {
+        if (kasData.unreadNotifCount > 0) {
+            badge.textContent = kasData.unreadNotifCount > 99 ? '99+' : kasData.unreadNotifCount;
+            badge.style.display = 'inline-flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+// ==========================================
+// RENDER DASHBOARD
 // ==========================================
 function renderKasDashboard() {
     const container = document.getElementById('kas-container');
     if (!container) return;
     
-    const { bendahara, saldo, members, history, incomingRequests, myRequests, pendingIncomingCount, pendingMyCount } = kasData;
+    const { bendahara, saldo, totalSaldo, incomingRequests, outgoingRequests, history, unreadNotifCount } = kasData;
+    const canEdit = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA');
     
-    const canEdit = (currentAdmin.role1 === 'LEADER' || 
-                     currentAdmin.role1 === 'BENDAHARA' || 
-                     currentAdmin.role2 === 'BENDAHARA');
+    // Gabungkan semua pending request (incoming + outgoing) untuk ditampilkan bersama
+    const allPending = [
+        ...incomingRequests.map(r => ({ ...r, type: 'incoming' })),
+        ...outgoingRequests.map(r => ({ ...r, type: 'outgoing' }))
+    ];
+    allPending.sort((a, b) => a.timestamp - b.timestamp);
+    
+    const totalPending = allPending.length;
     
     let html = `
-        <!-- SALDO BENDAHARA -->
-        <div class="kas-section">
-            <h4><i class="fas fa-wallet"></i> Saldo Bendahara</h4>
-            <div class="kas-saldo-grid">
+        <!-- NOTIFIKASI 🔔 -->
+        <div class="kas-notif-bar" onclick="openKasNotification()">
+            <div class="kas-notif-icon">
+                <i class="fas fa-bell"></i>
+                <span id="kas-notif-badge" class="kas-notif-badge" style="display: ${unreadNotifCount > 0 ? 'inline-flex' : 'none'};">${unreadNotifCount}</span>
+            </div>
+            <span class="kas-notif-label">Notifikasi</span>
+        </div>
+        
+        <!-- SALDO BENDAHARA & TOTAL -->
+        <div class="kas-saldo-section">
+            <div class="kas-saldo-list">
                 ${bendahara.map(nama => `
-                    <div class="kas-saldo-card">
-                        <div class="kas-saldo-name">${escapeHtml(nama)}</div>
-                        <div class="kas-saldo-amount ${(saldo[nama] || 0) < 0 ? 'negative' : ''}">
-                            ${formatRupiah(saldo[nama] || 0)}
-                        </div>
+                    <div class="kas-saldo-row">
+                        <span class="kas-saldo-name">${escapeHtml(nama)}</span>
+                        <span class="kas-saldo-value">${formatRupiah(saldo[nama] || 0)}</span>
                     </div>
                 `).join('')}
-                ${bendahara.length === 0 ? '<div class="empty-state">Belum ada data bendahara</div>' : ''}
+            </div>
+            <div class="kas-total-box">
+                <div class="kas-total-label">TOTAL KAS GUILD</div>
+                <div class="kas-total-value">${formatRupiah(totalSaldo)}</div>
             </div>
         </div>
     `;
     
-    // Form Transaksi (hanya untuk bendahara & leader)
-    if (canEdit) {
+    // REQUEST TRANSFER (PENDING) - hanya tampil jika ada
+    if (totalPending > 0) {
         html += `
-            <div class="kas-section">
-                <h4><i class="fas fa-plus-circle"></i> Tambah Transaksi</h4>
-                <div class="kas-tabs">
-                    <button class="kas-tab-btn ${kasCurrentTab === 'setoran' ? 'active' : ''}" data-kas-tab="setoran">📥 Setoran Member</button>
-                    <button class="kas-tab-btn ${kasCurrentTab === 'transfer' ? 'active' : ''}" data-kas-tab="transfer">🔄 Transfer Bendahara</button>
+            <div class="kas-pending-section">
+                <div class="kas-pending-header">
+                    <span><i class="fas fa-exchange-alt"></i> REQUEST TRANSFER</span>
+                    <span class="kas-pending-badge">${totalPending}</span>
                 </div>
-                
-                <!-- FORM SETORAN -->
-                <div id="kas-form-setoran" class="kas-form ${kasCurrentTab === 'setoran' ? 'active' : ''}">
-                    <div class="kas-mode-selector">
-                        <label class="kas-radio-label">
-                            <input type="radio" name="member-mode" value="list" checked> 
-                            <i class="fas fa-list"></i> List Member
-                        </label>
-                        <label class="kas-radio-label">
-                            <input type="radio" name="member-mode" value="new"> 
-                            <i class="fas fa-plus-circle"></i> New Member
-                        </label>
-                    </div>
-                    
-                    <div class="kas-form-group" id="kas-member-input-group">
-                        <label><i class="fas fa-user"></i> Nama Member</label>
-                        <input type="text" id="kas-member-name" list="member-list" 
-                               placeholder="Ketik atau pilih dari daftar..." 
-                               autocomplete="off">
-                        <datalist id="member-list">
-                            ${members.map(m => `<option value="${escapeHtml(m)}">`).join('')}
-                        </datalist>
-                    </div>
-                    
-                    <div class="kas-form-group">
-                        <label><i class="fas fa-coins"></i> Spina (Jumlah Kas)</label>
-                        <input type="number" id="kas-spina" placeholder="Contoh: 50000" step="1">
-                    </div>
-                    
-                    <div class="kas-form-group">
-                        <label><i class="fas fa-sticky-note"></i> Notes (Opsional)</label>
-                        <input type="text" id="kas-notes-setoran" placeholder="Keterangan...">
-                    </div>
-                    
-                    <button class="kas-submit-btn" onclick="submitSetoran()">
-                        <i class="fas fa-save"></i> INPUT
-                    </button>
-                </div>
-                
-                <!-- FORM TRANSFER (REQUEST) -->
-                <div id="kas-form-transfer" class="kas-form ${kasCurrentTab === 'transfer' ? 'active' : ''}">
-                    <div class="kas-form-group">
-                        <label><i class="fas fa-user-check"></i> Penerima Dana</label>
-                        <select id="kas-transfer-to">
-                            <option value="">Pilih Bendahara</option>
-                            ${bendahara.filter(nama => nama !== currentAdmin.nama).map(nama => `
-                                <option value="${escapeHtml(nama)}">${escapeHtml(nama)} (${formatRupiah(saldo[nama] || 0)})</option>
-                            `).join('')}
-                        </select>
-                    </div>
-                    
-                    <div class="kas-form-group">
-                        <label><i class="fas fa-coins"></i> Jumlah Dipindahkan</label>
-                        <input type="number" id="kas-transfer-amount" placeholder="Contoh: 100000" step="1">
-                    </div>
-                    
-                    <div class="kas-form-group">
-                        <label><i class="fas fa-sticky-note"></i> Notes (Opsional)</label>
-                        <input type="text" id="kas-notes-transfer" placeholder="Keterangan...">
-                    </div>
-                    
-                    <button class="kas-submit-btn" onclick="submitTransferRequest()">
-                        <i class="fas fa-paper-plane"></i> AJUKAN
-                    </button>
+                <div class="kas-pending-list">
+                    ${allPending.map(req => `
+                        <div class="kas-pending-item ${req.type}">
+                            <div class="kas-pending-info">
+                                <span class="kas-pending-icon">${req.type === 'incoming' ? '📥' : '📤'}</span>
+                                <span class="kas-pending-desc">
+                                    ${req.type === 'incoming' ? `Dari ${escapeHtml(req.fromName)}` : `Ke ${escapeHtml(req.toName)}`}
+                                    <span class="kas-pending-amount">${formatRupiah(req.amount)}</span>
+                                </span>
+                            </div>
+                            <div class="kas-pending-actions">
+                                ${req.type === 'incoming' ? `
+                                    <button class="kas-btn-approve" onclick="approveTransferRequest('${req.id}')">✅ Setujui</button>
+                                    <button class="kas-btn-reject" onclick="rejectTransferRequest('${req.id}')">❌ Tolak</button>
+                                ` : `
+                                    <button class="kas-btn-cancel" onclick="cancelTransferRequest('${req.id}')">🗑️ Batalkan</button>
+                                `}
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
             </div>
         `;
     }
     
-    // REQUEST MASUK (Incoming)
+    // FORM INPUT & TRANSFER (2 kolom)
     html += `
-        <div class="kas-section">
-            <h4>
-                <i class="fas fa-inbox"></i> Request Masuk 
-                ${pendingIncomingCount > 0 ? `<span class="kas-badge">${pendingIncomingCount}</span>` : ''}
-            </h4>
-            <div class="kas-request-list">
-                ${incomingRequests.length === 0 ? '<div class="empty-state">Tidak ada request masuk</div>' : ''}
-                ${incomingRequests.map(req => `
-                    <div class="kas-request-item ${req.status.toLowerCase()}">
-                        <div class="kas-request-header">
-                            <span class="kas-request-from">📤 Dari: ${escapeHtml(req.fromName)}</span>
-                            <span class="kas-request-amount">${formatRupiah(req.amount)}</span>
-                        </div>
-                        <div class="kas-request-detail">
-                            <div class="kas-request-notes">📝 ${escapeHtml(req.notes) || '-'}</div>
-                            <div class="kas-request-time">⏱️ ${formatDate(req.timestamp)}</div>
-                        </div>
-                        <div class="kas-request-actions">
-                            <button class="kas-btn-approve" onclick="approveTransferRequest('${req.id}')">✅ Setujui</button>
-                            <button class="kas-btn-reject" onclick="rejectTransferRequest('${req.id}')">❌ Tolak</button>
-                        </div>
-                    </div>
-                `).join('')}
+        <div class="kas-forms-section">
+            <div class="kas-form-tabs">
+                <button class="kas-form-tab ${kasCurrentForm === 'setoran' ? 'active' : ''}" data-form="setoran">📥 INPUT KAS</button>
+                <button class="kas-form-tab ${kasCurrentForm === 'transfer' ? 'active' : ''}" data-form="transfer">🔄 TRANSFER BENDAHARA</button>
+            </div>
+            
+            <!-- FORM INPUT KAS -->
+            <div id="kas-form-setoran" class="kas-form-panel ${kasCurrentForm === 'setoran' ? 'active' : ''}">
+                <div class="kas-mode-selector">
+                    <label class="kas-radio-label">
+                        <input type="radio" name="member-mode" value="list" checked> <i class="fas fa-list"></i> List Member
+                    </label>
+                    <label class="kas-radio-label">
+                        <input type="radio" name="member-mode" value="new"> <i class="fas fa-plus-circle"></i> New Member
+                    </label>
+                </div>
+                <div class="kas-form-group">
+                    <label>Nama Member</label>
+                    <input type="text" id="kas-member-name" list="member-list" placeholder="Ketik atau pilih dari daftar..." autocomplete="off">
+                    <datalist id="member-list">
+                        ${kasData.members.map(m => `<option value="${escapeHtml(m)}">`).join('')}
+                    </datalist>
+                </div>
+                <div class="kas-form-group">
+                    <label>Jumlah Kas Diterima (Spina)</label>
+                    <input type="number" id="kas-spina" placeholder="Contoh: 50000" step="1">
+                </div>
+                <div class="kas-form-group">
+                    <label>Notes (Opsional)</label>
+                    <input type="text" id="kas-notes-setoran" placeholder="Keterangan...">
+                </div>
+                <button class="kas-submit-btn" onclick="submitSetoran()"><i class="fas fa-save"></i> INPUT</button>
+            </div>
+            
+            <!-- FORM TRANSFER BENDAHARA -->
+            <div id="kas-form-transfer" class="kas-form-panel ${kasCurrentForm === 'transfer' ? 'active' : ''}">
+                <div class="kas-form-group">
+                    <label>Penerima Dana</label>
+                    <select id="kas-transfer-to">
+                        <option value="">Pilih Bendahara</option>
+                        ${bendahara.filter(nama => nama !== currentAdmin.nama).map(nama => `
+                            <option value="${escapeHtml(nama)}">${escapeHtml(nama)} (${formatRupiah(saldo[nama] || 0)})</option>
+                        `).join('')}
+                    </select>
+                </div>
+                <div class="kas-form-group">
+                    <label>Jumlah Dipindahkan</label>
+                    <input type="number" id="kas-transfer-amount" placeholder="Contoh: 100000" step="1">
+                </div>
+                <div class="kas-form-group">
+                    <label>Notes (Opsional)</label>
+                    <input type="text" id="kas-notes-transfer" placeholder="Keterangan...">
+                </div>
+                <button class="kas-submit-btn" onclick="submitTransferRequest()"><i class="fas fa-paper-plane"></i> AJUKAN</button>
             </div>
         </div>
     `;
     
-    // REQUEST SAYA (My Requests)
+    // RIWAYAT TRANSAKSI (scrollable)
     html += `
-        <div class="kas-section">
-            <h4>
-                <i class="fas fa-paper-plane"></i> Request Saya 
-                ${pendingMyCount > 0 ? `<span class="kas-badge kas-badge-warning">${pendingMyCount}</span>` : ''}
-            </h4>
-            <div class="kas-request-list">
-                ${myRequests.length === 0 ? '<div class="empty-state">Belum ada request</div>' : ''}
-                ${myRequests.map(req => `
-                    <div class="kas-request-item ${req.status.toLowerCase()}">
-                        <div class="kas-request-header">
-                            <span class="kas-request-to">📥 Ke: ${escapeHtml(req.toName)}</span>
-                            <span class="kas-request-amount">${formatRupiah(req.amount)}</span>
-                            <span class="kas-request-status status-${req.status.toLowerCase()}">${getStatusLabel(req.status)}</span>
-                        </div>
-                        <div class="kas-request-detail">
-                            <div class="kas-request-notes">📝 ${escapeHtml(req.notes) || '-'}</div>
-                            <div class="kas-request-time">⏱️ ${formatDate(req.timestamp)}</div>
-                            ${req.processed_at ? `<div class="kas-request-processed">🕒 Diproses: ${formatDate(req.processed_at)}</div>` : ''}
-                        </div>
-                        ${req.status === 'PENDING' ? `
-                            <div class="kas-request-actions">
-                                <button class="kas-btn-cancel" onclick="cancelTransferRequest('${req.id}')">🗑️ Batalkan</button>
-                            </div>
-                        ` : ''}
-                    </div>
-                `).join('')}
+        <div class="kas-history-section">
+            <div class="kas-history-header">
+                <span><i class="fas fa-history"></i> RIWAYAT TRANSAKSI (50 terakhir)</span>
             </div>
-        </div>
-    `;
-    
-    // RIWAYAT TRANSAKSI
-    html += `
-        <div class="kas-section">
-            <h4><i class="fas fa-history"></i> Riwayat Transaksi (50 terakhir)</h4>
             <div class="kas-history-list">
                 ${history.length === 0 ? '<div class="empty-state">Belum ada transaksi</div>' : ''}
                 ${history.map(log => `
-                    <div class="kas-history-item">
-                        <div class="kas-history-time">${formatDate(log.timestamp)}</div>
-                        <div class="kas-history-detail">
-                            <span class="kas-history-ign">${escapeHtml(log.ign || 'SISTEM')}</span>
-                            <span class="kas-history-amount ${log.spina > 0 ? 'positive' : 'negative'}">
-                                ${log.spina > 0 ? '+' : ''}${formatRupiah(log.spina)}
-                            </span>
-                            <span class="kas-history-notes">${escapeHtml(log.notes || '-')}</span>
-                            <span class="kas-history-adm"><i class="fas fa-user-shield"></i> ${escapeHtml(log.adm || '?')}</span>
-                        </div>
+                    <div class="kas-history-row">
+                        <div class="kas-history-date">${formatDate(log.timestamp)}</div>
+                        <div class="kas-history-ign">${escapeHtml(log.ign || 'SISTEM')}</div>
+                        <div class="kas-history-amount ${log.spina > 0 ? 'positive' : 'negative'}">${log.spina > 0 ? '+' : ''}${formatRupiah(log.spina)}</div>
+                        <div class="kas-history-notes">${escapeHtml(log.notes || '-')}</div>
+                        <div class="kas-history-adm">${escapeHtml(log.adm || '?')}</div>
+                        ${log.adm === currentAdmin.nama ? `
+                            <div class="kas-history-actions">
+                                <button class="kas-edit-btn" onclick="editTransaction('${log.rowId}', '${escapeHtml(log.notes)}', ${log.spina})" title="Edit">✏️</button>
+                            </div>
+                        ` : '<div class="kas-history-actions"></div>'}
                     </div>
                 `).join('')}
             </div>
@@ -254,14 +298,14 @@ function renderKasDashboard() {
     
     container.innerHTML = html;
     
-    // Event listener untuk tab
-    document.querySelectorAll('.kas-tab-btn').forEach(btn => {
+    // Event listener untuk tab form
+    document.querySelectorAll('.kas-form-tab').forEach(btn => {
         btn.addEventListener('click', () => {
-            kasCurrentTab = btn.dataset.kasTab;
-            document.querySelectorAll('.kas-tab-btn').forEach(b => b.classList.remove('active'));
+            kasCurrentForm = btn.dataset.form;
+            document.querySelectorAll('.kas-form-tab').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            document.querySelectorAll('.kas-form').forEach(form => form.classList.remove('active'));
-            document.getElementById(`kas-form-${kasCurrentTab}`).classList.add('active');
+            document.querySelectorAll('.kas-form-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(`kas-form-${kasCurrentForm}`).classList.add('active');
         });
     });
     
@@ -289,6 +333,64 @@ function renderKasDashboard() {
 }
 
 // ==========================================
+// NOTIFIKASI
+// ==========================================
+async function openKasNotification() {
+    try {
+        // Ambil notifikasi
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getKasNotifications&adminId=${currentAdmin.id}`);
+        const data = await res.json();
+        
+        if (data.status === 'success' && data.data && data.data.length > 0) {
+            showNotificationModal(data.data);
+        } else {
+            window.showToast("Tidak ada notifikasi baru");
+        }
+        
+        // Hapus semua notifikasi (tandai sudah dibaca)
+        await fetch(`${window.GAS_ADMIN_URL}?action=clearKasNotifications&adminId=${currentAdmin.id}`);
+        kasData.unreadNotifCount = 0;
+        updateNotifBadge();
+        
+    } catch(e) {
+        console.error("Open notifikasi error:", e);
+        window.showToast("Gagal memuat notifikasi", true);
+    }
+}
+
+function showNotificationModal(notifications) {
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <h3><i class="fas fa-bell"></i> Notifikasi Kas</h3>
+            <div class="kas-notif-modal-list">
+                ${notifications.map(notif => `
+                    <div class="kas-notif-modal-item ${notif.type.toLowerCase()}">
+                        <div class="kas-notif-modal-icon">
+                            ${notif.type === 'APPROVED' ? '✅' : '❌'}
+                        </div>
+                        <div class="kas-notif-modal-content">
+                            <div class="kas-notif-modal-title">
+                                ${notif.type === 'APPROVED' ? 'Transfer Disetujui' : (notif.type === 'REJECTED' ? 'Transfer Ditolak' : 'Transfer Expired')}
+                            </div>
+                            <div class="kas-notif-modal-desc">
+                                ${formatRupiah(notif.amount)} dari ${escapeHtml(notif.fromName)} ke ${escapeHtml(notif.toName)}
+                            </div>
+                            <div class="kas-notif-modal-time">${formatDate(notif.timestamp)}</div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal()">Tutup</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+// ==========================================
 // SUBMIT SETORAN
 // ==========================================
 async function submitSetoran() {
@@ -304,12 +406,9 @@ async function submitSetoran() {
         return;
     }
     
-    if (isListMode) {
-        const members = kasData.members;
-        if (!members.includes(memberName)) {
-            window.showToast(`"${memberName}" tidak terdaftar. Pilih dari daftar atau ganti ke mode "New Member"`, true);
-            return;
-        }
+    if (isListMode && !kasData.members.includes(memberName)) {
+        window.showToast(`"${memberName}" tidak terdaftar. Pilih dari daftar atau ganti ke mode "New Member"`, true);
+        return;
     }
     
     if (isNaN(spina) || spina <= 0) {
@@ -327,23 +426,24 @@ async function submitSetoran() {
         const response = await fetch(url);
         const data = await response.json();
         
-        if (data.status === 'success' && data.data) {
+        if (data.status === 'success') {
             window.showToast("✅ Setoran berhasil");
             
-            // Update hanya data yang berubah (global data)
-            kasData.saldo = data.data.saldo || {};
-            kasData.members = data.data.members || [];
-            kasData.history = data.data.history || [];
-            kasData.bendahara = Object.keys(kasData.saldo);
+            // Update data langsung dari response
+            if (data.data) {
+                kasData.saldo = data.data.saldo || {};
+                kasData.members = data.data.members || [];
+                kasData.history = data.data.history || [];
+                kasData.totalSaldo = Object.keys(kasData.saldo).reduce((sum, nama) => sum + (kasData.saldo[nama] || 0), 0);
+            }
             
-            // Render ulang dashboard
+            // Refresh tanpa reload
             renderKasDashboard();
             
             // Reset form
             document.getElementById('kas-member-name').value = '';
             document.getElementById('kas-spina').value = '';
             document.getElementById('kas-notes-setoran').value = '';
-            
         } else {
             window.showToast(data.message || "Gagal menyimpan", true);
         }
@@ -380,21 +480,14 @@ async function submitTransferRequest() {
     btn.disabled = true;
     
     try {
-        // ✅ CUKUP KIRIM NAMA PENERIMA (toName)
         const url = `${window.GAS_ADMIN_URL}?action=requestTransfer&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toName=${encodeURIComponent(to)}&amount=${amount}&notes=${encodeURIComponent(notes)}`;
-        
         const response = await fetch(url);
         const data = await response.json();
         
         if (data.status === 'success') {
             window.showToast(`✅ Request transfer ${formatRupiah(amount)} ke ${to} terkirim`);
             
-            // Reset form
-            document.getElementById('kas-transfer-to').value = '';
-            document.getElementById('kas-transfer-amount').value = '';
-            document.getElementById('kas-notes-transfer').value = '';
-            
-            // Refresh data (panggil getKasFullData)
+            // Refresh data
             await loadKasDashboard();
         } else {
             window.showToast(data.message || "Gagal mengirim request", true);
@@ -409,84 +502,62 @@ async function submitTransferRequest() {
 }
 
 // ==========================================
-// APPROVE TRANSFER REQUEST
+// APPROVE TRANSFER
 // ==========================================
 async function approveTransferRequest(requestId) {
-    window.showConfirmModal('Setujui transfer ini? Setelah disetujui, saldo akan langsung berubah.', async () => {
-        const btn = event?.target;
-        const originalHtml = btn?.innerHTML || 'Setujui';
-        if (btn) {
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            btn.disabled = true;
-        }
-        
+    window.showConfirmModal('Setujui transfer ini?', async () => {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=approveTransfer&requestId=${requestId}&approvedBy=${currentAdmin.id}&approvedByName=${encodeURIComponent(currentAdmin.nama)}`;
-            const res = await fetch(url);
-            const data = await res.json();
+            const response = await fetch(url);
+            const data = await response.json();
             
             if (data.status === 'success') {
                 window.showToast(data.message || "Transfer disetujui");
                 await loadKasDashboard();
+                loadNotifCount(); // Refresh notif count
             } else {
                 window.showToast(data.message || "Gagal menyetujui", true);
             }
         } catch(e) {
             console.error("Approve transfer error:", e);
             window.showToast("Gagal koneksi", true);
-        } finally {
-            if (btn) {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }
         }
     });
 }
 
 // ==========================================
-// REJECT TRANSFER REQUEST
+// REJECT TRANSFER
 // ==========================================
 async function rejectTransferRequest(requestId) {
     window.showConfirmModal('Tolak transfer ini?', async () => {
-        const btn = event?.target;
-        const originalHtml = btn?.innerHTML || 'Tolak';
-        if (btn) {
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            btn.disabled = true;
-        }
-        
         try {
             const url = `${window.GAS_ADMIN_URL}?action=rejectTransfer&requestId=${requestId}&rejectedBy=${currentAdmin.id}&rejectedByName=${encodeURIComponent(currentAdmin.nama)}`;
-            const res = await fetch(url);
-            const data = await res.json();
+            const response = await fetch(url);
+            const data = await response.json();
             
             if (data.status === 'success') {
                 window.showToast(data.message || "Transfer ditolak");
                 await loadKasDashboard();
+                loadNotifCount(); // Refresh notif count
             } else {
                 window.showToast(data.message || "Gagal menolak", true);
             }
         } catch(e) {
             console.error("Reject transfer error:", e);
             window.showToast("Gagal koneksi", true);
-        } finally {
-            if (btn) {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }
         }
     });
 }
 
 // ==========================================
-// CANCEL TRANSFER REQUEST
+// CANCEL TRANSFER
 // ==========================================
 async function cancelTransferRequest(requestId) {
     window.showConfirmModal('Batalkan request transfer ini?', async () => {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=cancelTransfer&requestId=${requestId}&cancelledBy=${currentAdmin.id}`;
-            const res = await fetch(url);
-            const data = await res.json();
+            const response = await fetch(url);
+            const data = await response.json();
             
             if (data.status === 'success') {
                 window.showToast(data.message || "Request dibatalkan");
@@ -502,53 +573,65 @@ async function cancelTransferRequest(requestId) {
 }
 
 // ==========================================
-// UTILITY FUNCTIONS
+// EDIT TRANSACTION (hanya untuk pencatat)
 // ==========================================
-function formatRupiah(angka) {
-    if (angka === undefined || angka === null) return 'Rp 0';
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).format(angka);
+async function editTransaction(rowId, oldNotes, oldAmount) {
+    // Modal edit sederhana
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 350px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <h3><i class="fas fa-edit"></i> Edit Transaksi</h3>
+            <div class="kas-form-group">
+                <label>Nominal Baru</label>
+                <input type="number" id="edit-amount" value="${Math.abs(oldAmount)}" step="1">
+            </div>
+            <div class="kas-form-group">
+                <label>Notes Baru</label>
+                <input type="text" id="edit-notes" value="${escapeHtml(oldNotes)}" placeholder="Keterangan...">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="saveEditTransaction(${rowId})" style="background:var(--color-primary);">Simpan</button>
+                <button onclick="closeModal()" style="background:#333;">Batal</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
 }
 
-function formatDate(timestamp) {
-    if (!timestamp) return '-';
+async function saveEditTransaction(rowId) {
+    const newAmount = parseInt(document.getElementById('edit-amount')?.value);
+    const newNotes = document.getElementById('edit-notes')?.value || "";
+    
+    if (isNaN(newAmount) || newAmount <= 0) {
+        window.showToast("Nominal harus lebih dari 0", true);
+        return;
+    }
+    
+    closeModal();
+    
     try {
-        const date = new Date(timestamp);
-        return date.toLocaleDateString('id-ID', {
-            day: '2-digit',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        // Update di GAS
+        await fetch(`${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${rowId}&amount=${newAmount}&notes=${encodeURIComponent(newNotes)}`);
+        
+        window.showToast("✅ Transaksi diperbarui");
+        await loadKasDashboard();
     } catch(e) {
-        return timestamp.toString();
+        console.error("Edit transaction error:", e);
+        window.showToast("Gagal mengupdate", true);
     }
 }
 
-function getStatusLabel(status) {
-    const labels = {
-        'PENDING': '⏳ Menunggu',
-        'APPROVED': '✅ Disetujui',
-        'REJECTED': '❌ Ditolak',
-        'EXPIRED': '⏰ Kadaluarsa',
-        'CANCELLED': '🗑️ Dibatalkan'
-    };
-    return labels[status] || status;
-}
-
 // ==========================================
-// REFRESH KAS
+// REFRESH
 // ==========================================
 window.refreshKas = function() {
     loadKasDashboard();
+    loadNotifCount();
 };
 
 // ==========================================
-// EXPOSE GLOBAL FUNCTIONS
+// EXPOSE FUNCTIONS
 // ==========================================
 window.loadKasDashboard = loadKasDashboard;
 window.submitSetoran = submitSetoran;
@@ -556,5 +639,9 @@ window.submitTransferRequest = submitTransferRequest;
 window.approveTransferRequest = approveTransferRequest;
 window.rejectTransferRequest = rejectTransferRequest;
 window.cancelTransferRequest = cancelTransferRequest;
+window.editTransaction = editTransaction;
+window.saveEditTransaction = saveEditTransaction;
+window.openKasNotification = openKasNotification;
+window.refreshKas = refreshKas;
 
 console.log("✅ admin-kas.js loaded");

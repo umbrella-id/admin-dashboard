@@ -441,24 +441,9 @@ async function doLogin() {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=login&passkey=${encodeURIComponent(passkey)}`);
         const data = await res.json();
         if (data.status === 'success') {
-            const admin = data.admin;
-            
-            // ✅ VALIDASI TAMBAHAN (pastikan admin masih aktif)
-            const validateRes = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}`);
-            const validateData = await validateRes.json();
-            
-            if (!validateData.valid) {
-                document.getElementById('login-error').innerText = 'Akun tidak valid atau sudah dinonaktifkan!';
-                return;
-            }
-            
-            // Gunakan data terbaru dari server
-            currentAdmin = validateData.admin || admin;
-            
+            currentAdmin = data.admin;
             localStorage.setItem('umbrella_admin_session', JSON.stringify({
                 admin: currentAdmin,
-                adminName: currentAdmin.nama,  // ← simpan nama
-                adminPasskey: passkey,          // ← simpan passkey
                 loggedInAt: Date.now()
             }));
             
@@ -501,7 +486,6 @@ async function doLogin() {
         document.getElementById('login-error').innerText = 'Koneksi gagal!'; 
     }
 }
-
 
 async function checkSession() {
     const session = localStorage.getItem('umbrella_admin_session');
@@ -572,7 +556,8 @@ async function validateSessionInBackground(admin) {
         const adminPasskey = session.adminPasskey;
         
         // ✅ Kirim lengkap: ID + Nama + Passkey
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}&adminName=${encodeURIComponent(adminName)}&adminPasskey=${encodeURIComponent(adminPasskey)}`);
+        // Cukup kirim ID + passkey
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}&adminPasskey=${encodeURIComponent(adminPasskey)}`);
         const data = await res.json();
         
         if (!data.valid) {

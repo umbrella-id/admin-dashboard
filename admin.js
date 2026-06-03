@@ -457,6 +457,8 @@ async function doLogin() {
             
             localStorage.setItem('umbrella_admin_session', JSON.stringify({
                 admin: currentAdmin,
+                adminName: currentAdmin.nama,  // ← simpan nama
+                adminPasskey: passkey,          // ← simpan passkey
                 loggedInAt: Date.now()
             }));
             
@@ -579,6 +581,8 @@ async function validateSessionInBackground(admin) {
             currentAdmin = data.admin;
             localStorage.setItem('umbrella_admin_session', JSON.stringify({
                 admin: currentAdmin,
+                adminName: currentAdmin.nama, 
+                adminPasskey: passkey,
                 loggedInAt: Date.now()
             }));
             document.getElementById('admin-name-display').innerText = currentAdmin.nama;

@@ -600,15 +600,28 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
 }
 
 async function saveEditTransaction(rowId) {
-    console.log("📝 saveEditTransaction dipanggil untuk rowId:", rowId);
+    console.log("📝 rowId:", rowId);
     
     const newAmount = parseInt(document.getElementById('edit-amount')?.value);
     const newNotes = document.getElementById('edit-notes')?.value || "";
     
-    console.log("📝 newAmount:", newAmount, "newNotes:", newNotes);
+    console.log("📝 newAmount:", newAmount);
+    console.log("📝 newNotes:", newNotes);
+    console.log("📝 currentAdmin.nama:", currentAdmin.nama);
+    
+    // Validasi
+    if (!rowId || rowId === undefined) {
+        window.showToast("Error: ID transaksi tidak valid", true);
+        return;
+    }
     
     if (isNaN(newAmount) || newAmount <= 0) {
         window.showToast("Nominal harus lebih dari 0", true);
+        return;
+    }
+    
+    if (!currentAdmin || !currentAdmin.nama) {
+        window.showToast("Error: Data admin tidak ditemukan", true);
         return;
     }
     
@@ -625,7 +638,6 @@ async function saveEditTransaction(rowId) {
         
         if (data.status === 'success') {
             window.showToast("✅ Transaksi diperbarui");
-            console.log("🔄 Refresh dashboard...");
             await loadKasDashboard();
         } else {
             window.showToast(data.message || "Gagal mengupdate", true);

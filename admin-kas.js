@@ -653,8 +653,8 @@ window.submitTransferRequest = submitTransferRequest;
 window.approveTransferRequest = approveTransferRequest;
 window.rejectTransferRequest = rejectTransferRequest;
 window.cancelTransferRequest = cancelTransferRequest;
-window.editTransaction = editTransaction;
 window.saveEditTransaction = saveEditTransaction;
+window.editTransaction = editTransaction;
 window.openKasNotification = openKasNotification;
 window.refreshKas = refreshKas;
 

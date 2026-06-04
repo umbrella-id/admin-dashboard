@@ -50,7 +50,11 @@ function formatDate(timestamp) {
 // CORE FUNCTIONS - UPDATE CACHE & RENDER
 // ==========================================
 function updateKasDataFromResponse(responseData) {
-    if (!responseData) return false;
+    console.log("🟢 updateKasDataFromResponse dipanggil", responseData);
+    if (!responseData) {
+        console.log("⚠️ responseData kosong!");
+        return false;
+    }
     
     kasData.members = responseData.members || [];
     kasData.saldo = responseData.saldo || {};
@@ -67,6 +71,7 @@ function updateKasDataFromResponse(responseData) {
 }
 
 async function loadKasDashboard() {
+    console.log("🔄 loadKasDashboard DIPANGGIL");
     if (!currentAdmin || kasLoading) return;
     
     const container = document.getElementById('kas-container');
@@ -78,6 +83,7 @@ async function loadKasDashboard() {
     try {
         const response = await fetch(`${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`);
         const result = await response.json();
+        console.log("📡 loadKasDashboard response:", result);
         
         if (result.status === 'success' && result.data) {
             updateKasDataFromResponse(result.data);
@@ -119,6 +125,7 @@ function updateNotifBadge() {
 // RENDER DASHBOARD
 // ==========================================
 function renderKasDashboard() {
+    console.log("🎨 renderKasDashboard DIPANGGIL");
     const container = document.getElementById('kas-container');
     if (!container) return;
     
@@ -346,6 +353,7 @@ function showNotificationModal(notifications) {
 // OPERASI KAS
 // ==========================================
 async function submitSetoran() {
+    console.log("🔵 submitSetoran DIPANGGIL");
     const radioList = document.querySelector('input[name="member-mode"][value="list"]');
     const isListMode = radioList ? radioList.checked : true;
     let memberName = document.getElementById('kas-member-name')?.value.trim();
@@ -364,10 +372,16 @@ async function submitSetoran() {
     try {
         const response = await fetch(`${window.GAS_ADMIN_URL}?action=addSetoran&ign=${encodeURIComponent(memberName)}&spina=${spina}&notes=${encodeURIComponent(notes)}&adm=${encodeURIComponent(currentAdmin.nama)}`);
         const data = await response.json();
+        console.log("📡 submitSetoran response:", data);
         
-        if (data.status === 'success' && data.data) {
+        if (data.status === 'success') {
             window.showToast("✅ Setoran berhasil");
-            updateKasDataFromResponse(data.data);
+            if (data.data) {
+                updateKasDataFromResponse(data.data);
+            } else {
+                console.log("⚠️ Tidak ada data.data, refresh manual...");
+                await loadKasDashboard();
+            }
             document.getElementById('kas-member-name').value = '';
             document.getElementById('kas-spina').value = '';
             document.getElementById('kas-notes-setoran').value = '';
@@ -375,6 +389,7 @@ async function submitSetoran() {
             window.showToast(data.message || "Gagal menyimpan", true);
         }
     } catch(e) {
+        console.error("❌ submitSetoran error:", e);
         window.showToast("Gagal koneksi", true);
     } finally {
         btn.innerHTML = originalHtml;
@@ -383,6 +398,7 @@ async function submitSetoran() {
 }
 
 async function submitTransferRequest() {
+    console.log("🔵 submitTransferRequest DIPANGGIL");
     const to = document.getElementById('kas-transfer-to')?.value;
     const amount = parseInt(document.getElementById('kas-transfer-amount')?.value);
     const notes = document.getElementById('kas-notes-transfer')?.value || "";
@@ -398,10 +414,16 @@ async function submitTransferRequest() {
     try {
         const response = await fetch(`${window.GAS_ADMIN_URL}?action=requestTransfer&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toName=${encodeURIComponent(to)}&amount=${amount}&notes=${encodeURIComponent(notes)}`);
         const data = await response.json();
+        console.log("📡 submitTransferRequest response:", data);
         
-        if (data.status === 'success' && data.data) {
+        if (data.status === 'success') {
             window.showToast(data.message || `✅ Request transfer ${formatRupiah(amount)} ke ${to} terkirim`);
-            updateKasDataFromResponse(data.data);  // ✅ 1 REQUEST SAJA
+            if (data.data) {
+                updateKasDataFromResponse(data.data);
+            } else {
+                console.log("⚠️ Tidak ada data.data, refresh manual...");
+                await loadKasDashboard();
+            }
             document.getElementById('kas-transfer-to').value = '';
             document.getElementById('kas-transfer-amount').value = '';
             document.getElementById('kas-notes-transfer').value = '';
@@ -409,6 +431,7 @@ async function submitTransferRequest() {
             window.showToast(data.message || "Gagal mengirim request", true);
         }
     } catch(e) {
+        console.error("❌ submitTransferRequest error:", e);
         window.showToast("Gagal koneksi", true);
     } finally {
         btn.innerHTML = originalHtml;
@@ -417,54 +440,78 @@ async function submitTransferRequest() {
 }
 
 async function approveTransferRequest(requestId) {
+    console.log("🔵 approveTransferRequest DIPANGGIL", requestId);
     window.showConfirmModal('Setujui transfer ini?', async () => {
         try {
             const response = await fetch(`${window.GAS_ADMIN_URL}?action=approveTransfer&requestId=${requestId}&approvedBy=${currentAdmin.id}&approvedByName=${encodeURIComponent(currentAdmin.nama)}`);
             const data = await response.json();
+            console.log("📡 approveTransferRequest response:", data);
             
-            if (data.status === 'success' && data.data) {
+            if (data.status === 'success') {
                 window.showToast(data.message || "Transfer disetujui");
-                updateKasDataFromResponse(data.data);  // ✅ 1 REQUEST SAJA
+                if (data.data) {
+                    updateKasDataFromResponse(data.data);
+                } else {
+                    console.log("⚠️ Tidak ada data.data, refresh manual...");
+                    await loadKasDashboard();
+                }
             } else {
                 window.showToast(data.message || "Gagal menyetujui", true);
             }
         } catch(e) {
+            console.error("❌ approveTransferRequest error:", e);
             window.showToast("Gagal koneksi", true);
         }
     });
 }
 
 async function rejectTransferRequest(requestId) {
+    console.log("🔵 rejectTransferRequest DIPANGGIL", requestId);
     window.showConfirmModal('Tolak transfer ini?', async () => {
         try {
             const response = await fetch(`${window.GAS_ADMIN_URL}?action=rejectTransfer&requestId=${requestId}&rejectedBy=${currentAdmin.id}&rejectedByName=${encodeURIComponent(currentAdmin.nama)}`);
             const data = await response.json();
+            console.log("📡 rejectTransferRequest response:", data);
             
-            if (data.status === 'success' && data.data) {
+            if (data.status === 'success') {
                 window.showToast(data.message || "Transfer ditolak");
-                updateKasDataFromResponse(data.data);  // ✅ 1 REQUEST SAJA
+                if (data.data) {
+                    updateKasDataFromResponse(data.data);
+                } else {
+                    console.log("⚠️ Tidak ada data.data, refresh manual...");
+                    await loadKasDashboard();
+                }
             } else {
                 window.showToast(data.message || "Gagal menolak", true);
             }
         } catch(e) {
+            console.error("❌ rejectTransferRequest error:", e);
             window.showToast("Gagal koneksi", true);
         }
     });
 }
 
 async function cancelTransferRequest(requestId) {
+    console.log("🔵 cancelTransferRequest DIPANGGIL", requestId);
     window.showConfirmModal('Batalkan request transfer ini?', async () => {
         try {
             const response = await fetch(`${window.GAS_ADMIN_URL}?action=cancelTransfer&requestId=${requestId}&cancelledBy=${currentAdmin.id}`);
             const data = await response.json();
+            console.log("📡 cancelTransferRequest response:", data);
             
-            if (data.status === 'success' && data.data) {
+            if (data.status === 'success') {
                 window.showToast(data.message || "Request dibatalkan");
-                updateKasDataFromResponse(data.data);  // ✅ 1 REQUEST SAJA
+                if (data.data) {
+                    updateKasDataFromResponse(data.data);
+                } else {
+                    console.log("⚠️ Tidak ada data.data, refresh manual...");
+                    await loadKasDashboard();
+                }
             } else {
                 window.showToast(data.message || "Gagal membatalkan", true);
             }
         } catch(e) {
+            console.error("❌ cancelTransferRequest error:", e);
             window.showToast("Gagal koneksi", true);
         }
     });
@@ -495,6 +542,7 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
 }
 
 async function saveEditTransaction(rowId) {
+    console.log("🔵 saveEditTransaction DIPANGGIL", rowId);
     const parsedRowId = parseInt(rowId);
     if (isNaN(parsedRowId) || parsedRowId <= 0) {
         window.showToast("Error: ID transaksi tidak valid", true);
@@ -512,14 +560,21 @@ async function saveEditTransaction(rowId) {
     try {
         const response = await fetch(`${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&notes=${encodeURIComponent(newNotes)}&adminName=${encodeURIComponent(currentAdmin.nama)}`);
         const data = await response.json();
+        console.log("📡 saveEditTransaction response:", data);
         
-        if (data.status === 'success' && data.data) {
+        if (data.status === 'success') {
             window.showToast(data.message || "✅ Transaksi diperbarui");
-            updateKasDataFromResponse(data.data);  // ✅ 1 REQUEST SAJA
+            if (data.data) {
+                updateKasDataFromResponse(data.data);
+            } else {
+                console.log("⚠️ Tidak ada data.data, refresh manual...");
+                await loadKasDashboard();
+            }
         } else {
             window.showToast(data.message || "Gagal mengupdate", true);
         }
     } catch(e) {
+        console.error("❌ saveEditTransaction error:", e);
         window.showToast("Gagal koneksi", true);
     }
 }

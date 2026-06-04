@@ -70,33 +70,26 @@ function updateKasDataFromResponse(responseData) {
     return true;
 }
 
-async function loadKasDashboard() {
-    console.log("🔄 loadKasDashboard DIPANGGIL");
-    if (!currentAdmin || kasLoading) return;
-    
-    const container = document.getElementById('kas-container');
-    if (!container) return;
-    
-    kasLoading = true;
-    container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data kas...</div>';
-    
-    try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`);
-        const result = await response.json();
-        console.log("📡 loadKasDashboard response:", result);
+document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabId = btn.dataset.nav;
+        const pages = document.getElementById('tab-swipe-area').children;
+        for (let p of pages) if (p.dataset.tab === tabId) p.scrollIntoView({ behavior: 'smooth', inline: 'start' });
+        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
         
-        if (result.status === 'success' && result.data) {
-            updateKasDataFromResponse(result.data);
-        } else {
-            container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
+        // ✅ TAMBAHKAN INI UNTUK KAS
+        if (tabId === 'kas' && typeof window.loadKasDashboard === 'function') {
+            console.log("💰 Update data kas via AJAX...");
+            window.loadKasDashboard();
         }
-    } catch(e) {
-        console.error("Load kas error:", e);
-        container.innerHTML = '<div class="empty-state">⚠️ Gagal koneksi</div>';
-    } finally {
-        kasLoading = false;
-    }
-}
+        
+        if (tabId === 'manage-content' && typeof window.loadContentData === 'function') {
+            console.log("📥 Memuat data konten...");
+            window.loadContentData();
+        }
+    });
+});
 
 async function loadNotifCount() {
     try {

@@ -400,8 +400,8 @@ async function submitTransferRequest() {
         const data = await response.json();
         
         if (data.status === 'success' && data.data) {
-            window.showToast(`✅ Request transfer ${formatRupiah(amount)} ke ${to} terkirim`);
-            updateKasDataFromResponse(data.data);
+            window.showToast(data.message || `✅ Request transfer ${formatRupiah(amount)} ke ${to} terkirim`);
+            updateKasDataFromResponse(data.data);  // ✅ 1 REQUEST SAJA
             document.getElementById('kas-transfer-to').value = '';
             document.getElementById('kas-transfer-amount').value = '';
             document.getElementById('kas-notes-transfer').value = '';
@@ -424,8 +424,7 @@ async function approveTransferRequest(requestId) {
             
             if (data.status === 'success' && data.data) {
                 window.showToast(data.message || "Transfer disetujui");
-                updateKasDataFromResponse(data.data);
-                loadNotifCount();
+                updateKasDataFromResponse(data.data);  // ✅ 1 REQUEST SAJA
             } else {
                 window.showToast(data.message || "Gagal menyetujui", true);
             }
@@ -443,8 +442,7 @@ async function rejectTransferRequest(requestId) {
             
             if (data.status === 'success' && data.data) {
                 window.showToast(data.message || "Transfer ditolak");
-                updateKasDataFromResponse(data.data);
-                loadNotifCount();
+                updateKasDataFromResponse(data.data);  // ✅ 1 REQUEST SAJA
             } else {
                 window.showToast(data.message || "Gagal menolak", true);
             }
@@ -462,7 +460,7 @@ async function cancelTransferRequest(requestId) {
             
             if (data.status === 'success' && data.data) {
                 window.showToast(data.message || "Request dibatalkan");
-                updateKasDataFromResponse(data.data);
+                updateKasDataFromResponse(data.data);  // ✅ 1 REQUEST SAJA
             } else {
                 window.showToast(data.message || "Gagal membatalkan", true);
             }
@@ -516,8 +514,8 @@ async function saveEditTransaction(rowId) {
         const data = await response.json();
         
         if (data.status === 'success' && data.data) {
-            window.showToast("✅ Transaksi diperbarui");
-            updateKasDataFromResponse(data.data);
+            window.showToast(data.message || "✅ Transaksi diperbarui");
+            updateKasDataFromResponse(data.data);  // ✅ 1 REQUEST SAJA
         } else {
             window.showToast(data.message || "Gagal mengupdate", true);
         }

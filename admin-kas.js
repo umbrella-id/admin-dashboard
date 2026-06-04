@@ -1,13 +1,6 @@
 /**
  * admin-kas.js - Modul Kas Lengkap
- * - Saldo bendahara & total kas guild
- * - Request transfer (PENDING) dengan badge
- * - Notifikasi 🔔 (APPROVED/REJECTED/EXPIRED)
- * - Input setoran member
- * - Transfer antar bendahara
- * - Riwayat transaksi (50 terakhir) dengan edit (hanya untuk pencatat)
- * 
- * Semua operasi AJAX, tanpa reload halaman
+ * Semua operasi AJAX, update cache, tanpa reload halaman
  */
 
 let kasData = {
@@ -15,15 +8,15 @@ let kasData = {
     bendahara: [],
     saldo: {},
     history: [],
-    incomingRequests: [],  // PENDING yang ditujukan ke admin login
-    outgoingRequests: [],  // PENDING yang dibuat admin login
+    incomingRequests: [],
+    outgoingRequests: [],
     notifications: [],
     unreadNotifCount: 0,
     totalSaldo: 0
 };
 
 let kasLoading = false;
-let kasCurrentForm = 'setoran'; // 'setoran' atau 'transfer'
+let kasCurrentForm = 'setoran';
 
 // ==========================================
 // UTILITY FUNCTIONS
@@ -54,8 +47,25 @@ function formatDate(timestamp) {
 }
 
 // ==========================================
-// LOAD DASHBOARD (1 TEMBAKAN)
+// CORE FUNCTIONS - UPDATE CACHE & RENDER
 // ==========================================
+function updateKasDataFromResponse(responseData) {
+    if (!responseData) return false;
+    
+    kasData.members = responseData.members || [];
+    kasData.saldo = responseData.saldo || {};
+    kasData.history = responseData.history || [];
+    kasData.incomingRequests = responseData.incomingRequests || [];
+    kasData.outgoingRequests = (responseData.myRequests || []).filter(r => r.status === 'PENDING');
+    kasData.bendahara = Object.keys(kasData.saldo);
+    kasData.totalSaldo = kasData.bendahara.reduce((sum, nama) => sum + (kasData.saldo[nama] || 0), 0);
+    kasData.unreadNotifCount = responseData.pendingCount?.notifications || 0;
+    
+    renderKasDashboard();
+    updateNotifBadge();
+    return true;
+}
+
 async function loadKasDashboard() {
     if (!currentAdmin || kasLoading) return;
     
@@ -66,34 +76,11 @@ async function loadKasDashboard() {
     container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data kas...</div>';
     
     try {
-        // 1 TEMBAKAN AMBIL SEMUA DATA
         const response = await fetch(`${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`);
         const result = await response.json();
         
         if (result.status === 'success' && result.data) {
-            const data = result.data;
-            
-            // Data global
-            kasData.members = data.members || [];
-            kasData.saldo = data.saldo || {};
-            kasData.history = data.history || [];
-            kasData.bendahara = Object.keys(kasData.saldo);
-            
-            // Hitung total saldo
-            kasData.totalSaldo = kasData.bendahara.reduce((sum, nama) => sum + (kasData.saldo[nama] || 0), 0);
-            
-            // Pisahkan incoming dan outgoing dari incomingRequests (karena data dari GAS sudah terpisah)
-            // GAS mengirim incomingRequests (ke admin ini) dan myRequests (dari admin ini)
-            kasData.incomingRequests = data.incomingRequests || [];
-            kasData.outgoingRequests = (data.myRequests || []).filter(r => r.status === 'PENDING');
-            
-            // Notifikasi count
-            kasData.unreadNotifCount = data.pendingCount?.notifications || 0;
-            
-            renderKasDashboard();
-            
-            // Load notifikasi count terpisah (opsional)
-            loadNotifCount();
+            updateKasDataFromResponse(result.data);
         } else {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
         }
@@ -105,9 +92,6 @@ async function loadKasDashboard() {
     }
 }
 
-// ==========================================
-// LOAD NOTIF COUNT
-// ==========================================
 async function loadNotifCount() {
     try {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=getUnreadKasNotificationsCount&adminId=${currentAdmin.id}`);
@@ -139,19 +123,15 @@ function renderKasDashboard() {
     if (!container) return;
     
     const { bendahara, saldo, totalSaldo, incomingRequests, outgoingRequests, history, unreadNotifCount } = kasData;
-    const canEdit = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA');
     
-    // Gabungkan semua pending request (incoming + outgoing) untuk ditampilkan bersama
     const allPending = [
         ...incomingRequests.map(r => ({ ...r, type: 'incoming' })),
         ...outgoingRequests.map(r => ({ ...r, type: 'outgoing' }))
     ];
     allPending.sort((a, b) => a.timestamp - b.timestamp);
-    
     const totalPending = allPending.length;
     
     let html = `
-        <!-- NOTIFIKASI 🔔 -->
         <div class="kas-notif-bar" onclick="openKasNotification()">
             <div class="kas-notif-icon">
                 <i class="fas fa-bell"></i>
@@ -160,7 +140,6 @@ function renderKasDashboard() {
             <span class="kas-notif-label">Notifikasi</span>
         </div>
         
-        <!-- SALDO BENDAHARA & TOTAL -->
         <div class="kas-saldo-section">
             <div class="kas-saldo-list">
                 ${bendahara.map(nama => `
@@ -177,7 +156,6 @@ function renderKasDashboard() {
         </div>
     `;
     
-    // REQUEST TRANSFER (PENDING) - hanya tampil jika ada
     if (totalPending > 0) {
         html += `
             <div class="kas-pending-section">
@@ -210,7 +188,6 @@ function renderKasDashboard() {
         `;
     }
     
-    // FORM INPUT & TRANSFER (2 kolom)
     html += `
         <div class="kas-forms-section">
             <div class="kas-form-tabs">
@@ -218,22 +195,15 @@ function renderKasDashboard() {
                 <button class="kas-form-tab ${kasCurrentForm === 'transfer' ? 'active' : ''}" data-form="transfer">🔄 TRANSFER BENDAHARA</button>
             </div>
             
-            <!-- FORM INPUT KAS -->
             <div id="kas-form-setoran" class="kas-form-panel ${kasCurrentForm === 'setoran' ? 'active' : ''}">
                 <div class="kas-mode-selector">
-                    <label class="kas-radio-label">
-                        <input type="radio" name="member-mode" value="list" checked> <i class="fas fa-list"></i> List Member
-                    </label>
-                    <label class="kas-radio-label">
-                        <input type="radio" name="member-mode" value="new"> <i class="fas fa-plus-circle"></i> New Member
-                    </label>
+                    <label class="kas-radio-label"><input type="radio" name="member-mode" value="list" checked> <i class="fas fa-list"></i> List Member</label>
+                    <label class="kas-radio-label"><input type="radio" name="member-mode" value="new"> <i class="fas fa-plus-circle"></i> New Member</label>
                 </div>
                 <div class="kas-form-group">
                     <label>Nama Member</label>
                     <input type="text" id="kas-member-name" list="member-list" placeholder="Ketik atau pilih dari daftar..." autocomplete="off">
-                    <datalist id="member-list">
-                        ${kasData.members.map(m => `<option value="${escapeHtml(m)}">`).join('')}
-                    </datalist>
+                    <datalist id="member-list">${kasData.members.map(m => `<option value="${escapeHtml(m)}">`).join('')}</datalist>
                 </div>
                 <div class="kas-form-group">
                     <label>Jumlah Kas Diterima (Spina)</label>
@@ -246,7 +216,6 @@ function renderKasDashboard() {
                 <button class="kas-submit-btn" onclick="submitSetoran()"><i class="fas fa-save"></i> INPUT</button>
             </div>
             
-            <!-- FORM TRANSFER BENDAHARA -->
             <div id="kas-form-transfer" class="kas-form-panel ${kasCurrentForm === 'transfer' ? 'active' : ''}">
                 <div class="kas-form-group">
                     <label>Penerima Dana</label>
@@ -268,14 +237,9 @@ function renderKasDashboard() {
                 <button class="kas-submit-btn" onclick="submitTransferRequest()"><i class="fas fa-paper-plane"></i> AJUKAN</button>
             </div>
         </div>
-    `;
-    
-    // RIWAYAT TRANSAKSI (scrollable)
-    html += `
+        
         <div class="kas-history-section">
-            <div class="kas-history-header">
-                <span><i class="fas fa-history"></i> RIWAYAT TRANSAKSI (50 terakhir)</span>
-            </div>
+            <div class="kas-history-header"><span><i class="fas fa-history"></i> RIWAYAT TRANSAKSI (50 terakhir)</span></div>
             <div class="kas-history-list">
                 ${history.length === 0 ? '<div class="empty-state">Belum ada transaksi</div>' : ''}
                 ${history.map(log => `
@@ -298,7 +262,7 @@ function renderKasDashboard() {
     
     container.innerHTML = html;
     
-    // Event listener untuk tab form
+    // Event listeners
     document.querySelectorAll('.kas-form-tab').forEach(btn => {
         btn.addEventListener('click', () => {
             kasCurrentForm = btn.dataset.form;
@@ -309,7 +273,6 @@ function renderKasDashboard() {
         });
     });
     
-    // Event listener untuk radio mode member
     const radioList = document.querySelector('input[name="member-mode"][value="list"]');
     const radioNew = document.querySelector('input[name="member-mode"][value="new"]');
     const memberInput = document.getElementById('kas-member-name');
@@ -337,7 +300,6 @@ function renderKasDashboard() {
 // ==========================================
 async function openKasNotification() {
     try {
-        // Ambil notifikasi
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=getKasNotifications&adminId=${currentAdmin.id}`);
         const data = await res.json();
         
@@ -347,11 +309,9 @@ async function openKasNotification() {
             window.showToast("Tidak ada notifikasi baru");
         }
         
-        // Hapus semua notifikasi (tandai sudah dibaca)
         await fetch(`${window.GAS_ADMIN_URL}?action=clearKasNotifications&adminId=${currentAdmin.id}`);
         kasData.unreadNotifCount = 0;
         updateNotifBadge();
-        
     } catch(e) {
         console.error("Open notifikasi error:", e);
         window.showToast("Gagal memuat notifikasi", true);
@@ -367,54 +327,34 @@ function showNotificationModal(notifications) {
             <div class="kas-notif-modal-list">
                 ${notifications.map(notif => `
                     <div class="kas-notif-modal-item ${notif.type.toLowerCase()}">
-                        <div class="kas-notif-modal-icon">
-                            ${notif.type === 'APPROVED' ? '✅' : '❌'}
-                        </div>
+                        <div class="kas-notif-modal-icon">${notif.type === 'APPROVED' ? '✅' : '❌'}</div>
                         <div class="kas-notif-modal-content">
-                            <div class="kas-notif-modal-title">
-                                ${notif.type === 'APPROVED' ? 'Transfer Disetujui' : (notif.type === 'REJECTED' ? 'Transfer Ditolak' : 'Transfer Expired')}
-                            </div>
-                            <div class="kas-notif-modal-desc">
-                                ${formatRupiah(notif.amount)} dari ${escapeHtml(notif.fromName)} ke ${escapeHtml(notif.toName)}
-                            </div>
+                            <div class="kas-notif-modal-title">${notif.type === 'APPROVED' ? 'Transfer Disetujui' : (notif.type === 'REJECTED' ? 'Transfer Ditolak' : 'Transfer Expired')}</div>
+                            <div class="kas-notif-modal-desc">${formatRupiah(notif.amount)} dari ${escapeHtml(notif.fromName)} ke ${escapeHtml(notif.toName)}</div>
                             <div class="kas-notif-modal-time">${formatDate(notif.timestamp)}</div>
                         </div>
                     </div>
                 `).join('')}
             </div>
-            <div class="modal-buttons">
-                <button onclick="closeModal()">Tutup</button>
-            </div>
+            <div class="modal-buttons"><button onclick="closeModal()">Tutup</button></div>
         </div>
     `;
     modal.style.display = 'flex';
 }
 
 // ==========================================
-// SUBMIT SETORAN
+// OPERASI KAS
 // ==========================================
 async function submitSetoran() {
     const radioList = document.querySelector('input[name="member-mode"][value="list"]');
     const isListMode = radioList ? radioList.checked : true;
-    
     let memberName = document.getElementById('kas-member-name')?.value.trim();
     const spina = parseInt(document.getElementById('kas-spina')?.value);
     const notes = document.getElementById('kas-notes-setoran')?.value || "";
     
-    if (!memberName) {
-        window.showToast("Nama member harus diisi", true);
-        return;
-    }
-    
-    if (isListMode && !kasData.members.includes(memberName)) {
-        window.showToast(`"${memberName}" tidak terdaftar. Pilih dari daftar atau ganti ke mode "New Member"`, true);
-        return;
-    }
-    
-    if (isNaN(spina) || spina <= 0) {
-        window.showToast("Spina harus diisi dengan bilangan bulat positif", true);
-        return;
-    }
+    if (!memberName) return window.showToast("Nama member harus diisi", true);
+    if (isListMode && !kasData.members.includes(memberName)) return window.showToast(`"${memberName}" tidak terdaftar.`, true);
+    if (isNaN(spina) || spina <= 0) return window.showToast("Spina harus diisi dengan bilangan bulat positif", true);
     
     const btn = document.querySelector('#kas-form-setoran .kas-submit-btn');
     const originalHtml = btn.innerHTML;
@@ -422,25 +362,12 @@ async function submitSetoran() {
     btn.disabled = true;
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=addSetoran&ign=${encodeURIComponent(memberName)}&spina=${spina}&notes=${encodeURIComponent(notes)}&adm=${encodeURIComponent(currentAdmin.nama)}`;
-        const response = await fetch(url);
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=addSetoran&ign=${encodeURIComponent(memberName)}&spina=${spina}&notes=${encodeURIComponent(notes)}&adm=${encodeURIComponent(currentAdmin.nama)}`);
         const data = await response.json();
         
-        if (data.status === 'success') {
+        if (data.status === 'success' && data.data) {
             window.showToast("✅ Setoran berhasil");
-            
-            // Update data langsung dari response
-            if (data.data) {
-                kasData.saldo = data.data.saldo || {};
-                kasData.members = data.data.members || [];
-                kasData.history = data.data.history || [];
-                kasData.totalSaldo = Object.keys(kasData.saldo).reduce((sum, nama) => sum + (kasData.saldo[nama] || 0), 0);
-            }
-            
-            // Refresh tanpa reload
-            renderKasDashboard();
-            
-            // Reset form
+            updateKasDataFromResponse(data.data);
             document.getElementById('kas-member-name').value = '';
             document.getElementById('kas-spina').value = '';
             document.getElementById('kas-notes-setoran').value = '';
@@ -448,7 +375,6 @@ async function submitSetoran() {
             window.showToast(data.message || "Gagal menyimpan", true);
         }
     } catch(e) {
-        console.error("Submit setoran error:", e);
         window.showToast("Gagal koneksi", true);
     } finally {
         btn.innerHTML = originalHtml;
@@ -456,23 +382,13 @@ async function submitSetoran() {
     }
 }
 
-// ==========================================
-// SUBMIT TRANSFER REQUEST
-// ==========================================
 async function submitTransferRequest() {
     const to = document.getElementById('kas-transfer-to')?.value;
     const amount = parseInt(document.getElementById('kas-transfer-amount')?.value);
     const notes = document.getElementById('kas-notes-transfer')?.value || "";
     
-    if (!to) {
-        window.showToast("Pilih penerima dana terlebih dahulu", true);
-        return;
-    }
-    
-    if (isNaN(amount) || amount <= 0) {
-        window.showToast("Jumlah transfer harus diisi dengan bilangan bulat positif", true);
-        return;
-    }
+    if (!to) return window.showToast("Pilih penerima dana terlebih dahulu", true);
+    if (isNaN(amount) || amount <= 0) return window.showToast("Jumlah transfer harus diisi dengan bilangan bulat positif", true);
     
     const btn = document.querySelector('#kas-form-transfer .kas-submit-btn');
     const originalHtml = btn.innerHTML;
@@ -480,20 +396,19 @@ async function submitTransferRequest() {
     btn.disabled = true;
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=requestTransfer&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toName=${encodeURIComponent(to)}&amount=${amount}&notes=${encodeURIComponent(notes)}`;
-        const response = await fetch(url);
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=requestTransfer&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toName=${encodeURIComponent(to)}&amount=${amount}&notes=${encodeURIComponent(notes)}`);
         const data = await response.json();
         
-        if (data.status === 'success') {
+        if (data.status === 'success' && data.data) {
             window.showToast(`✅ Request transfer ${formatRupiah(amount)} ke ${to} terkirim`);
-            
-            // Refresh data
-            await loadKasDashboard();
+            updateKasDataFromResponse(data.data);
+            document.getElementById('kas-transfer-to').value = '';
+            document.getElementById('kas-transfer-amount').value = '';
+            document.getElementById('kas-notes-transfer').value = '';
         } else {
             window.showToast(data.message || "Gagal mengirim request", true);
         }
     } catch(e) {
-        console.error("Submit transfer request error:", e);
         window.showToast("Gagal koneksi", true);
     } finally {
         btn.innerHTML = originalHtml;
@@ -501,193 +416,120 @@ async function submitTransferRequest() {
     }
 }
 
-// ==========================================
-// APPROVE TRANSFER
-// ==========================================
 async function approveTransferRequest(requestId) {
     window.showConfirmModal('Setujui transfer ini?', async () => {
         try {
-            const url = `${window.GAS_ADMIN_URL}?action=approveTransfer&requestId=${requestId}&approvedBy=${currentAdmin.id}&approvedByName=${encodeURIComponent(currentAdmin.nama)}`;
-            const response = await fetch(url);
+            const response = await fetch(`${window.GAS_ADMIN_URL}?action=approveTransfer&requestId=${requestId}&approvedBy=${currentAdmin.id}&approvedByName=${encodeURIComponent(currentAdmin.nama)}`);
             const data = await response.json();
             
-            if (data.status === 'success') {
+            if (data.status === 'success' && data.data) {
                 window.showToast(data.message || "Transfer disetujui");
-                await loadKasDashboard();
-                loadNotifCount(); // Refresh notif count
+                updateKasDataFromResponse(data.data);
+                loadNotifCount();
             } else {
                 window.showToast(data.message || "Gagal menyetujui", true);
             }
         } catch(e) {
-            console.error("Approve transfer error:", e);
             window.showToast("Gagal koneksi", true);
         }
     });
 }
 
-// ==========================================
-// REJECT TRANSFER
-// ==========================================
 async function rejectTransferRequest(requestId) {
     window.showConfirmModal('Tolak transfer ini?', async () => {
         try {
-            const url = `${window.GAS_ADMIN_URL}?action=rejectTransfer&requestId=${requestId}&rejectedBy=${currentAdmin.id}&rejectedByName=${encodeURIComponent(currentAdmin.nama)}`;
-            const response = await fetch(url);
+            const response = await fetch(`${window.GAS_ADMIN_URL}?action=rejectTransfer&requestId=${requestId}&rejectedBy=${currentAdmin.id}&rejectedByName=${encodeURIComponent(currentAdmin.nama)}`);
             const data = await response.json();
             
-            if (data.status === 'success') {
+            if (data.status === 'success' && data.data) {
                 window.showToast(data.message || "Transfer ditolak");
-                await loadKasDashboard();
-                loadNotifCount(); // Refresh notif count
+                updateKasDataFromResponse(data.data);
+                loadNotifCount();
             } else {
                 window.showToast(data.message || "Gagal menolak", true);
             }
         } catch(e) {
-            console.error("Reject transfer error:", e);
             window.showToast("Gagal koneksi", true);
         }
     });
 }
 
-// ==========================================
-// CANCEL TRANSFER
-// ==========================================
 async function cancelTransferRequest(requestId) {
     window.showConfirmModal('Batalkan request transfer ini?', async () => {
         try {
-            const url = `${window.GAS_ADMIN_URL}?action=cancelTransfer&requestId=${requestId}&cancelledBy=${currentAdmin.id}`;
-            const response = await fetch(url);
+            const response = await fetch(`${window.GAS_ADMIN_URL}?action=cancelTransfer&requestId=${requestId}&cancelledBy=${currentAdmin.id}`);
             const data = await response.json();
             
-            if (data.status === 'success') {
+            if (data.status === 'success' && data.data) {
                 window.showToast(data.message || "Request dibatalkan");
-                await loadKasDashboard();
+                updateKasDataFromResponse(data.data);
             } else {
                 window.showToast(data.message || "Gagal membatalkan", true);
             }
         } catch(e) {
-            console.error("Cancel transfer error:", e);
             window.showToast("Gagal koneksi", true);
         }
     });
 }
 
 // ==========================================
-// EDIT TRANSACTION - BUKA MODAL EDIT
+// EDIT TRANSACTION
 // ==========================================
 async function editTransaction(rowId, oldNotes, oldAmount) {
-    console.log("🔍 editTransaction dipanggil dengan rowId:", rowId, "typeof:", typeof rowId);
-    
-    // Validasi rowId
     const parsedRowId = parseInt(rowId);
     if (isNaN(parsedRowId) || parsedRowId <= 0) {
-        console.error("❌ rowId tidak valid:", rowId);
         window.showToast("Error: ID transaksi tidak valid", true);
         return;
     }
     
-    // Modal edit
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 350px;">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-edit"></i> Edit Transaksi</h3>
-            <div class="kas-form-group">
-                <label>Nominal Baru</label>
-                <input type="number" id="edit-amount" value="${Math.abs(oldAmount)}" step="1">
-            </div>
-            <div class="kas-form-group">
-                <label>Notes Baru</label>
-                <input type="text" id="edit-notes" value="${escapeHtml(oldNotes)}" placeholder="Keterangan...">
-            </div>
-            <div class="modal-buttons">
-                <button id="save-edit-btn" style="background:var(--color-primary);">Simpan</button>
-                <button onclick="closeModal()" style="background:#333;">Batal</button>
-            </div>
+            <div class="kas-form-group"><label>Nominal Baru</label><input type="number" id="edit-amount" value="${Math.abs(oldAmount)}" step="1"></div>
+            <div class="kas-form-group"><label>Notes Baru</label><input type="text" id="edit-notes" value="${escapeHtml(oldNotes)}" placeholder="Keterangan..."></div>
+            <div class="modal-buttons"><button id="save-edit-btn" style="background:var(--color-primary);">Simpan</button><button onclick="closeModal()" style="background:#333;">Batal</button></div>
         </div>
     `;
     modal.style.display = 'flex';
-    
-    // Pasang event listener untuk tombol simpan
-    document.getElementById('save-edit-btn').onclick = () => {
-        saveEditTransaction(parsedRowId);
-    };
+    document.getElementById('save-edit-btn').onclick = () => saveEditTransaction(parsedRowId);
 }
 
-// ==========================================
-// SAVE EDIT TRANSACTION - SIMPAN PERUBAHAN
-// ==========================================
 async function saveEditTransaction(rowId) {
-    console.log("📝 saveEditTransaction dipanggil dengan rowId:", rowId, "typeof:", typeof rowId);
-    
-    // Validasi rowId
     const parsedRowId = parseInt(rowId);
     if (isNaN(parsedRowId) || parsedRowId <= 0) {
-        console.error("❌ rowId tidak valid:", rowId);
         window.showToast("Error: ID transaksi tidak valid", true);
         return;
     }
     
-    // Ambil nilai dari form
     const newAmount = parseInt(document.getElementById('edit-amount')?.value);
     const newNotes = document.getElementById('edit-notes')?.value || "";
     
-    console.log("📝 newAmount:", newAmount);
-    console.log("📝 newNotes:", newNotes);
-    console.log("📝 currentAdmin.nama:", currentAdmin?.nama);
+    if (isNaN(newAmount) || newAmount <= 0) return window.showToast("Nominal harus lebih dari 0", true);
+    if (!currentAdmin || !currentAdmin.nama) return window.showToast("Error: Data admin tidak ditemukan", true);
     
-    // Validasi amount
-    if (isNaN(newAmount) || newAmount <= 0) {
-        window.showToast("Nominal harus lebih dari 0", true);
-        return;
-    }
-    
-    // Validasi admin
-    if (!currentAdmin || !currentAdmin.nama) {
-        window.showToast("Error: Data admin tidak ditemukan", true);
-        return;
-    }
-    
-    // Tutup modal dulu
     closeModal();
     
     try {
-        // Buat URL request
-        const url = `${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&notes=${encodeURIComponent(newNotes)}&adminName=${encodeURIComponent(currentAdmin.nama)}`;
-        console.log("📡 Fetch URL:", url);
-        
-        // Kirim request ke GAS
-        const response = await fetch(url);
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&notes=${encodeURIComponent(newNotes)}&adminName=${encodeURIComponent(currentAdmin.nama)}`);
         const data = await response.json();
         
-        console.log("📡 Response:", data);
-        
-        if (data.status === 'success') {
+        if (data.status === 'success' && data.data) {
             window.showToast("✅ Transaksi diperbarui");
-            // Refresh dashboard
-            await loadKasDashboard();
-            // Refresh notifikasi count
-            if (typeof loadNotifCount === 'function') loadNotifCount();
+            updateKasDataFromResponse(data.data);
         } else {
             window.showToast(data.message || "Gagal mengupdate", true);
         }
     } catch(e) {
-        console.error("❌ Edit transaction error:", e);
         window.showToast("Gagal koneksi", true);
     }
 }
 
 // ==========================================
-// REFRESH
+// REFRESH & EXPOSE
 // ==========================================
-window.refreshKas = function() {
-    loadKasDashboard();
-    loadNotifCount();
-};
-
-// ==========================================
-// EXPOSE FUNCTIONS
-// ==========================================
+window.refreshKas = () => { loadKasDashboard(); loadNotifCount(); };
 window.loadKasDashboard = loadKasDashboard;
 window.submitSetoran = submitSetoran;
 window.submitTransferRequest = submitTransferRequest;
@@ -695,7 +537,6 @@ window.approveTransferRequest = approveTransferRequest;
 window.rejectTransferRequest = rejectTransferRequest;
 window.cancelTransferRequest = cancelTransferRequest;
 window.openKasNotification = openKasNotification;
-window.refreshKas = refreshKas;
 window.editTransaction = editTransaction;
 window.saveEditTransaction = saveEditTransaction;
 

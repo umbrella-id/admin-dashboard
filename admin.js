@@ -335,15 +335,25 @@ function shouldEnableHeartbeat() {
 // ==========================================
 // ANDROID BACK BUTTON
 // ==========================================
-window.addEventListener('popstate', function(event) {
-    const modal = document.getElementById('modal-overlay');
-    const chatWidget = document.getElementById('chat-widget');
-    if (modal && modal.style.display === 'flex') {
-        closeModal();
-        event.preventDefault();
-    } else if (chatWidget && chatWidget.classList.contains('show')) {
-        window.toggleChatWidget();
-        event.preventDefault();
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && currentAdmin) {
+        // ✅ CEK AKSES MAILBOX (sama seperti di renderBottomNav)
+        const hasMailAccess = (currentAdmin.role1 === 'LEADER' || 
+                               currentAdmin.role1 === 'CO-LEAD' || 
+                               currentAdmin.role2 === 'CO-LEAD');
+        
+        if (hasMailAccess && typeof window.renderMailboxFromCache === 'function') {
+            window.renderMailboxFromCache();
+        }
+        
+        // ✅ CEK AKSES KAS
+        const hasKasAccess = (currentAdmin.role1 === 'LEADER' || 
+                              currentAdmin.role1 === 'BENDAHARA' || 
+                              currentAdmin.role2 === 'BENDAHARA');
+        
+        if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
+            window.loadKasDashboard();
+        }
     }
 });
 
@@ -537,6 +547,15 @@ async function checkSession() {
         }
         
         if (typeof window.loadContentData === 'function') window.loadContentData();
+    
+        // ✅ TAMBAH INI
+        const hasChat = (currentAdmin.role1 === 'LEADER' || 
+                         currentAdmin.role1 === 'CO-LEAD' || 
+                         currentAdmin.role2 === 'CO-LEAD');
+        if (hasChat) {
+            document.getElementById('floating-chat').style.display = 'block';
+            if (typeof window.initChat === 'function') window.initChat(currentAdmin);
+        }
         
         history.pushState({ dashboard: true }, "");
         

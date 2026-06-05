@@ -51,6 +51,7 @@ function formatDate(timestamp) {
 // ==========================================
 function updateKasDataFromResponse(responseData) {
     console.log("🟢 updateKasDataFromResponse dipanggil", responseData);
+    console.log("📊 pendingCount:", responseData.pendingCount);
     if (!responseData) {
         console.log("⚠️ responseData kosong!");
         return false;

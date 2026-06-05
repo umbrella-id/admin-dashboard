@@ -215,13 +215,13 @@ function renderChatLogs(logs, container) {
         if (msgType === 'command') {
             if (msgText.startsWith('MUTE_')) {
                 const parts = msgText.split('_');
-                const targetIGN = parts[3] || 'Seseorang';
+                const targetIGN = window.escapeHtml(parts[3] || 'Seseorang');
                 const durasi = parts[2] || '?';
                 displayText = `🔇 ${targetIGN} dibisukan selama ${durasi} menit.`;
                 isSystem = true;
             } else if (msgText.startsWith('UNMUTE_')) {
                 const parts = msgText.split('_');
-                const targetIGN = parts[2] || 'Seseorang';
+                const targetIGN = window.escapeHtml(parts[2] || 'Seseorang');
                 displayText = `🔊 ${targetIGN} telah dibuka bisuannya.`;
                 isSystem = true;
             } else {

@@ -72,11 +72,12 @@ function updateKasDataFromResponse(responseData) {
 
 async function loadKasDashboard(forceRefresh = false) {
     console.log("🔄 loadKasDashboard DIPANGGIL");
+    
     if (!currentAdmin || kasLoading) return;
     
     const container = document.getElementById('kas-container');
     if (!container) return;
-    
+    console.trace();
     // 🔄 BACA DARI CACHE DULU (kecuali forceRefresh)
     if (!forceRefresh) {
         const cached = sessionStorage.getItem('umbrella_cached_kas');

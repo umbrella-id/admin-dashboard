@@ -524,6 +524,17 @@ async function checkSession() {
         // ✅ LANGSUNG MULAI LOADING DATA (tidak nunggu validasi)
         renderBottomNav();
         
+        // ========== INISIALISASI CHAT (untuk LEADER/CO-LEAD) ==========
+        const hasChat = (currentAdmin.role1 === 'LEADER' || 
+                         currentAdmin.role1 === 'CO-LEAD' || 
+                         currentAdmin.role2 === 'CO-LEAD');
+        if (hasChat) {
+            const floatingChat = document.getElementById('floating-chat');
+            if (floatingChat) floatingChat.style.display = 'block';
+            if (typeof window.initChat === 'function') window.initChat(currentAdmin);
+        }
+        
+        // ========== LOAD DATA BERDASARKAN ROLE ==========
         setTimeout(() => {
             if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
         }, 500);
@@ -543,15 +554,6 @@ async function checkSession() {
         }
         
         if (typeof window.loadContentData === 'function') window.loadContentData();
-    
-        // ✅ TAMBAH INI
-        const hasChat = (currentAdmin.role1 === 'LEADER' || 
-                         currentAdmin.role1 === 'CO-LEAD' || 
-                         currentAdmin.role2 === 'CO-LEAD');
-        if (hasChat) {
-            document.getElementById('floating-chat').style.display = 'block';
-            if (typeof window.initChat === 'function') window.initChat(currentAdmin);
-        }
         
         history.pushState({ dashboard: true }, "");
         

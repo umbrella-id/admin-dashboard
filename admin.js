@@ -381,22 +381,11 @@ document.addEventListener('visibilitychange', function() {
             }
         }
         
-        // ✅ CEK AKSES MAILBOX (sama seperti di renderBottomNav)
-        const hasMailAccess = (currentAdmin.role1 === 'LEADER' || 
-                               currentAdmin.role1 === 'CO-LEAD' || 
-                               currentAdmin.role2 === 'CO-LEAD');
-        
-        if (hasMailAccess && typeof window.renderMailboxFromCache === 'function') {
+        // Render mailbox dari cache (semua role boleh)
+        if (typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
-        }
-        
-        // ✅ CEK AKSES KAS
-        const hasKasAccess = (currentAdmin.role1 === 'LEADER' || 
-                              currentAdmin.role1 === 'BENDAHARA' || 
-                              currentAdmin.role2 === 'BENDAHARA');
-        
-        if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
-            window.loadKasDashboard();
+        } else if (typeof window.refreshMailbox === 'function') {
+            window.refreshMailbox();
         }
         
         // ========== 2. URUSAN CHAT & PRESENCE (HANYA LEADER/CO-LEAD) ==========

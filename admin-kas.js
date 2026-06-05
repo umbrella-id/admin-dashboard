@@ -528,7 +528,7 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
             <h3><i class="fas fa-edit"></i> Edit Transaksi</h3>
             
             <div class="kas-form-group">
-                <label>Nominal Baru (0 untuk menghapus)</label>
+                <label>Nominal Baru</label>
                 <input type="number" id="edit-amount" value="${Math.abs(oldAmount)}" step="1">
                 <small>Isi 0 untuk menghapus transaksi ini</small>
             </div>

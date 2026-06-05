@@ -659,7 +659,7 @@ function renderBottomNav() {
             // Di dalam fungsi renderBottomNav(), setelah event listener untuk tab
             if (tabId === 'kas' && typeof window.loadKasDashboard === 'function') {
                 console.log("💰 Memuat data kas...");
-                window.loadKasDashboard();
+                window.loadKasDashboard(true);
             }
         });
     });

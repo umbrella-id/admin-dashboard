@@ -557,7 +557,6 @@ async function saveEditTransaction(rowId) {
     const newAmount = parseInt(document.getElementById('edit-amount')?.value);
     const newNotes = document.getElementById('edit-notes')?.value || "";
     
-    if (isNaN(newAmount) || newAmount <= 0) return window.showToast("Nominal harus lebih dari 0", true);
     if (!currentAdmin || !currentAdmin.nama) return window.showToast("Error: Data admin tidak ditemukan", true);
     
     closeModal();

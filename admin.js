@@ -381,11 +381,22 @@ document.addEventListener('visibilitychange', function() {
             }
         }
         
-        // Render mailbox dari cache (semua role boleh)
-        if (typeof window.renderMailboxFromCache === 'function') {
+        // ✅ CEK AKSES MAILBOX (sama seperti di renderBottomNav)
+        const hasMailAccess = (currentAdmin.role1 === 'LEADER' || 
+                               currentAdmin.role1 === 'CO-LEAD' || 
+                               currentAdmin.role2 === 'CO-LEAD');
+        
+        if (hasMailAccess && typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
-        } else if (typeof window.refreshMailbox === 'function') {
-            window.refreshMailbox();
+        }
+        
+        // ✅ CEK AKSES KAS
+        const hasKasAccess = (currentAdmin.role1 === 'LEADER' || 
+                              currentAdmin.role1 === 'BENDAHARA' || 
+                              currentAdmin.role2 === 'BENDAHARA');
+        
+        if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
+            window.loadKasDashboard();
         }
         
         // ========== 2. URUSAN CHAT & PRESENCE (HANYA LEADER/CO-LEAD) ==========
@@ -659,7 +670,7 @@ function renderBottomNav() {
             // Di dalam fungsi renderBottomNav(), setelah event listener untuk tab
             if (tabId === 'kas' && typeof window.loadKasDashboard === 'function') {
                 console.log("💰 Memuat data kas...");
-                window.loadKasDashboard(true);
+                window.loadKasDashboard();
             }
         });
     });

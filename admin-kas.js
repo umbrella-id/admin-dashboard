@@ -146,6 +146,25 @@ function updateNotifBadge() {
     }
 }
 
+window.refreshKas = async function() {
+    const btn = document.querySelector('#kas-container .btn-small');
+    if (!btn) return;
+    
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refresh';
+    btn.disabled = true;
+    
+    try {
+        await loadKasDashboard(true);
+        window.showToast("✅ Data kas diperbarui");
+    } catch(e) {
+        window.showToast("❌ Gagal refresh", true);
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+};
+
 // ==========================================
 // RENDER DASHBOARD
 // ==========================================

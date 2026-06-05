@@ -335,25 +335,15 @@ function shouldEnableHeartbeat() {
 // ==========================================
 // ANDROID BACK BUTTON
 // ==========================================
-document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && currentAdmin) {
-        // ✅ CEK AKSES MAILBOX (sama seperti di renderBottomNav)
-        const hasMailAccess = (currentAdmin.role1 === 'LEADER' || 
-                               currentAdmin.role1 === 'CO-LEAD' || 
-                               currentAdmin.role2 === 'CO-LEAD');
-        
-        if (hasMailAccess && typeof window.renderMailboxFromCache === 'function') {
-            window.renderMailboxFromCache();
-        }
-        
-        // ✅ CEK AKSES KAS
-        const hasKasAccess = (currentAdmin.role1 === 'LEADER' || 
-                              currentAdmin.role1 === 'BENDAHARA' || 
-                              currentAdmin.role2 === 'BENDAHARA');
-        
-        if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
-            window.loadKasDashboard();
-        }
+window.addEventListener('popstate', function(event) {
+    const modal = document.getElementById('modal-overlay');
+    const chatWidget = document.getElementById('chat-widget');
+    if (modal && modal.style.display === 'flex') {
+        closeModal();
+        event.preventDefault();
+    } else if (chatWidget && chatWidget.classList.contains('show')) {
+        window.toggleChatWidget();
+        event.preventDefault();
     }
 });
 

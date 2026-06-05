@@ -83,7 +83,7 @@ async function loadKasDashboard(forceRefresh = false) {
         if (cached) {
             try {
                 const data = JSON.parse(cached);
-                kasData = data;  // update global
+                updateKasDataFromResponse(data);  // update global
                 renderKasDashboard();
                 console.log("📦 Render kas dari cache");
             } catch(e) {}
@@ -108,7 +108,7 @@ async function loadKasDashboard(forceRefresh = false) {
             sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(result.data));
             sessionStorage.setItem('umbrella_cached_kas_time', Date.now().toString());
             
-            kasData = result.data;
+            updateKasDataFromResponse(result.data);
             renderKasDashboard();
         } else if (!hasCache) {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
@@ -404,9 +404,7 @@ async function submitSetoran() {
             if (data.data) {
                 // 💾 UPDATE CACHE & DATA GLOBAL
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                kasData = data.data;
                 updateKasDataFromResponse(data.data);
-                renderKasDashboard();  // refresh tampilan
             } else {
                 console.log("⚠️ Tidak ada data.data, refresh manual...");
                 await loadKasDashboard();
@@ -450,9 +448,7 @@ async function submitTransferRequest() {
             if (data.data) {
                 // 💾 UPDATE CACHE & DATA GLOBAL
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                kasData = data.data;
                 updateKasDataFromResponse(data.data);
-                renderKasDashboard();  // refresh tampilan
             } else {
                 console.log("⚠️ Tidak ada data.data, refresh manual...");
                 await loadKasDashboard();
@@ -485,9 +481,7 @@ async function approveTransferRequest(requestId) {
                 if (data.data) {
                     // 💾 UPDATE CACHE & DATA GLOBAL
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                    kasData = data.data;
                     updateKasDataFromResponse(data.data);
-                    renderKasDashboard();  // refresh tampilan
                 } else {
                     console.log("⚠️ Tidak ada data.data, refresh manual...");
                     await loadKasDashboard();
@@ -515,9 +509,7 @@ async function rejectTransferRequest(requestId) {
                 if (data.data) {
                     // 💾 UPDATE CACHE & DATA GLOBAL
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                    kasData = data.data;
                     updateKasDataFromResponse(data.data);
-                    renderKasDashboard();  // refresh tampilan
                 } else {
                     console.log("⚠️ Tidak ada data.data, refresh manual...");
                     await loadKasDashboard();
@@ -545,9 +537,7 @@ async function cancelTransferRequest(requestId) {
                 if (data.data) {
                     // 💾 UPDATE CACHE & DATA GLOBAL
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                    kasData = data.data;
                     updateKasDataFromResponse(data.data);
-                    renderKasDashboard();  // refresh tampilan
                 } else {
                     console.log("⚠️ Tidak ada data.data, refresh manual...");
                     await loadKasDashboard();
@@ -616,9 +606,7 @@ async function saveEditTransaction(rowId) {
             if (data.data) {
                 // 💾 UPDATE CACHE & DATA GLOBAL
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                kasData = data.data;
                 updateKasDataFromResponse(data.data);
-                renderKasDashboard();  // refresh tampilan
             } else {
                 console.log("⚠️ Tidak ada data.data, refresh manual...");
                 await loadKasDashboard();

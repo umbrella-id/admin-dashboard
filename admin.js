@@ -12,7 +12,6 @@ let toastTimeout = null;
 function showToast(msg, isError = false) {
     const toast = document.getElementById('toast');
     
-    // Matikan timer lama jika masih berjalan
     if (toastTimeout) {
         clearTimeout(toastTimeout);
         toastTimeout = null;
@@ -22,7 +21,6 @@ function showToast(msg, isError = false) {
     toast.style.borderColor = isError ? '#ff4444' : 'var(--color-primary)';
     toast.classList.add('show');
     
-    // Set timer baru
     toastTimeout = setTimeout(() => {
         toast.classList.remove('show');
         toastTimeout = null;
@@ -134,7 +132,6 @@ async function sendStandbyAndUpdateAll() {
     
     console.log("🟡 [STANDBY] Mulai pengecekan...");
     
-    // 1. Kirim presence standby
     await window.sendPresence('standby');
     
     if (!notificationEnabled) {
@@ -142,9 +139,7 @@ async function sendStandbyAndUpdateAll() {
         return;
     }
     
-    // ==========================================
-    // 2. CEK CHAT LOG (pesan baru)
-    // ==========================================
+    // CEK CHAT LOG
     try {
         const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
         console.log("📡 Fetch chat dari:", url);
@@ -154,7 +149,6 @@ async function sendStandbyAndUpdateAll() {
         const logs = data.logs || [];
         console.log(`📥 Dapat ${logs.length} log chat`);
         
-        // Filter pesan dari guest
         const guestMessages = logs.filter(msg => {
             if (msg.type === 'command') return false;
             if (msg.uid === currentAdmin.id) return false;
@@ -185,7 +179,6 @@ async function sendStandbyAndUpdateAll() {
             localStorage.setItem('umbrella_last_chat_timestamp', lastTimestamp.toString());
         }
         
-        // ✅ LOGIKA NOTIFIKASI CHAT SESUAI KONSEP ANDA
         if (lastTimestamp > savedTimestamp && savedTimestamp > 0 && newestMessage) {
             const sender = newestMessage?.username || 'Guest';
             const message = newestMessage?.message || '';
@@ -196,16 +189,13 @@ async function sendStandbyAndUpdateAll() {
             console.log(`🔍 CHAT NOTIF - isChatActive: ${isChatActive}, document.hidden: ${document.hidden}`);
             
             if (document.hidden) {
-                // Tab browser tidak aktif → notif browser
                 console.log(`🔔 NOTIF BROWSER CHAT! dari ${sender}`);
                 showBrowserNotification(`💬 Pesan dari ${sender}`, preview, 'chat');
                 playNotificationSound();
             } else if (!isChatActive) {
-                // Tab browser aktif, chat tertutup → toast
                 console.log(`🔔 TOAST CHAT! dari ${sender}`);
                 showToast(`💬 Pesan baru dari ${sender}: ${preview}`);
             }
-            // Jika chat terbuka & tab browser aktif → tidak ada notif/toast
         } else {
             console.log(`⏭️ Skip notifikasi chat (tidak ada pesan baru)`);
         }
@@ -214,18 +204,14 @@ async function sendStandbyAndUpdateAll() {
         console.error("❌ Check chat error:", e); 
     }
     
-    // ==========================================
-    // 3. CEK MAILBOX (surat baru) - OPTIMASI
-    // ==========================================
+    // CEK MAILBOX
     try {
-        // Cek perubahan dengan endpoint ringan
         if (typeof window.checkMailboxChanges === 'function') {
             const hasChanged = await window.checkMailboxChanges();
             
             if (hasChanged) {
                 console.log("📬 Mailbox berubah, notifikasi akan diproses");
                 
-                // Ambil data dari cache setelah fetchMailboxAndCache dijalankan
                 const cached = sessionStorage.getItem('umbrella_cached_mailbox');
                 if (cached) {
                     const dataMail = JSON.parse(cached);
@@ -237,7 +223,6 @@ async function sendStandbyAndUpdateAll() {
                     
                     if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
                         if (document.hidden) {
-                            // Tab browser tidak aktif → notif browser
                             const newestMail = dataMail[0];
                             const sender = newestMail?.ign || 'Guest';
                             const subject = newestMail?.category || 'Umum';
@@ -249,7 +234,6 @@ async function sendStandbyAndUpdateAll() {
                             playNotificationSound();
                             localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
                         } else if (!isMailTabActive) {
-                            // Tab browser aktif, tab mail tidak aktif → toast
                             const newestMail = dataMail[0];
                             const sender = newestMail?.ign || 'Guest';
                             const subject = newestMail?.category || 'Umum';
@@ -260,53 +244,10 @@ async function sendStandbyAndUpdateAll() {
                             showToast(`📬 Surat baru dari ${sender}: ${preview}`);
                             localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
                         } else if (isMailTabActive) {
-                            // Tab mail aktif & tab browser aktif → update timestamp tanpa notif
                             localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
                             console.log("📬 Timestamp mailbox diupdate (tab mail aktif, notifikasi skip)");
                         }
                     }
-                }
-            }
-        } else {
-            // Fallback ke cara lama
-            console.warn("checkMailboxChanges tidak tersedia, pakai cara lama");
-            const urlMail = `${window.GAS_ADMIN_URL}?action=fetchMailbox&limit=50`;
-            const resMail = await fetch(urlMail);
-            const dataMail = await resMail.json();
-            
-            if (dataMail.status === 'success' && dataMail.data) {
-                const lastMailTimestamp = dataMail.data[0]?.timestamp ? new Date(dataMail.data[0].timestamp).getTime() : 0;
-                const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
-                const isMailTabActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
-                
-                if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
-                    if (document.hidden) {
-                        const newestMail = dataMail.data[0];
-                        const sender = newestMail?.ign || 'Guest';
-                        const subject = newestMail?.category || 'Umum';
-                        const message = newestMail?.message || '';
-                        const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-                        
-                        showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview, 'mail');
-                        playNotificationSound();
-                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                    } else if (!isMailTabActive) {
-                        const newestMail = dataMail.data[0];
-                        const sender = newestMail?.ign || 'Guest';
-                        const subject = newestMail?.category || 'Umum';
-                        const message = newestMail?.message || '';
-                        const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-                        
-                        showToast(`📬 Surat baru dari ${sender}: ${preview}`);
-                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                    } else if (isMailTabActive) {
-                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                        console.log("📬 Timestamp mailbox diupdate (fallback, tab mail aktif)");
-                    }
-                }
-                
-                if (typeof window.refreshMailbox === 'function') {
-                    window.refreshMailbox();
                 }
             }
         }
@@ -323,14 +264,66 @@ async function sendStandbyAndUpdateAll() {
 function shouldEnableHeartbeat() {
     if (!currentAdmin) return false;
     
-    // Role yang perlu detak (online/standby, notifikasi, chat)
     const hasHeartbeat = (currentAdmin.role1 === 'LEADER' || 
                           currentAdmin.role1 === 'CO-LEAD' || 
                           currentAdmin.role2 === 'CO-LEAD');
     
-    // BENDAHARA murni → tidak perlu detak
     return hasHeartbeat;
 }
+
+// ==========================================
+// FOCUS / BLUR - GANTI visibilitychange
+// ==========================================
+
+window.addEventListener('blur', function() {
+    if (!currentAdmin) return;
+    
+    console.log("🔵 Window kehilangan fokus → standby");
+    
+    if (shouldEnableHeartbeat()) {
+        window.sendPresence('standby');
+        if (typeof window.stopActivePresence === 'function') {
+            window.stopActivePresence();
+        }
+    }
+});
+
+window.addEventListener('focus', function() {
+    if (!currentAdmin) return;
+    
+    console.log("🟢 Window mendapat fokus");
+    
+    // 1. UPDATE PRESENCE
+    const chatIsOpen = window.isChatOpen && window.isChatOpen();
+    
+    if (chatIsOpen && shouldEnableHeartbeat()) {
+        console.log("💬 Chat terbuka + focus → active");
+        window.sendPresence('active');
+        if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
+        if (typeof window.fetchOnlineUsers === 'function') window.fetchOnlineUsers();
+    } else if (shouldEnableHeartbeat()) {
+        console.log("🔇 Chat tertutup → standby");
+        window.sendPresence('standby');
+    }
+    
+    // 2. UPDATE DATA KAS
+    const hasKasAccess = (currentAdmin.role1 === 'LEADER' || 
+                          currentAdmin.role1 === 'BENDAHARA' || 
+                          currentAdmin.role2 === 'BENDAHARA');
+    if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
+        console.log("💰 Update data kas");
+        window.loadKasDashboard();
+    }
+    
+    // 3. UPDATE DATA MAILBOX
+    const hasMailAccess = (currentAdmin.role1 === 'LEADER' || 
+                           currentAdmin.role1 === 'CO-LEAD' || 
+                           currentAdmin.role2 === 'CO-LEAD');
+    if (hasMailAccess && typeof window.renderMailboxFromCache === 'function') {
+        console.log("📬 Update mailbox");
+        window.renderMailboxFromCache();
+    }
+});
 
 // ==========================================
 // ANDROID BACK BUTTON
@@ -348,75 +341,9 @@ window.addEventListener('popstate', function(event) {
 });
 
 // ==========================================
-// TAB AKTIF KEMBALI
-// ==========================================
-document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && currentAdmin) {
-        console.log("🟢 Tab aktif kembali");
-        
-        // ========== 1. URUSAN MAILBOX ==========
-        const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
-        
-        if (activeTab === 'mailbox') {
-            const cached = sessionStorage.getItem('umbrella_cached_mailbox');
-            if (cached) {
-                try {
-                    const dataMail = JSON.parse(cached);
-                    const lastMailTimestamp = dataMail[0]?.timestamp ? new Date(dataMail[0].timestamp).getTime() : 0;
-                    if (lastMailTimestamp > 0) {
-                        localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                        console.log("📬 Timestamp mailbox diupdate (kembali ke tab surat)");
-                    }
-                } catch(e) {}
-            }
-        }
-        
-        // Render mailbox dari cache
-        if (typeof window.renderMailboxFromCache === 'function') {
-            window.renderMailboxFromCache();
-        } else if (typeof window.refreshMailbox === 'function') {
-            window.refreshMailbox();
-        }
-        
-        // ========== 2. URUSAN CHAT & PRESENCE ==========
-        if (shouldEnableHeartbeat() && window.isChatOpen && window.isChatOpen()) {
-            console.log("💬 Chat terbuka, kembalikan status online");
-            window.sendPresence('active');
-            if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
-            if (typeof window.fetchOnlineUsers === 'function') window.fetchOnlineUsers();
-        } else if (!shouldEnableHeartbeat()) {
-            console.log("🔕 BENDAHARA: skip presence & chat (silent mode)");
-        }
-        
-        // ========== 3. URUSAN KAS  ==========
-        const hasKasAccess = (currentAdmin.role1 === 'LEADER' || 
-                              currentAdmin.role1 === 'BENDAHARA' || 
-                              currentAdmin.role2 === 'BENDAHARA');
-        
-        if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
-            console.log("💰 Update data kas (tab aktif kembali)");
-            window.loadKasDashboard();  // ← TAMBAHKAN INI
-        }
-        
-    } else if (document.hidden && currentAdmin) {
-        console.log("🔴 Tab tidak aktif, paksa status standby");
-        
-        if (shouldEnableHeartbeat()) {
-            window.sendPresence('standby');
-            if (typeof window.stopActivePresence === 'function') {
-                window.stopActivePresence();
-            }
-        } else {
-            console.log("🔕 BENDAHARA: skip standby (silent mode)");
-        }
-    }
-});
-
-// ==========================================
 // STANDBY TIMER
 // ==========================================
 function startStandbyPresence() {
-    // ✅ CEK APAKAH ROLE PERLU DETAK
     if (!shouldEnableHeartbeat()) {
         console.log("🔕 Role ini tidak memerlukan detak (silent login)");
         return;
@@ -437,7 +364,7 @@ function stopStandbyPresence() {
 window.stopStandbyPresence = stopStandbyPresence;
 
 // ==========================================
-// LOGIN (DENGAN SESSION)
+// LOGIN
 // ==========================================
 async function doLogin() {
     const passkey = document.getElementById('login-passkey').value.trim();
@@ -469,7 +396,19 @@ async function doLogin() {
             const hasChat = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
             if (hasChat) {
                 document.getElementById('floating-chat').style.display = 'block';
-                setTimeout(() => { if(typeof window.initChat === 'function') window.initChat(currentAdmin); }, 500);
+                // Inisialisasi chat dengan delay untuk memastikan admin-chat.js sudah load
+                setTimeout(() => { 
+                    if (typeof window.initChat === 'function') {
+                        window.initChat(currentAdmin);
+                    } else {
+                        console.log("⚠️ initChat belum siap, coba lagi");
+                        setTimeout(() => {
+                            if (typeof window.initChat === 'function') {
+                                window.initChat(currentAdmin);
+                            }
+                        }, 500);
+                    }
+                }, 300);
             }
             
             renderBottomNav();
@@ -496,6 +435,9 @@ async function doLogin() {
     }
 }
 
+// ==========================================
+// CHECK SESSION
+// ==========================================
 async function checkSession() {
     const session = localStorage.getItem('umbrella_admin_session');
     const loginScreen = document.getElementById('login-screen');
@@ -511,30 +453,40 @@ async function checkSession() {
         const data = JSON.parse(session);
         const admin = data.admin;
         
-        // Set currentAdmin sementara (dari localStorage)
         currentAdmin = admin;
         
-        // ✅ LANGSUNG TAMPILKAN DASHBOARD
         loginScreen.style.display = 'none';
         dashboard.style.display = 'flex';
         document.getElementById('admin-name-display').innerText = currentAdmin.nama;
         const roleText = currentAdmin.role2 ? `${currentAdmin.role1} + ${currentAdmin.role2}` : currentAdmin.role1;
         document.getElementById('admin-role-display').innerText = roleText;
         
-        // ✅ LANGSUNG MULAI LOADING DATA (tidak nunggu validasi)
         renderBottomNav();
         
-        // ========== INISIALISASI CHAT (untuk LEADER/CO-LEAD) ==========
+        // ========== INISIALISASI CHAT ==========
         const hasChat = (currentAdmin.role1 === 'LEADER' || 
                          currentAdmin.role1 === 'CO-LEAD' || 
                          currentAdmin.role2 === 'CO-LEAD');
         if (hasChat) {
             const floatingChat = document.getElementById('floating-chat');
             if (floatingChat) floatingChat.style.display = 'block';
-            if (typeof window.initChat === 'function') window.initChat(currentAdmin);
+            
+            // Delay untuk memastikan admin-chat.js sudah load
+            setTimeout(() => {
+                if (typeof window.initChat === 'function') {
+                    window.initChat(currentAdmin);
+                    console.log("✅ Chat diinisialisasi dari checkSession");
+                } else {
+                    console.log("⚠️ initChat belum siap, coba lagi");
+                    setTimeout(() => {
+                        if (typeof window.initChat === 'function') {
+                            window.initChat(currentAdmin);
+                        }
+                    }, 500);
+                }
+            }, 300);
         }
         
-        // ========== LOAD DATA BERDASARKAN ROLE ==========
         setTimeout(() => {
             if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
         }, 500);
@@ -557,7 +509,6 @@ async function checkSession() {
         
         history.pushState({ dashboard: true }, "");
         
-        // ✅ VALIDASI DI BACKGROUND (paralel, tidak nge-blok)
         validateSessionInBackground(admin);
         
     } catch(e) {
@@ -567,15 +518,14 @@ async function checkSession() {
     }
 }
 
-// ✅ Fungsi validasi di background
+// ==========================================
+// VALIDASI SESSION DI BACKGROUND
+// ==========================================
 async function validateSessionInBackground(admin) {
     try {
-        // Ambil session untuk mendapatkan adminName dan adminPasskey
         const session = JSON.parse(localStorage.getItem('umbrella_admin_session'));
         const adminPasskey = session.adminPasskey;
         
-        // ✅ Kirim lengkap: ID + Nama + Passkey
-        // Cukup kirim ID + passkey
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}&adminPasskey=${encodeURIComponent(adminPasskey)}`);
         const data = await res.json();
         
@@ -586,18 +536,16 @@ async function validateSessionInBackground(admin) {
             return;
         }
         
-        // Jika ada perubahan data (nama/role), update dashboard
         if (data.admin && JSON.stringify(data.admin) !== JSON.stringify(currentAdmin)) {
             console.log("🔄 Update data admin terbaru");
             currentAdmin = data.admin;
             
-            // Ambil passkey lama dari session
             const oldPasskey = session.adminPasskey;
             
             localStorage.setItem('umbrella_admin_session', JSON.stringify({
                 admin: currentAdmin,
                 adminName: currentAdmin.nama, 
-                adminPasskey: oldPasskey,  // ✅ passkey tetap pakai yang lama
+                adminPasskey: oldPasskey,
                 loggedInAt: Date.now()
             }));
             
@@ -649,12 +597,10 @@ function renderBottomNav() {
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
-            // ✅ TAMBAHKAN: Load konten saat tab "Konten" diklik
             if (tabId === 'manage-content' && typeof window.loadContentData === 'function') {
                 console.log("📥 Memuat data konten...");
                 window.loadContentData();
             }
-            // Di dalam fungsi renderBottomNav(), setelah event listener untuk tab
             if (tabId === 'kas' && typeof window.loadKasDashboard === 'function') {
                 console.log("💰 Memuat data kas...");
                 window.loadKasDashboard();
@@ -675,6 +621,7 @@ function renderBottomNav() {
     }, { threshold: 0.5 });
     for (let page of swipeArea.children) observer.observe(page);
 }
+
 // ==========================================
 // SETTINGS
 // ==========================================
@@ -706,6 +653,7 @@ function openSettingsModal() {
     `;
     modal.style.display = 'flex';
 }
+
 async function toggleNotificationSetting() {
     const isChecked = document.getElementById('notif-toggle')?.checked || false;
     if (isChecked && Notification.permission !== 'granted') {
@@ -753,6 +701,7 @@ function openChangePasskey() {
     `;
     modal.style.display = 'flex';
 }
+
 async function changeMyPasskey() {
     const oldPasskey = document.getElementById('old-passkey').value.trim();
     const newPasskey = document.getElementById('new-passkey').value.trim();
@@ -778,9 +727,7 @@ function logout() {
     if (standbyInterval) clearInterval(standbyInterval);
     if (typeof window.stopActivePresence === 'function') window.stopActivePresence();
     
-    // ✅ HANYA KIRIM OFFLINE JIKA SEBELUMNYA PUNYA DETAK
     if (shouldEnableHeartbeat() && currentAdmin) {
-        // Opsional: kirim sinyal offline ke GAS 2
         fetch(`${window.GAS_SYNC_URL}?role=admin&uid=${currentAdmin.id}&mode=offline`);
     }
     

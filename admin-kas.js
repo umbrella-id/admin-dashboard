@@ -521,24 +521,29 @@ async function cancelTransferRequest(requestId) {
 // EDIT TRANSACTION
 // ==========================================
 async function editTransaction(rowId, oldNotes, oldAmount) {
-    const parsedRowId = parseInt(rowId);
-    if (isNaN(parsedRowId) || parsedRowId <= 0) {
-        window.showToast("Error: ID transaksi tidak valid", true);
-        return;
-    }
-    
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 350px;">
+        <div class="modal-content">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-edit"></i> Edit Transaksi</h3>
-            <div class="kas-form-group"><label>Nominal Baru</label><input type="number" id="edit-amount" value="${Math.abs(oldAmount)}" step="1"></div>
-            <div class="kas-form-group"><label>Notes Baru</label><input type="text" id="edit-notes" value="${escapeHtml(oldNotes)}" placeholder="Keterangan..."></div>
-            <div class="modal-buttons"><button id="save-edit-btn" style="background:var(--color-primary);">Simpan</button><button onclick="closeModal()" style="background:#333;">Batal</button></div>
+            
+            <div class="kas-form-group">
+                <label>Nominal Baru (0 untuk menghapus)</label>
+                <input type="number" id="edit-amount" value="${Math.abs(oldAmount)}" step="1">
+                <small>Isi 0 untuk menghapus transaksi ini</small>
+            </div>
+            
+            <!-- ❌ Notes TIDAK ditampilkan -->
+            
+            <div class="modal-buttons">
+                <button id="save-edit-btn" style="background:var(--color-primary);">Simpan</button>
+                <button onclick="closeModal()" style="background:#333;">Batal</button>
+            </div>
         </div>
     `;
     modal.style.display = 'flex';
-    document.getElementById('save-edit-btn').onclick = () => saveEditTransaction(parsedRowId);
+    
+    document.getElementById('save-edit-btn').onclick = () => saveEditTransaction(rowId);
 }
 
 async function saveEditTransaction(rowId) {

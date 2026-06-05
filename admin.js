@@ -354,7 +354,7 @@ document.addEventListener('visibilitychange', function() {
     if (!document.hidden && currentAdmin) {
         console.log("🟢 Tab aktif kembali");
         
-        // ========== 1. URUSAN MAILBOX (semua role bisa) ==========
+        // ========== 1. URUSAN MAILBOX ==========
         const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
         
         if (activeTab === 'mailbox') {
@@ -371,32 +371,38 @@ document.addEventListener('visibilitychange', function() {
             }
         }
         
-        // Render mailbox dari cache (semua role boleh)
+        // Render mailbox dari cache
         if (typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
         } else if (typeof window.refreshMailbox === 'function') {
             window.refreshMailbox();
         }
         
-        // ========== 2. URUSAN CHAT & PRESENCE (HANYA LEADER/CO-LEAD) ==========
-        // ✅ TAMBAHKAN PENGECEKAN ROLE DI SINI!
+        // ========== 2. URUSAN CHAT & PRESENCE ==========
         if (shouldEnableHeartbeat() && window.isChatOpen && window.isChatOpen()) {
             console.log("💬 Chat terbuka, kembalikan status online");
             window.sendPresence('active');
-            
             if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
             if (typeof window.fetchOnlineUsers === 'function') window.fetchOnlineUsers();
         } else if (!shouldEnableHeartbeat()) {
             console.log("🔕 BENDAHARA: skip presence & chat (silent mode)");
         }
         
+        // ========== 3. URUSAN KAS  ==========
+        const hasKasAccess = (currentAdmin.role1 === 'LEADER' || 
+                              currentAdmin.role1 === 'BENDAHARA' || 
+                              currentAdmin.role2 === 'BENDAHARA');
+        
+        if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
+            console.log("💰 Update data kas (tab aktif kembali)");
+            window.loadKasDashboard();  // ← TAMBAHKAN INI
+        }
+        
     } else if (document.hidden && currentAdmin) {
         console.log("🔴 Tab tidak aktif, paksa status standby");
         
-        // ✅ HANYA JIKA ROLE PERLU DETAK
         if (shouldEnableHeartbeat()) {
             window.sendPresence('standby');
-            
             if (typeof window.stopActivePresence === 'function') {
                 window.stopActivePresence();
             }

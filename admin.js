@@ -553,7 +553,6 @@ async function validateSessionInBackground(admin) {
     try {
         // Ambil session untuk mendapatkan adminName dan adminPasskey
         const session = JSON.parse(localStorage.getItem('umbrella_admin_session'));
-        const adminName = session.adminName;
         const adminPasskey = session.adminPasskey;
         
         // ✅ Kirim lengkap: ID + Nama + Passkey

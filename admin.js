@@ -275,6 +275,7 @@ function shouldEnableHeartbeat() {
 // BLUR - KEHILANGAN FOKUS (standby)
 // ==========================================
 window.addEventListener('blur', function() {
+    isWindowFocused = false;
     if (!currentAdmin) return;
     
     console.log("🔵 Window kehilangan fokus → standby");
@@ -289,6 +290,7 @@ window.addEventListener('blur', function() {
 // ==========================================
 window.addEventListener('focus', function() {
     if (!currentAdmin) return;
+    isWindowFocused = true;
     
     console.log("🟢 Window mendapat fokus");
     

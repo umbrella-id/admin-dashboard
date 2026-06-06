@@ -499,49 +499,23 @@
     background: rgba(168, 85, 247, 0.1);
 }
 
-/* ✅ UNTUK LAYAR KECIL (HP) */
-@media (max-width: 640px) {
+@media (max-width: 480px) {
+    .kas-history-list {
+        padding-right: 0 !important;
+    }
+    
     .kas-history-row {
-        display: grid;
-        grid-template-columns: 70px 1fr 80px;
-        gap: 6px;
-        row-gap: 4px;
-        font-size: 0.65rem;
-    }
-    
-    /* Sembunyikan kolom yang tidak penting di HP */
-    .kas-history-adm {
-        display: none;
-    }
-    
-    /* Atur posisi kolom */
-    .kas-history-date {
-        grid-column: 1 / 2;
-        grid-row: 1 / 2;
-    }
-    
-    .kas-history-ign {
-        grid-column: 2 / 3;
-        grid-row: 1 / 2;
-    }
-    
-    .kas-history-amount {
-        grid-column: 3 / 4;
-        grid-row: 1 / 2;
-        text-align: right;
-    }
-    
-    .kas-history-notes {
-        grid-column: 1 / 3;
-        grid-row: 2 / 3;
-        white-space: normal;
-        word-break: break-word;
+        grid-template-columns: 65px 1fr 80px 1fr 45px minmax(25px, auto) !important;
+        gap: 4px !important;
+        padding: 8px 0 !important;
     }
     
     .kas-history-actions {
-        grid-column: 3 / 4;
-        grid-row: 2 / 3;
-        text-align: right;
+        padding-right: 0 !important;
+    }
+    
+    .tab-page[data-tab="kas"] {
+        padding: 20px 4px 20px 12px !important;
     }
 }
 

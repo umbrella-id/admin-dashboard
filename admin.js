@@ -234,7 +234,7 @@ async function sendStandbyAndUpdateAll() {
                             showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview, 'mail');
                             playNotificationSound();
                             localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                        } else if (isWindowFocused) {
+                        } else if (!isMailTabActive) {
                             const newestMail = dataMail[0];
                             const sender = newestMail?.ign || 'Guest';
                             const subject = newestMail?.category || 'Umum';
@@ -248,6 +248,8 @@ async function sendStandbyAndUpdateAll() {
                             localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
                             console.log("📬 Timestamp mailbox diupdate (tab mail aktif, notifikasi skip)");
                         }
+                    } else {
+                        console.log(`⏭️ Skip notifikasi mail (tidak ada surat baru)`);
                     }
                 }
             }

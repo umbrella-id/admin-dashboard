@@ -3,6 +3,7 @@ window.GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbwqsSUeVxPg4V5hMc
 
 let currentAdmin = null;
 let standbyInterval = null;
+let isWindowFocused = true;
 let notificationEnabled = localStorage.getItem('umbrella_notif_enabled') !== 'false';
 let toastTimeout = null;
 
@@ -186,7 +187,7 @@ async function sendStandbyAndUpdateAll() {
             
             const isChatActive = window.isChatOpen && window.isChatOpen();
             
-            console.log(`🔍 CHAT NOTIF - isChatActive: ${isChatActive}, document.hidden: ${document.hidden}`);
+            console.log(`🔍 CHAT NOTIF - isChatActive: ${isChatActive}, !isWindowFocused: ${!isWindowFocused}`);
             
             if (!isWindowFocused) {
                 console.log(`🔔 NOTIF BROWSER CHAT! dari ${sender}`);
@@ -219,7 +220,7 @@ async function sendStandbyAndUpdateAll() {
                     const lastMailTimestamp = dataMail[0]?.timestamp ? new Date(dataMail[0].timestamp).getTime() : 0;
                     const isMailTabActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
                     
-                    console.log(`🔍 MAIL NOTIF - isMailTabActive: ${isMailTabActive}, document.hidden: ${document.hidden}`);
+                    console.log(`🔍 MAIL NOTIF - isMailTabActive: ${isMailTabActive}, !isWindowFocused: ${!isWindowFocused}`);
                     
                     if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
                         if (!isWindowFocused) {

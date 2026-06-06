@@ -88,7 +88,7 @@ function showBrowserNotification(title, body, type = '') {
     if (!notificationEnabled) return;
     if (!('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
-    if (!document.hidden) return;
+    if (isWindowFocused) return;
     
     console.log(`🔔 Menampilkan notifikasi: ${title} (type: ${type})`);
     

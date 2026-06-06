@@ -188,7 +188,7 @@ async function sendStandbyAndUpdateAll() {
             
             console.log(`🔍 CHAT NOTIF - isChatActive: ${isChatActive}, document.hidden: ${document.hidden}`);
             
-            if (document.hidden) {
+            if (!isWindowFocused) {
                 console.log(`🔔 NOTIF BROWSER CHAT! dari ${sender}`);
                 showBrowserNotification(`💬 Pesan dari ${sender}`, preview, 'chat');
                 playNotificationSound();
@@ -222,7 +222,7 @@ async function sendStandbyAndUpdateAll() {
                     console.log(`🔍 MAIL NOTIF - isMailTabActive: ${isMailTabActive}, document.hidden: ${document.hidden}`);
                     
                     if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
-                        if (document.hidden) {
+                        if (!isWindowFocused) {
                             const newestMail = dataMail[0];
                             const sender = newestMail?.ign || 'Guest';
                             const subject = newestMail?.category || 'Umum';

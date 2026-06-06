@@ -126,7 +126,9 @@
     color: var(--color-primary);
 }
 
-/* ✅ TAMBAHKAN MEDIA QUERY INI */
+/* ==========================================
+   RESPONSIVE SALDO UNTUK HP
+   ========================================== */
 @media (max-width: 640px) {
     .kas-saldo-section {
         flex-direction: column;
@@ -510,7 +512,7 @@
     
     .kas-history-row {
         display: grid !important;
-        grid-template-columns: 65px 1fr 75px !important;  /* ← PERSEMPIT kolom tanggal & jumlah */
+        grid-template-columns: 80px 1fr 75px !important;  /* ← PERSEMPIT kolom tanggal & jumlah */
         gap: 4px 8px !important;
         padding: 8px 0 !important;
         margin: 0 !important;
@@ -640,38 +642,6 @@
 .kas-notif-modal-time {
     font-size: 0.6rem;
     color: var(--text-muted);
-}
-
-/* ==========================================
-   RESPONSIVE
-   ========================================== */
-@media (max-width: 640px) {
-    .kas-saldo-section {
-        flex-direction: column;
-    }
-    
-    .kas-total-box {
-        width: 100%;
-    }
-    
-    .kas-history-row {
-        grid-template-columns: 70px 0.8fr 80px 0.8fr 40px 25px;
-        gap: 6px;
-        font-size: 0.65rem;
-    }
-    
-    .kas-pending-item {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .kas-pending-actions {
-        align-self: flex-end;
-    }
-    
-    .kas-pending-info {
-        width: 100%;
-    }
 }
 
 /* ==========================================

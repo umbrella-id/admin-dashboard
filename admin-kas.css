@@ -499,23 +499,87 @@
     background: rgba(168, 85, 247, 0.1);
 }
 
-@media (max-width: 480px) {
+/* ==========================================
+   RESPONSIVE RIWAYAT - 2 BARIS UNTUK HP
+   ========================================== */
+@media (max-width: 640px) {
+    /* Container dan list */
     .kas-history-list {
         padding-right: 0 !important;
+        width: 100% !important;
     }
     
+    /* Grid 2 baris dengan tata letak yang rapi */
     .kas-history-row {
-        grid-template-columns: 65px 1fr 80px 1fr 45px minmax(25px, auto) !important;
-        gap: 4px !important;
-        padding: 8px 0 !important;
+        display: grid !important;
+        grid-template-columns: 70px 1fr 80px !important;
+        gap: 6px 10px !important;
+        padding: 10px 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+    }
+    
+    /* BARIS 1: Tanggal | Nama | Jumlah */
+    .kas-history-date {
+        grid-column: 1 / 2 !important;
+        grid-row: 1 / 2 !important;
+    }
+    
+    .kas-history-ign {
+        grid-column: 2 / 3 !important;
+        grid-row: 1 / 2 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+    
+    .kas-history-amount {
+        grid-column: 3 / 4 !important;
+        grid-row: 1 / 2 !important;
+        text-align: right !important;
+    }
+    
+    /* BARIS 2: Notes | (kosong) | Actions */
+    .kas-history-notes {
+        grid-column: 1 / 3 !important;
+        grid-row: 2 / 3 !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        font-size: 0.6rem !important;
+        color: var(--text-muted) !important;
+    }
+    
+    .kas-history-adm {
+        display: none !important;  /* Sembunyikan admin di HP */
     }
     
     .kas-history-actions {
+        grid-column: 3 / 4 !important;
+        grid-row: 2 / 3 !important;
+        text-align: right !important;
         padding-right: 0 !important;
     }
     
+    /* Tombol edit lebih kecil di HP */
+    .kas-edit-btn {
+        font-size: 0.7rem !important;
+        padding: 4px 6px !important;
+    }
+    
+    /* Pastikan container full width */
+    #kas-container {
+        padding: 0 !important;
+        width: 100% !important;
+    }
+    
     .tab-page[data-tab="kas"] {
-        padding: 20px 4px 20px 12px !important;
+        padding: 20px 8px 20px 12px !important;
+        width: 100% !important;
+    }
+    
+    .kas-history-section {
+        padding: 12px !important;
+        width: 100% !important;
     }
 }
 

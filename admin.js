@@ -234,7 +234,7 @@ async function sendStandbyAndUpdateAll() {
                             showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview, 'mail');
                             playNotificationSound();
                             localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                        } else if (!isMailTabActive) {
+                        } else if (isWindowFocused) {
                             const newestMail = dataMail[0];
                             const sender = newestMail?.ign || 'Guest';
                             const subject = newestMail?.category || 'Umum';

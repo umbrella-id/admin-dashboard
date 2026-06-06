@@ -152,17 +152,26 @@ window.refreshKas = async function() {
     const btn = document.querySelector('#kas-container .btn-small');
     if (!btn) return;
     
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refresh';
+    const icon = btn.querySelector('i');
+    const originalIconClass = icon ? icon.className : '';
+    
+    // ✅ PUTAR IKON
+    if (icon) {
+        icon.classList.add('fa-spin');
+    }
     btn.disabled = true;
     
     try {
         await loadKasDashboard(true);
         window.showToast("✅ Data kas diperbarui");
     } catch(e) {
+        console.error("Refresh kas error:", e);
         window.showToast("❌ Gagal refresh", true);
     } finally {
-        btn.innerHTML = originalHtml;
+        // ✅ HENTIKAN PUTARAN
+        if (icon) {
+            icon.classList.remove('fa-spin');
+        }
         btn.disabled = false;
     }
 };

@@ -126,6 +126,23 @@
     color: var(--color-primary);
 }
 
+/* ✅ TAMBAHKAN MEDIA QUERY INI */
+@media (max-width: 640px) {
+    .kas-saldo-section {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .kas-saldo-list {
+        width: 100%;
+    }
+    
+    .kas-total-box {
+        width: 100%;
+        text-align: center;
+    }
+}
+
 /* ==========================================
    PENDING SECTION (REQUEST TRANSFER)
    ========================================== */

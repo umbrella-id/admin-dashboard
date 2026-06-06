@@ -272,9 +272,8 @@ function shouldEnableHeartbeat() {
 }
 
 // ==========================================
-// FOCUS / BLUR - GANTI visibilitychange
+// BLUR - KEHILANGAN FOKUS (standby)
 // ==========================================
-
 window.addEventListener('blur', function() {
     if (!currentAdmin) return;
     
@@ -282,48 +281,78 @@ window.addEventListener('blur', function() {
     
     if (shouldEnableHeartbeat()) {
         window.sendPresence('standby');
-        if (typeof window.stopActivePresence === 'function') {
-            window.stopActivePresence();
-        }
     }
 });
 
+// ==========================================
+// FOCUS - MENDAPAT FOKUS
+// ==========================================
 window.addEventListener('focus', function() {
     if (!currentAdmin) return;
     
     console.log("🟢 Window mendapat fokus");
     
-    // 1. UPDATE PRESENCE
     const chatIsOpen = window.isChatOpen && window.isChatOpen();
+    const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
     
+    // ========== 1. UPDATE PRESENCE ==========
     if (chatIsOpen && shouldEnableHeartbeat()) {
         console.log("💬 Chat terbuka + focus → active");
         window.sendPresence('active');
-        if (typeof window.loadChatMessages === 'function') window.loadChatMessages();
-        if (typeof window.fetchOnlineUsers === 'function') window.fetchOnlineUsers();
     } else if (shouldEnableHeartbeat()) {
         console.log("🔇 Chat tertutup → standby");
         window.sendPresence('standby');
     }
     
-    // 2. UPDATE DATA KAS
-    const hasKasAccess = (currentAdmin.role1 === 'LEADER' || 
-                          currentAdmin.role1 === 'BENDAHARA' || 
-                          currentAdmin.role2 === 'BENDAHARA');
-    if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
-        console.log("💰 Update data kas");
-        window.loadKasDashboard();
+    // ========== 2. UPDATE TAB YANG SEDANG AKTIF ==========
+    
+    // KAS (perlu fetch karena tidak ada interval)
+    if (activeTab === 'kas') {
+        const hasKasAccess = (currentAdmin.role1 === 'LEADER' || 
+                              currentAdmin.role1 === 'BENDAHARA' || 
+                              currentAdmin.role2 === 'BENDAHARA');
+        if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
+            console.log("💰 Tab Kas aktif, fetch data terbaru");
+            window.loadKasDashboard();
+        }
     }
     
-    // 3. UPDATE DATA MAILBOX
-    const hasMailAccess = (currentAdmin.role1 === 'LEADER' || 
-                           currentAdmin.role1 === 'CO-LEAD' || 
-                           currentAdmin.role2 === 'CO-LEAD');
-    if (hasMailAccess && typeof window.renderMailboxFromCache === 'function') {
-        console.log("📬 Update mailbox");
-        window.renderMailboxFromCache();
+    // MAILBOX (cukup render dari cache)
+    if (activeTab === 'mailbox') {
+        const hasMailAccess = (currentAdmin.role1 === 'LEADER' || 
+                               currentAdmin.role1 === 'CO-LEAD' || 
+                               currentAdmin.role2 === 'CO-LEAD');
+        if (hasMailAccess && typeof window.renderMailboxFromCache === 'function') {
+            console.log("📬 Tab Mailbox aktif, render dari cache");
+            window.renderMailboxFromCache();
+        }
+    }
+    
+    // CHAT (render dari cache jika terbuka)
+    if (chatIsOpen && typeof window.renderChatLogsFromCache === 'function') {
+        console.log("💬 Chat terbuka, render dari cache (data sudah update dari interval 60s)");
+        window.renderChatLogsFromCache();
     }
 });
+
+// ==========================================
+// RENDER CHAT DARI CACHE (TANPA FETCH)
+// ==========================================
+window.renderChatLogsFromCache = function() {
+    const cached = sessionStorage.getItem('umbrella_cached_chat_logs');
+    if (cached) {
+        const container = document.getElementById('admin-chat-logs');
+        if (container) {
+            try {
+                const logs = JSON.parse(cached);
+                renderChatLogs(logs, container);
+                console.log("📦 Render chat dari cache");
+            } catch(e) {
+                console.error("Render chat dari cache error:", e);
+            }
+        }
+    }
+};
 
 // ==========================================
 // ANDROID BACK BUTTON

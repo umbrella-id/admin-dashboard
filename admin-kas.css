@@ -78,8 +78,9 @@
 
 .kas-saldo-list {
     flex: 2;
-    width: 1fr;
     min-width: 150px;
+    display: flex;
+    justify-content: space-between;
 }
 
 .kas-saldo-row {

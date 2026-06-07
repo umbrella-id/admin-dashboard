@@ -27,7 +27,7 @@ async function loadMemberList(forceRefresh = false) {
     }
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getAllMembers`);
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getAllMembers&adminId=${currentAdmin.id}`);
         const result = await res.json();
         
         if (result.status === 'success' && result.data) {

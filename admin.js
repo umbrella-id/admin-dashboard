@@ -448,12 +448,25 @@ async function doLogin() {
             }
             
             renderBottomNav();
-            if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
-            if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
-            if (typeof window.loadKasDashboard === 'function') {
-                console.log("💰 Memuat data kas...");
-                window.loadKasDashboard();
+            // load tab awal
+            if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD') {
+                setTimeout(() => {
+                    if (typeof window.loadMemberList === 'function') window.loadMemberList();
+                }, 500);
             }
+            if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD') {
+                setTimeout(() => {
+                    if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
+                }, 750);
+            }
+            if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA') {
+                setTimeout(() => {
+                    if (typeof window.loadKasDashboard === 'function') window.loadKasDashboard();
+                }, 1000);
+            }
+            
+            if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') window.refreshAdminList();
+            
             if (shouldEnableHeartbeat()) {
                 startStandbyPresence();
             } else {
@@ -645,14 +658,6 @@ function renderBottomNav() {
             if (tabId === 'manage-content' && typeof window.loadContentData === 'function') {
                 console.log("📥 Memuat data konten...");
                 window.loadContentData();
-            }
-            if (tabId === 'kas' && typeof window.loadKasDashboard === 'function') {
-                console.log("💰 Memuat data kas...");
-                window.loadKasDashboard();
-            }
-            if (tabId === 'member' && typeof window.loadMemberList === 'function') {
-                console.log("👥 Memuat data member...");
-                window.loadMemberList();
             }
         });
     });

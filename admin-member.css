@@ -1,5 +1,3 @@
-/* Member Management Styles */
-
 .member-header {
     display: flex;
     justify-content: space-between;
@@ -14,23 +12,6 @@
     gap: 10px;
     align-items: center;
     flex-wrap: wrap;
-}
-
-.filter-btn {
-    background: var(--bg-solid-form);
-    border: 1px solid var(--border-line);
-    border-radius: 20px;
-    padding: 6px 12px;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 0.7rem;
-    transition: all 0.2s;
-}
-
-.filter-btn.active {
-    background: var(--color-primary);
-    color: white;
-    border-color: var(--color-primary);
 }
 
 .member-warning {
@@ -60,11 +41,6 @@
     flex-wrap: wrap;
     gap: 12px;
     transition: all 0.2s;
-}
-
-.member-row.scammer {
-    background: rgba(255, 68, 68, 0.1);
-    border-left: 3px solid #ff4444;
 }
 
 .member-info {
@@ -99,27 +75,6 @@
 .member-role.co-lead {
     background: rgba(168, 85, 247, 0.3);
     color: #a855f7;
-}
-
-.member-status {
-    font-size: 0.6rem;
-    padding: 2px 8px;
-    border-radius: 20px;
-}
-
-.status-aktif {
-    background: rgba(34, 197, 94, 0.2);
-    color: #4ade80;
-}
-
-.status-nonaktif {
-    background: rgba(100, 116, 139, 0.2);
-    color: #94a3b8;
-}
-
-.status-scammer {
-    background: rgba(255, 68, 68, 0.2);
-    color: #ff8888;
 }
 
 .member-contact {

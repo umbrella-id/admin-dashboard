@@ -54,29 +54,27 @@ function sortMembers(members) {
 async function loadMemberList(forceRefresh = false) {
     console.log("🟢 [MEMBER] loadMemberList dipanggil, forceRefresh:", forceRefresh);
     
-    if (!currentAdmin) {
-        console.log("🔴 [MEMBER] currentAdmin null");
-        return;
-    }
+    if (!currentAdmin) return;
     
     const container = document.getElementById('member-list-container');
     if (!container) return;
     
-    // Baca dari cache dulu
-    if (!forceRefresh) {
-        const cached = sessionStorage.getItem('umbrella_cached_members');
-        if (cached) {
-            try {
-                const data = JSON.parse(cached);
-                memberList = data;
-                renderMemberList(memberList);
-                updateMissingWABadge(memberList);
-                console.log("📦 [MEMBER] Render dari cache, jumlah:", memberList.length);
-            } catch(e) {}
-        }
+    // ✅ Baca dari cache dulu (selalu, termasuk saat refresh)
+    const cached = sessionStorage.getItem('umbrella_cached_members');
+    if (cached) {
+        try {
+            const data = JSON.parse(cached);
+            memberList = data;
+            renderMemberList(memberList);
+            updateMissingWABadge(memberList);
+            console.log("📦 [MEMBER] Render dari cache, jumlah:", memberList.length);
+        } catch(e) {}
     }
     
-    container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data member...</div>';
+    // ✅ TAMPILKAN LOADING HANYA JIKA TIDAK ADA CACHE
+    if (!cached) {
+        container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data member...</div>';
+    }
     
     try {
         const url = `${window.GAS_ADMIN_URL}?action=getAllMembers&adminId=${currentAdmin.id}`;
@@ -90,12 +88,14 @@ async function loadMemberList(forceRefresh = false) {
             updateMissingWABadge(memberList);
             initSearchListener();
             console.log("✅ [MEMBER] Load sukses, jumlah:", memberList.length);
-        } else {
+        } else if (!cached) {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data member</div>';
         }
     } catch(e) {
         console.error("🔴 [MEMBER] Fetch error:", e);
-        container.innerHTML = '<div class="empty-state">⚠️ Gagal koneksi</div>';
+        if (!cached) {
+            container.innerHTML = '<div class="empty-state">⚠️ Gagal koneksi</div>';
+        }
     }
 }
 

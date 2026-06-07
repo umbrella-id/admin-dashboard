@@ -1,5 +1,6 @@
 /**
  * admin-member.js - Member Management Module
+ * Hanya untuk LEADER & CO-LEAD
  */
 
 let memberList = [];
@@ -19,6 +20,35 @@ function escapeHtml(str) {
 }
 
 // ==========================================
+// VALIDASI WA
+// ==========================================
+function sanitizeWA(wa) {
+    if (!wa) return '';
+    return wa.toString().replace(/\D/g, '');
+}
+
+function isValidWA(wa) {
+    if (!wa) return true; // WA boleh kosong
+    if (!/^\d+$/.test(wa)) return false;
+    if (wa.startsWith('0')) return false; // TOLAK awalan 0
+    return true;
+}
+
+// ==========================================
+// SORTING MEMBER (Role + IGN)
+// ==========================================
+function sortMembers(members) {
+    const rolePriority = { 'leader': 1, 'co-lead': 2, 'member': 3 };
+    
+    return [...members].sort((a, b) => {
+        if (rolePriority[a.role] !== rolePriority[b.role]) {
+            return rolePriority[a.role] - rolePriority[b.role];
+        }
+        return a.ign.localeCompare(b.ign);
+    });
+}
+
+// ==========================================
 // LOAD MEMBER LIST
 // ==========================================
 async function loadMemberList(forceRefresh = false) {
@@ -32,6 +62,7 @@ async function loadMemberList(forceRefresh = false) {
     const container = document.getElementById('member-list-container');
     if (!container) return;
     
+    // Baca dari cache dulu
     if (!forceRefresh) {
         const cached = sessionStorage.getItem('umbrella_cached_members');
         if (cached) {
@@ -39,6 +70,7 @@ async function loadMemberList(forceRefresh = false) {
                 const data = JSON.parse(cached);
                 memberList = data;
                 renderMemberList(memberList);
+                updateMissingWABadge(memberList);
                 console.log("📦 [MEMBER] Render dari cache, jumlah:", memberList.length);
             } catch(e) {}
         }
@@ -52,10 +84,11 @@ async function loadMemberList(forceRefresh = false) {
         const result = await res.json();
         
         if (result.status === 'success' && result.data) {
-            memberList = result.data;
+            memberList = sortMembers(result.data);
             sessionStorage.setItem('umbrella_cached_members', JSON.stringify(memberList));
             renderMemberList(memberList);
             updateMissingWABadge(memberList);
+            initSearchListener();
             console.log("✅ [MEMBER] Load sukses, jumlah:", memberList.length);
         } else {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data member</div>';
@@ -78,9 +111,11 @@ function renderMemberList(members) {
         return;
     }
     
+    const sortedMembers = sortMembers(members);
+    
     let html = '';
-    for (const member of members) {
-        const hasWA = member.wa ? `<i class="fab fa-whatsapp"></i> ${member.wa}` : '<span class="no-wa"><i class="fas fa-exclamation-triangle"></i> WA belum diisi</span>';
+    for (const member of sortedMembers) {
+        const hasWA = member.wa ? `<i class="fab fa-whatsapp"></i> ${escapeHtml(member.wa)}` : '<span class="no-wa"><i class="fas fa-exclamation-triangle"></i> WA belum diisi</span>';
         
         html += `
             <div class="member-row" data-ign="${escapeHtml(member.ign)}">
@@ -91,6 +126,10 @@ function renderMemberList(members) {
                     </div>
                     <div class="member-contact">
                         ${hasWA}
+                    </div>
+                    <div class="member-dates">
+                        <i class="fas fa-calendar-plus"></i> Join: ${member.joinDate || '-'} 
+                        | <i class="fas fa-calendar-alt"></i> Rejoin: ${member.rejoinDate || '-'}
                     </div>
                 </div>
                 <div class="member-actions">
@@ -121,6 +160,9 @@ function updateMissingWABadge(members) {
     }
 }
 
+// ==========================================
+// FILTER MEMBER TANPA WA
+// ==========================================
 function filterMissingWA() {
     const missingWA = memberList.filter(m => !m.wa || m.wa === '');
     renderMemberList(missingWA);
@@ -141,6 +183,38 @@ function showAllMembers() {
 }
 
 // ==========================================
+// SEARCH MEMBER
+// ==========================================
+let searchTimeout = null;
+
+function initSearchListener() {
+    const searchInput = document.getElementById('member-search-input');
+    if (!searchInput) return;
+    
+    searchInput.addEventListener('input', function(e) {
+        if (searchTimeout) clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            performSearch(e.target.value.trim());
+        }, 300);
+    });
+}
+
+function performSearch(query) {
+    if (!query) {
+        renderMemberList(memberList);
+        return;
+    }
+    
+    const lowerQuery = query.toLowerCase();
+    const filtered = memberList.filter(m => 
+        m.ign.toLowerCase().includes(lowerQuery) || 
+        (m.wa && m.wa.toString().includes(query))
+    );
+    
+    renderMemberList(filtered);
+}
+
+// ==========================================
 // ADD MEMBER
 // ==========================================
 function openAddMemberModal() {
@@ -154,9 +228,9 @@ function openAddMemberModal() {
                 <input type="text" id="add-ign" placeholder="Nama IGN" autocomplete="off">
             </div>
             <div class="form-group">
-                <label>WhatsApp (opsional)</label>
+                <label>WhatsApp</label>
                 <input type="text" id="add-wa" placeholder="628123456789" autocomplete="off">
-                <small>Isi nomor WhatsApp dengan awalan 62, tanpa tanda + atau 0</small>
+                <small>Contoh: 628123456789 (tanpa 0, tanpa +62, tanpa spasi/tanda hubung)</small>
             </div>
             <div class="modal-buttons" style="margin-top: 20px;">
                 <button onclick="submitAddMember()" style="background:var(--color-primary);">Tambah</button>
@@ -170,10 +244,17 @@ function openAddMemberModal() {
 
 async function submitAddMember() {
     const ign = document.getElementById('add-ign')?.value.trim();
-    const wa = document.getElementById('add-wa')?.value.trim() || '';
+    let wa = document.getElementById('add-wa')?.value.trim() || '';
     
     if (!ign) {
         window.showToast("IGN harus diisi", true);
+        return;
+    }
+    
+    // Validasi WA
+    wa = sanitizeWA(wa);
+    if (wa && !isValidWA(wa)) {
+        window.showToast("❌ Format WA salah! Tidak boleh diawali 0. Gunakan kode negara (contoh: 628xxxxxxxxxx)", true);
         return;
     }
     
@@ -195,13 +276,13 @@ async function submitAddMember() {
             closeModal();
             
             if (result.data) {
-                // Update cache dengan data terbaru
                 const existingIndex = memberList.findIndex(m => m.ign === result.data.ign);
                 if (existingIndex >= 0) {
                     memberList[existingIndex] = result.data;
                 } else {
                     memberList.push(result.data);
                 }
+                memberList = sortMembers(memberList);
                 sessionStorage.setItem('umbrella_cached_members', JSON.stringify(memberList));
                 renderMemberList(memberList);
                 updateMissingWABadge(memberList);
@@ -272,7 +353,7 @@ async function editMember(ign) {
             <div class="form-group">
                 <label>WhatsApp</label>
                 <input type="text" id="edit-wa" value="${escapeHtml(member.wa)}" placeholder="628123456789">
-                <small>Nomor WhatsApp sebagai jangkar identitas member</small>
+                <small>Contoh: 628123456789 (tanpa 0, tanpa +62, tanpa spasi/tanda hubung)</small>
             </div>
             
             <div class="form-group">
@@ -297,12 +378,19 @@ async function editMember(ign) {
 
 async function submitEditMember(oldIgn) {
     const newIGN = document.getElementById('edit-ign')?.value.trim();
-    const newWA = document.getElementById('edit-wa')?.value.trim() || '';
+    let newWA = document.getElementById('edit-wa')?.value.trim() || '';
     const newRole = document.getElementById('edit-role')?.value;
     const newStatus = document.getElementById('edit-status')?.value;
     
     if (!newIGN) {
         window.showToast("IGN harus diisi", true);
+        return;
+    }
+    
+    // Validasi WA
+    newWA = sanitizeWA(newWA);
+    if (newWA && !isValidWA(newWA)) {
+        window.showToast("❌ Format WA salah! Tidak boleh diawali 0. Gunakan kode negara (contoh: 628xxxxxxxxxx)", true);
         return;
     }
     
@@ -323,7 +411,6 @@ async function submitEditMember(oldIgn) {
             window.showToast(result.message);
             closeModal();
             
-            // Update cache dengan data terbaru dari response
             if (result.data) {
                 // Hapus yang lama (dengan oldIgn) jika berbeda
                 if (oldIgn !== newIGN) {
@@ -339,6 +426,7 @@ async function submitEditMember(oldIgn) {
                     memberList.push(result.data);
                 }
                 
+                memberList = sortMembers(memberList);
                 sessionStorage.setItem('umbrella_cached_members', JSON.stringify(memberList));
                 renderMemberList(memberList);
                 updateMissingWABadge(memberList);
@@ -376,7 +464,7 @@ async function refreshMemberList() {
 }
 
 // ==========================================
-// EXPOSE
+// EXPOSE GLOBAL FUNCTIONS
 // ==========================================
 window.loadMemberList = loadMemberList;
 window.refreshMemberList = refreshMemberList;

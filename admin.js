@@ -659,6 +659,14 @@ function renderBottomNav() {
                 console.log("📥 Memuat data konten...");
                 window.loadContentData();
             }
+            if (tabId === 'kas' && typeof window.loadKasDashboard === 'function') {
+                console.log("💰 Memuat data kas...");
+                window.loadKasDashboard();
+            }
+            if (tabId === 'member' && typeof window.loadMemberList === 'function') {
+                console.log("👥 Memuat data member...");
+                window.loadMemberList();
+            }
         });
     });
     

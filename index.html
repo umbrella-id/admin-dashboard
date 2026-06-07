@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="admin.css">
     <link rel="stylesheet" href="admin-kas.css">
+    <link rel="stylesheet" href="admin-member.css">
 </head>
 <body>
 
@@ -52,6 +53,19 @@
                 </div>
                 <div id="mailbox-list" class="card-list">Memuat...</div>
             </div>
+            
+            <!-- KAS TAB -->
+            <div class="tab-page" data-tab="kas">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                    <h3 style="margin:0;"><i class="fas fa-coins"></i> Buku Kas</h3>
+                    <button class="btn-small" onclick="window.refreshKas()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                <div id="kas-container">
+                    <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data kas...</div>
+                </div>
+            </div>
 
             <!-- MEMBER TAB -->
             <div class="tab-page" data-tab="member">
@@ -78,19 +92,6 @@
                     <div id="member-list-container">
                         <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data member...</div>
                     </div>
-                </div>
-            </div>
-            
-            <!-- KAS TAB -->
-            <div class="tab-page" data-tab="kas">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-                    <h3 style="margin:0;"><i class="fas fa-coins"></i> Buku Kas</h3>
-                    <button class="btn-small" onclick="window.refreshKas()">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                </div>
-                <div id="kas-container">
-                    <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data kas...</div>
                 </div>
             </div>
             
@@ -146,6 +147,7 @@
 <script src="admin-chat.js"></script>
 <script src="admin-mail.js"></script>
 <script src="admin-kas.js"></script>
+<script src="admin-member.js"></script>
 <script src="admin-content.js"></script>
 </body>
 </html>

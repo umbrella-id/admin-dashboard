@@ -1,3 +1,8 @@
+/* ==========================================
+   MEMBER MANAGEMENT - CSS LENGKAP
+   ========================================== */
+
+/* Header dan Stats */
 .member-header {
     display: flex;
     justify-content: space-between;
@@ -14,6 +19,42 @@
     flex-wrap: wrap;
 }
 
+/* Search Bar */
+.member-search {
+    position: relative;
+}
+
+.member-search input {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 20px;
+    padding: 8px 16px 8px 36px;
+    color: white;
+    font-size: 0.75rem;
+    width: 200px;
+    transition: all 0.2s;
+}
+
+.member-search input:focus {
+    border-color: var(--color-primary);
+    outline: none;
+    box-shadow: 0 0 8px var(--color-primary-glow);
+}
+
+.member-search::before {
+    content: '\f002';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    pointer-events: none;
+}
+
+/* Warning Badge */
 .member-warning {
     background: rgba(245, 158, 11, 0.15);
     border: 1px solid #f59e0b;
@@ -29,6 +70,7 @@
     color: #f59e0b;
 }
 
+/* Member Row */
 .member-row {
     background: var(--bg-solid-form);
     border: 1px solid var(--border-line);
@@ -43,6 +85,11 @@
     transition: all 0.2s;
 }
 
+.member-row:hover {
+    border-color: var(--color-primary);
+}
+
+/* Member Info */
 .member-info {
     flex: 1;
 }
@@ -60,6 +107,7 @@
     color: white;
 }
 
+/* Role Badges */
 .member-role {
     font-size: 0.6rem;
     padding: 2px 8px;
@@ -77,6 +125,12 @@
     color: #a855f7;
 }
 
+.member-role.member {
+    background: rgba(100, 116, 139, 0.3);
+    color: #94a3b8;
+}
+
+/* Contact & Dates */
 .member-contact {
     font-size: 0.7rem;
     color: var(--text-muted);
@@ -92,6 +146,7 @@
     color: var(--text-muted);
 }
 
+/* Actions */
 .member-actions {
     display: flex;
     gap: 8px;
@@ -102,41 +157,28 @@
     text-align: center;
 }
 
-/* Form groups */
-.form-group {
-    margin-bottom: 16px;
-}
-
-.form-group label {
-    display: block;
-    font-size: 0.7rem;
+/* Loading & Empty State */
+.loading-state, .empty-state {
+    text-align: center;
+    padding: 40px;
     color: var(--text-muted);
-    margin-bottom: 6px;
 }
 
-.form-group input, .form-group select {
-    width: 100%;
-    background: var(--bg-dark);
-    border: 1px solid var(--border-line);
-    border-radius: 10px;
-    padding: 10px 12px;
-    color: white;
-    font-size: 0.8rem;
-}
-
-.form-group input:focus, .form-group select:focus {
-    border-color: var(--color-primary);
-    outline: none;
-}
-
-.form-group small {
-    font-size: 0.6rem;
-    color: var(--text-muted);
-    display: block;
-    margin-top: 4px;
-}
-
+/* Responsive */
 @media (max-width: 640px) {
+    .member-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .member-stats {
+        justify-content: space-between;
+    }
+    
+    .member-search input {
+        width: 100%;
+    }
+    
     .member-row {
         flex-direction: column;
         align-items: flex-start;
@@ -146,8 +188,8 @@
         align-self: flex-end;
     }
     
-    .member-stats {
-        width: 100%;
-        justify-content: center;
+    .member-warning {
+        flex-direction: column;
+        text-align: center;
     }
 }

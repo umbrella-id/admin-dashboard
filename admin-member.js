@@ -1,15 +1,22 @@
 /**
  * admin-member.js - Member Management Module
  * Hanya untuk LEADER & CO-LEAD
+ * Data yang ditampilkan hanya member dengan status 'aktif'
  */
 
 let memberList = [];
-let currentFilter = 'aktif'; // default tampilkan aktif saja
 
 // ==========================================
 // LOAD MEMBER LIST
 // ==========================================
 async function loadMemberList(forceRefresh = false) {
+    console.log("🔄 loadMemberList DIPANGGIL");
+    
+    if (!currentAdmin) {
+        console.log("❌ currentAdmin null");
+        return;
+    }
+    
     const container = document.getElementById('member-list-container');
     if (!container) return;
     
@@ -22,12 +29,21 @@ async function loadMemberList(forceRefresh = false) {
                 memberList = data;
                 renderMemberList(memberList);
                 console.log("📦 Render member dari cache");
-            } catch(e) {}
+            } catch(e) {
+                console.error("Cache parse error:", e);
+            }
         }
     }
     
+    // Tampilkan loading jika container kosong
+    if (container.innerHTML === '' || container.innerHTML.includes('loading-state')) {
+        container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data member...</div>';
+    }
+    
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getAllMembers&adminId=${currentAdmin.id}`);
+        const url = `${window.GAS_ADMIN_URL}?action=getAllMembers&adminId=${currentAdmin.id}`;
+        console.log("📡 Fetch member dari:", url);
+        const res = await fetch(url);
         const result = await res.json();
         
         if (result.status === 'success' && result.data) {
@@ -49,41 +65,33 @@ async function loadMemberList(forceRefresh = false) {
 // RENDER MEMBER LIST
 // ==========================================
 function renderMemberList(members) {
+    console.log("🎨 renderMemberList DIPANGGIL, jumlah:", members.length);
+    
     const container = document.getElementById('member-list-container');
     if (!container) return;
     
-    // Filter berdasarkan status
-    let filtered = members;
-    if (currentFilter !== 'all') {
-        filtered = members.filter(m => m.status === currentFilter);
-    }
-    
-    if (filtered.length === 0) {
-        container.innerHTML = '<div class="empty-state">📭 Tidak ada member</div>';
+    if (!members || members.length === 0) {
+        container.innerHTML = '<div class="empty-state">📭 Tidak ada member aktif</div>';
         return;
     }
     
     let html = '';
-    for (const member of filtered) {
-        const statusClass = member.status === 'aktif' ? 'status-aktif' : 
-                           (member.status === 'scammer' ? 'status-scammer' : 'status-nonaktif');
-        const statusIcon = member.status === 'aktif' ? '✅' : 
-                          (member.status === 'scammer' ? '🔴' : '⚪');
-        const hasWA = member.wa ? `📞 ${member.wa}` : '<span class="no-wa">⚠️ WA belum diisi</span>';
+    for (const member of members) {
+        const hasWA = member.wa ? `<i class="fab fa-whatsapp"></i> ${member.wa}` : '<span class="no-wa"><i class="fas fa-exclamation-triangle"></i> WA belum diisi</span>';
         
         html += `
-            <div class="member-row ${member.status === 'scammer' ? 'scammer' : ''}" data-ign="${member.ign}">
+            <div class="member-row" data-ign="${escapeHtml(member.ign)}">
                 <div class="member-info">
                     <div class="member-ign">
                         <strong>${escapeHtml(member.ign)}</strong>
                         <span class="member-role ${member.role}">${member.role.toUpperCase()}</span>
-                        <span class="member-status ${statusClass}">${statusIcon} ${member.status.toUpperCase()}</span>
                     </div>
                     <div class="member-contact">
                         ${hasWA}
                     </div>
                     <div class="member-dates">
-                        📅 Join: ${member.joinDate || '-'} | 🔄 Rejoin: ${member.rejoinDate || '-'}
+                        <i class="fas fa-calendar-plus"></i> Join: ${member.joinDate || '-'} 
+                        | <i class="fas fa-calendar-alt"></i> Rejoin: ${member.rejoinDate || '-'}
                     </div>
                 </div>
                 <div class="member-actions">
@@ -96,14 +104,13 @@ function renderMemberList(members) {
     }
     
     container.innerHTML = html;
-    updateFilterButtons();
 }
 
 // ==========================================
 // UPDATE BADGE MEMBER TANPA WA
 // ==========================================
 function updateMissingWABadge(members) {
-    const missingWA = members.filter(m => m.wa === '' && m.status === 'aktif');
+    const missingWA = members.filter(m => !m.wa || m.wa === '');
     const badge = document.getElementById('missing-wa-badge');
     const warningDiv = document.getElementById('member-warning');
     
@@ -116,35 +123,26 @@ function updateMissingWABadge(members) {
 }
 
 // ==========================================
-// FILTER
+// FILTER MEMBER TANPA WA
 // ==========================================
-function setFilter(filter) {
-    currentFilter = filter;
-    renderMemberList(memberList);
-}
-
-function updateFilterButtons() {
-    const buttons = document.querySelectorAll('.filter-btn');
-    buttons.forEach(btn => {
-        if (btn.dataset.filter === currentFilter) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-}
-
 function filterMissingWA() {
-    const missingWA = memberList.filter(m => m.wa === '' && m.status === 'aktif');
+    const missingWA = memberList.filter(m => !m.wa || m.wa === '');
     renderMemberList(missingWA);
+    
     // Tampilkan tombol kembali
-    const container = document.getElementById('member-list-container');
-    const backBtn = document.createElement('div');
-    backBtn.className = 'filter-back';
-    backBtn.innerHTML = '<button class="btn-small" onclick="setFilter(\'aktif\')">← Kembali ke semua member aktif</button>';
     if (!document.querySelector('.filter-back')) {
+        const container = document.getElementById('member-list-container');
+        const backBtn = document.createElement('div');
+        backBtn.className = 'filter-back';
+        backBtn.innerHTML = '<button class="btn-small" onclick="showAllMembers()">← Kembali ke semua member</button>';
         container.parentNode.insertBefore(backBtn, container.nextSibling);
     }
+}
+
+function showAllMembers() {
+    const backBtn = document.querySelector('.filter-back');
+    if (backBtn) backBtn.remove();
+    renderMemberList(memberList);
 }
 
 // ==========================================
@@ -158,12 +156,12 @@ function openAddMemberModal() {
             <h3><i class="fas fa-user-plus"></i> Tambah Member Baru</h3>
             <div class="form-group">
                 <label>IGN <span style="color:#ff4444;">*</span></label>
-                <input type="text" id="add-ign" placeholder="Nama IGN">
+                <input type="text" id="add-ign" placeholder="Nama IGN" autocomplete="off">
             </div>
             <div class="form-group">
                 <label>WhatsApp (opsional)</label>
-                <input type="text" id="add-wa" placeholder="628123456789">
-                <small>Isi jika ada, bisa dikosongkan</small>
+                <input type="text" id="add-wa" placeholder="628123456789" autocomplete="off">
+                <small>Isi nomor WhatsApp dengan awalan 62, tanpa tanda + atau 0</small>
             </div>
             <div class="modal-buttons" style="margin-top: 20px;">
                 <button onclick="submitAddMember()" style="background:var(--color-primary);">Tambah</button>
@@ -172,6 +170,7 @@ function openAddMemberModal() {
         </div>
     `;
     modal.style.display = 'flex';
+    document.getElementById('add-ign')?.focus();
 }
 
 async function submitAddMember() {
@@ -183,21 +182,25 @@ async function submitAddMember() {
         return;
     }
     
-    const btn = document.querySelector('#modal-overlay button:first-of-type');
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
-    btn.disabled = true;
+    const modalContent = document.querySelector('#modal-overlay .modal-content');
+    const btn = modalContent?.querySelector('button:first-of-type');
+    const originalHtml = btn?.innerHTML;
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+        btn.disabled = true;
+    }
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=addOrReactivateMember&ign=${encodeURIComponent(ign)}&wa=${encodeURIComponent(wa)}`);
+        const url = `${window.GAS_ADMIN_URL}?action=addOrReactivateMember&adminId=${currentAdmin.id}&ign=${encodeURIComponent(ign)}&wa=${encodeURIComponent(wa)}`;
+        const res = await fetch(url);
         const result = await res.json();
         
         if (result.status === 'success') {
             window.showToast(result.message);
             closeModal();
+            
             // Update cache dengan data terbaru dari response
             if (result.data) {
-                // Update atau tambah ke memberList
                 const existingIndex = memberList.findIndex(m => m.ign === result.data.ign);
                 if (existingIndex >= 0) {
                     memberList[existingIndex] = result.data;
@@ -213,7 +216,6 @@ async function submitAddMember() {
         } else {
             if (result.action === 'scammer') {
                 window.showToast(result.message, true);
-                // Tampilkan peringatan scammer
                 alert(`🔴 PERINGATAN!\n\n${result.message}\n\nSegera koordinasikan dengan Leader untuk tindakan!`);
             } else {
                 window.showToast(result.message || "Gagal", true);
@@ -223,8 +225,10 @@ async function submitAddMember() {
         console.error("Add member error:", e);
         window.showToast("Gagal koneksi", true);
     } finally {
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     }
 }
 
@@ -232,8 +236,16 @@ async function submitAddMember() {
 // EDIT MEMBER
 // ==========================================
 async function editMember(ign) {
+    console.log("✏️ editMember dipanggil untuk:", ign);
+    
     const member = memberList.find(m => m.ign === ign);
-    if (!member) return;
+    if (!member) {
+        console.log("❌ Member tidak ditemukan di memberList");
+        window.showToast("Member tidak ditemukan", true);
+        return;
+    }
+    
+    console.log("✅ Member ditemukan:", member);
     
     const isLeader = currentAdmin?.role1 === 'LEADER';
     const roleOptions = isLeader ? 
@@ -242,7 +254,7 @@ async function editMember(ign) {
             <option value="co-lead" ${member.role === 'co-lead' ? 'selected' : ''}>Co-Lead</option>
             <option value="leader" ${member.role === 'leader' ? 'selected' : ''}>Leader</option>
         </select>` :
-        `<input type="text" id="edit-role" value="${member.role}" disabled readonly>`;
+        `<input type="text" id="edit-role" value="${member.role}" readonly disabled>`;
     
     const statusOptions = `
         <select id="edit-status">
@@ -263,8 +275,8 @@ async function editMember(ign) {
             </div>
             <div class="form-group">
                 <label>WhatsApp</label>
-                <input type="text" id="edit-wa" value="${escapeHtml(member.wa)}" placeholder="628123456789">
-                <small>Isi nomor WhatsApp yang valid</small>
+                <input type="text" id="edit-wa" value="${escapeHtml(member.wa)}" placeholder="628123456789" autocomplete="off">
+                <small>Isi nomor WhatsApp dengan awalan 62, tanpa tanda + atau 0</small>
             </div>
             <div class="form-group">
                 <label>Role</label>
@@ -297,13 +309,17 @@ async function submitEditMember(oldIgn) {
     const newRole = document.getElementById('edit-role')?.value;
     const newStatus = document.getElementById('edit-status')?.value;
     
-    const btn = document.querySelector('#modal-overlay button:first-of-type');
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
-    btn.disabled = true;
+    const modalContent = document.querySelector('#modal-overlay .modal-content');
+    const btn = modalContent?.querySelector('button:first-of-type');
+    const originalHtml = btn?.innerHTML;
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+        btn.disabled = true;
+    }
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=updateMemberWithMerge&ign=${encodeURIComponent(oldIgn)}&wa=${encodeURIComponent(newWA)}&role=${encodeURIComponent(newRole)}&status=${encodeURIComponent(newStatus)}`);
+        const url = `${window.GAS_ADMIN_URL}?action=updateMemberWithMerge&adminId=${currentAdmin.id}&ign=${encodeURIComponent(oldIgn)}&wa=${encodeURIComponent(newWA)}&role=${encodeURIComponent(newRole)}&status=${encodeURIComponent(newStatus)}`;
+        const res = await fetch(url);
         const result = await res.json();
         
         if (result.status === 'success') {
@@ -336,8 +352,10 @@ async function submitEditMember(oldIgn) {
         console.error("Edit member error:", e);
         window.showToast("Gagal koneksi", true);
     } finally {
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     }
 }
 
@@ -345,7 +363,7 @@ async function submitEditMember(oldIgn) {
 // REFRESH
 // ==========================================
 async function refreshMemberList() {
-    const btn = document.querySelector('#member-container .refresh-btn i');
+    const btn = document.querySelector('.refresh-btn i');
     if (btn) btn.classList.add('fa-spin');
     
     await loadMemberList(true);
@@ -361,7 +379,7 @@ window.loadMemberList = loadMemberList;
 window.refreshMemberList = refreshMemberList;
 window.openAddMemberModal = openAddMemberModal;
 window.editMember = editMember;
-window.setFilter = setFilter;
 window.filterMissingWA = filterMissingWA;
+window.showAllMembers = showAllMembers;
 
 console.log("✅ admin-member.js loaded");

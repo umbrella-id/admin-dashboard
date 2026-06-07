@@ -36,10 +36,7 @@ function buildGalleryBody(imageUrl, caption) {
     return html;
 }
 
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
-}
+//function escapeHtml
 
 // ==========================================
 // LOAD & RENDER DATA

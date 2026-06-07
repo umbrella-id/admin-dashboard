@@ -37,6 +37,31 @@
 
     <div class="tab-container">
         <div class="tab-swipe-area" id="tab-swipe-area">
+
+            <!-- MEMBER TAB -->
+            <div class="tab-page" data-tab="member">
+                <div id="member-container">
+                    <div class="member-header">
+                        <h3><i class="fas fa-users"></i> Member Guild</h3>
+                        <div class="member-stats">
+                            <button class="refresh-btn btn-small" onclick="refreshMemberList()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                            <button class="btn-small" onclick="openAddMemberModal()">
+                                <i class="fas fa-plus"></i> Add Member
+                            </button>
+                        </div>
+                    </div>
+                    <div id="member-warning" class="member-warning" style="display: none;">
+                        ⚠️ Ada <span id="missing-wa-badge">0</span> lengkapi data, nomor WhatsApp kosong.
+                        <button class="btn-small" onclick="filterMissingWA()">Tampilkan</button>
+                    </div>
+                    <div id="member-list-container">
+                        <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data member...</div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- MAILBOX TAB -->
             <div class="tab-page" data-tab="mailbox">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
@@ -64,30 +89,6 @@
                 </div>
                 <div id="kas-container">
                     <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data kas...</div>
-                </div>
-            </div>
-
-            <!-- MEMBER TAB -->
-            <div class="tab-page" data-tab="member">
-                <div id="member-container">
-                    <div class="member-header">
-                        <h3><i class="fas fa-users"></i> Member Guild</h3>
-                        <div class="member-stats">
-                            <button class="refresh-btn btn-small" onclick="refreshMemberList()">
-                                <i class="fas fa-sync-alt"></i> Refresh
-                            </button>
-                            <button class="btn-small" onclick="openAddMemberModal()">
-                                <i class="fas fa-plus"></i> Add Member
-                            </button>
-                        </div>
-                    </div>
-                    <div id="member-warning" class="member-warning" style="display: none;">
-                        ⚠️ Ada <span id="missing-wa-badge">0</span> lengkapi data, nomor WhatsApp kosong.
-                        <button class="btn-small" onclick="filterMissingWA()">Tampilkan</button>
-                    </div>
-                    <div id="member-list-container">
-                        <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data member...</div>
-                    </div>
                 </div>
             </div>
             

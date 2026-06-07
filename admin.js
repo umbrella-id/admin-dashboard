@@ -603,14 +603,15 @@ function renderBottomNav() {
     const navContainer = document.getElementById('bottom-nav');
     const swipeArea = document.getElementById('tab-swipe-area');
     const tabs = [];
-    const hasMail = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
     const hasMember = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
+    const hasMail = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
     const hasKas = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA');
     const hasAdmin = (currentAdmin.role1 === 'LEADER');
     const hasContent = (currentAdmin.role1 === 'LEADER');
+
     
-    if (hasMail) tabs.push({ id: 'mailbox', icon: 'fa-envelope', label: 'Surat' });
     if (hasMember) tabs.push({ id: 'member', icon: 'fa-users', label: 'Member' });
+    if (hasMail) tabs.push({ id: 'mailbox', icon: 'fa-envelope', label: 'Surat' });
     if (hasKas) tabs.push({ id: 'kas', icon: 'fa-coins', label: 'Kas' });
     if (hasAdmin) tabs.push({ id: 'manage-admin', icon: 'fa-users-cog', label: 'Admin' });
     if (hasContent) tabs.push({ id: 'manage-content', icon: 'fa-edit', label: 'Konten' });

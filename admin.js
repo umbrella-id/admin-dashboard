@@ -522,11 +522,17 @@ async function checkSession() {
                 }
             }, 300);
         }
-        
-        setTimeout(() => {
-            if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
-        }, 500);
-        
+        // load tab awal
+        if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD') {
+            setTimeout(() => {
+                if (typeof window.loadMemberList === 'function') window.loadMemberList();
+            }, 500);
+        }
+        if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD') {
+            setTimeout(() => {
+                if (typeof window.refreshMailbox === 'function') window.refreshMailbox();
+            }, 750);
+        }
         if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA') {
             setTimeout(() => {
                 if (typeof window.loadKasDashboard === 'function') window.loadKasDashboard();

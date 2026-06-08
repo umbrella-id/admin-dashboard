@@ -141,16 +141,11 @@ function updateNotifBadge() {
 // REFRESH DENGAN ANIMASI (seperti member)
 // ==========================================
 window.refreshKas = async function() {
-    // Cari tombol refresh di header history
-    const btn = document.querySelector('.kas-history-header .refresh-btn');
+    const btn = document.querySelector('.tab-page[data-tab="kas"] .refresh-btn');
     if (!btn) return;
     
     const icon = btn.querySelector('i');
-    
-    // PUTAR IKON
-    if (icon) {
-        icon.classList.add('fa-spin');
-    }
+    if (icon) icon.classList.add('fa-spin');
     btn.disabled = true;
     
     try {
@@ -160,10 +155,7 @@ window.refreshKas = async function() {
         console.error("Refresh kas error:", e);
         window.showToast("❌ Gagal refresh", true);
     } finally {
-        // HENTIKAN PUTARAN
-        if (icon) {
-            icon.classList.remove('fa-spin');
-        }
+        if (icon) icon.classList.remove('fa-spin');
         btn.disabled = false;
     }
 };

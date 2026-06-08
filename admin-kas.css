@@ -428,7 +428,7 @@
 
 .kas-history-row {
     display: grid;
-    grid-template-columns: 80px 1fr 100px 1fr 60px 30px;
+    grid-template-columns: 100px 1fr 100px 1fr 60px 30px;
     gap: 8px;
     align-items: center;
     padding: 8px 0;
@@ -523,7 +523,7 @@
     .kas-history-date {
         grid-column: 1 / 2 !important;
         grid-row: 1 / 2 !important;
-        font-size: 0.6rem !important;  /* ← PERKECIL font tanggal */
+        font-size: 0.7rem !important;  /* ← PERKECIL font tanggal */
         white-space: nowrap !important;  /* ← PAKSA 1 baris */
         overflow: hidden !important;
         text-overflow: ellipsis !important;

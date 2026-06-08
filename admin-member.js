@@ -439,8 +439,6 @@ async function submitEditMember(oldIgn) {
             }
             else if (result.action === 'active') {
                 window.showToast(result.message, true);
-                closeModal();
-                showAlertModal('MEMBER AKTIF', result.message, 'active');
             }
             else {
                 window.showToast(result.message || "Gagal", true);
@@ -466,11 +464,8 @@ function showAlertModal(title, message, type = 'warning') {
     let icon = '⚠️';
     let color = '#f59e0b';
     if (type === 'scammer') {
-        icon = '🔴';
+        icon = '❌';
         color = '#ff4444';
-    } else if (type === 'active') {
-        icon = '🟡';
-        color = '#f59e0b';
     }
     
     modal.innerHTML = `

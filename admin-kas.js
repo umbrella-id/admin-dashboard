@@ -125,17 +125,6 @@ async function loadKasDashboard(forceRefresh = false) {
     }
 }
 
-async function loadNotifCount() {
-    try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getUnreadKasNotificationsCount&adminId=${currentAdmin.id}`);
-        const data = await res.json();
-        kasData.unreadNotifCount = data.count || 0;
-        updateNotifBadge();
-    } catch(e) {
-        console.error("Load notif count error:", e);
-    }
-}
-
 function updateNotifBadge() {
     const badge = document.getElementById('kas-notif-badge');
     if (badge) {
@@ -148,14 +137,17 @@ function updateNotifBadge() {
     }
 }
 
+// ==========================================
+// REFRESH DENGAN ANIMASI (seperti member)
+// ==========================================
 window.refreshKas = async function() {
-    const btn = document.querySelector('#kas-container .btn-small');
+    // Cari tombol refresh di header history
+    const btn = document.querySelector('.kas-history-header .refresh-btn');
     if (!btn) return;
     
     const icon = btn.querySelector('i');
-    const originalIconClass = icon ? icon.className : '';
     
-    // ✅ PUTAR IKON
+    // PUTAR IKON
     if (icon) {
         icon.classList.add('fa-spin');
     }
@@ -168,7 +160,7 @@ window.refreshKas = async function() {
         console.error("Refresh kas error:", e);
         window.showToast("❌ Gagal refresh", true);
     } finally {
-        // ✅ HENTIKAN PUTARAN
+        // HENTIKAN PUTARAN
         if (icon) {
             icon.classList.remove('fa-spin');
         }
@@ -620,7 +612,6 @@ async function saveEditTransaction(rowId) {
     }
     
     const newAmount = parseInt(document.getElementById('edit-amount')?.value);
-    const newNotes = document.getElementById('edit-notes')?.value || "";
     
     if (!currentAdmin || !currentAdmin.nama) return window.showToast("Error: Data admin tidak ditemukan", true);
     
@@ -653,7 +644,7 @@ async function saveEditTransaction(rowId) {
 // ==========================================
 // REFRESH & EXPOSE
 // ==========================================
-window.refreshKas = () => { loadKasDashboard(); loadNotifCount(); };
+window.refreshKas = refreshKas;
 window.loadKasDashboard = loadKasDashboard;
 window.submitSetoran = submitSetoran;
 window.submitTransferRequest = submitTransferRequest;

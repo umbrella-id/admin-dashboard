@@ -292,6 +292,7 @@ async function submitAddMember() {
         } else {
             if (result.action === 'scammer') {
                 window.showToast(result.message, true);
+                closeModal();
                 showAlertModal(`🔴 PERINGATAN!\n\n${result.message}\n\nSegera koordinasikan dengan Leader untuk tindakan!`);
             } else {
                 window.showToast(result.message || "Gagal", true);
@@ -387,7 +388,6 @@ async function submitEditMember(oldIgn) {
         return;
     }
     
-    // Validasi WA
     newWA = sanitizeWA(newWA);
     if (newWA && !isValidWA(newWA)) {
         window.showToast("❌ Format WA salah! Tidak boleh diawali 0. Gunakan kode negara (contoh: 628xxxxxxxxxx)", true);
@@ -412,13 +412,11 @@ async function submitEditMember(oldIgn) {
             closeModal();
             
             if (result.data) {
-                // Hapus yang lama (dengan oldIgn) jika berbeda
                 if (oldIgn !== newIGN) {
                     const oldIndex = memberList.findIndex(m => m.ign === oldIgn);
                     if (oldIndex >= 0) memberList.splice(oldIndex, 1);
                 }
                 
-                // Update atau tambah yang baru
                 const existingIndex = memberList.findIndex(m => m.ign === result.data.ign);
                 if (existingIndex >= 0) {
                     memberList[existingIndex] = result.data;
@@ -436,8 +434,15 @@ async function submitEditMember(oldIgn) {
         } else {
             if (result.action === 'scammer') {
                 window.showToast(result.message, true);
-                showAlertModal(`🔴 PERINGATAN!\n\n${result.message}\n\nSegera koordinasikan dengan Leader untuk tindakan!`);
-            } else {
+                closeModal();
+                showAlertModal('SCAMMER DETEKSI', result.message, 'scammer');
+            } 
+            else if (result.action === 'active') {
+                window.showToast(result.message, true);
+                closeModal();
+                showAlertModal('MEMBER AKTIF', result.message, 'active');
+            }
+            else {
                 window.showToast(result.message || "Gagal", true);
             }
         }

@@ -78,15 +78,14 @@ async function loadKasDashboard(forceRefresh = false) {
     
     const container = document.getElementById('kas-container');
     if (!container) return;
-    console.trace();
+    
     // 🔄 BACA DARI CACHE DULU (kecuali forceRefresh)
     if (!forceRefresh) {
         const cached = sessionStorage.getItem('umbrella_cached_kas');
         if (cached) {
             try {
                 const data = JSON.parse(cached);
-                updateKasDataFromResponse(data);  // update global
-                renderKasDashboard();
+                updateKasDataFromResponse(data);
                 console.log("📦 Render kas dari cache");
             } catch(e) {}
         }
@@ -106,12 +105,9 @@ async function loadKasDashboard(forceRefresh = false) {
         console.log("📡 loadKasDashboard response:", result);
         
         if (result.status === 'success' && result.data) {
-            // 💾 SIMPAN KE CACHE
             sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(result.data));
             sessionStorage.setItem('umbrella_cached_kas_time', Date.now().toString());
-            
             updateKasDataFromResponse(result.data);
-            renderKasDashboard();
         } else if (!hasCache) {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
         }
@@ -122,17 +118,6 @@ async function loadKasDashboard(forceRefresh = false) {
         }
     } finally {
         kasLoading = false;
-    }
-}
-
-async function loadNotifCount() {
-    try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getUnreadKasNotificationsCount&adminId=${currentAdmin.id}`);
-        const data = await res.json();
-        kasData.unreadNotifCount = data.count || 0;
-        updateNotifBadge();
-    } catch(e) {
-        console.error("Load notif count error:", e);
     }
 }
 
@@ -148,12 +133,14 @@ function updateNotifBadge() {
     }
 }
 
+// ==========================================
+// REFRESH DENGAN ANIMASI (seperti member)
+// ==========================================
 window.refreshKas = async function() {
-    const btn = document.querySelector('#kas-container .btn-small');
+    const btn = document.querySelector('#kas-container .refresh-btn');
     if (!btn) return;
     
     const icon = btn.querySelector('i');
-    const originalIconClass = icon ? icon.className : '';
     
     // ✅ PUTAR IKON
     if (icon) {
@@ -216,41 +203,7 @@ function renderKasDashboard() {
                 <div class="kas-total-value">${formatRupiah(totalSaldo)}</div>
             </div>
         </div>
-    `;
-    
-    if (totalPending > 0) {
-        html += `
-            <div class="kas-pending-section">
-                <div class="kas-pending-header">
-                    <span><i class="fas fa-exchange-alt"></i> REQUEST TRANSFER</span>
-                    <span class="kas-pending-badge">${totalPending}</span>
-                </div>
-                <div class="kas-pending-list">
-                    ${allPending.map(req => `
-                        <div class="kas-pending-item ${req.type}">
-                            <div class="kas-pending-info">
-                                <span class="kas-pending-icon">${req.type === 'incoming' ? '📥' : '📤'}</span>
-                                <span class="kas-pending-desc">
-                                    ${req.type === 'incoming' ? `Dari ${escapeHtml(req.fromName)}` : `Ke ${escapeHtml(req.toName)}`}
-                                    <span class="kas-pending-amount">${formatRupiah(req.amount)}</span>
-                                </span>
-                            </div>
-                            <div class="kas-pending-actions">
-                                ${req.type === 'incoming' ? `
-                                    <button class="kas-btn-approve" onclick="approveTransferRequest('${req.id}')">✅ Setujui</button>
-                                    <button class="kas-btn-reject" onclick="rejectTransferRequest('${req.id}')">❌ Tolak</button>
-                                ` : `
-                                    <button class="kas-btn-cancel" onclick="cancelTransferRequest('${req.id}')">🗑️ Batalkan</button>
-                                `}
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-    
-    html += `
+        
         <div class="kas-forms-section">
             <div class="kas-form-tabs">
                 <button class="kas-form-tab ${kasCurrentForm === 'setoran' ? 'active' : ''}" data-form="setoran">📥 INPUT KAS</button>
@@ -301,7 +254,12 @@ function renderKasDashboard() {
         </div>
         
         <div class="kas-history-section">
-            <div class="kas-history-header"><span><i class="fas fa-history"></i> RIWAYAT TRANSAKSI (50 terakhir)</span></div>
+            <div class="kas-history-header">
+                <span><i class="fas fa-history"></i> RIWAYAT TRANSAKSI (50 terakhir)</span>
+                <button class="refresh-btn btn-small" onclick="window.refreshKas()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
             <div class="kas-history-list">
                 ${history.length === 0 ? '<div class="empty-state">Belum ada transaksi</div>' : ''}
                 ${history.map(log => `
@@ -324,7 +282,7 @@ function renderKasDashboard() {
     
     container.innerHTML = html;
     
-    // Event listeners
+    // Event listeners untuk tab
     document.querySelectorAll('.kas-form-tab').forEach(btn => {
         btn.addEventListener('click', () => {
             kasCurrentForm = btn.dataset.form;
@@ -432,7 +390,6 @@ async function submitSetoran() {
         if (data.status === 'success') {
             window.showToast("✅ Setoran berhasil");
             if (data.data) {
-                // 💾 UPDATE CACHE & DATA GLOBAL
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                 updateKasDataFromResponse(data.data);
             } else {
@@ -476,7 +433,6 @@ async function submitTransferRequest() {
         if (data.status === 'success') {
             window.showToast(data.message || `✅ Request transfer ${formatRupiah(amount)} ke ${to} terkirim`);
             if (data.data) {
-                // 💾 UPDATE CACHE & DATA GLOBAL
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                 updateKasDataFromResponse(data.data);
             } else {
@@ -509,7 +465,6 @@ async function approveTransferRequest(requestId) {
             if (data.status === 'success') {
                 window.showToast(data.message || "Transfer disetujui");
                 if (data.data) {
-                    // 💾 UPDATE CACHE & DATA GLOBAL
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                     updateKasDataFromResponse(data.data);
                 } else {
@@ -537,7 +492,6 @@ async function rejectTransferRequest(requestId) {
             if (data.status === 'success') {
                 window.showToast(data.message || "Transfer ditolak");
                 if (data.data) {
-                    // 💾 UPDATE CACHE & DATA GLOBAL
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                     updateKasDataFromResponse(data.data);
                 } else {
@@ -565,7 +519,6 @@ async function cancelTransferRequest(requestId) {
             if (data.status === 'success') {
                 window.showToast(data.message || "Request dibatalkan");
                 if (data.data) {
-                    // 💾 UPDATE CACHE & DATA GLOBAL
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                     updateKasDataFromResponse(data.data);
                 } else {
@@ -598,8 +551,6 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
                 <small>Isi 0 untuk menghapus transaksi ini</small>
             </div>
             
-            <!-- ❌ Notes TIDAK ditampilkan -->
-            
             <div class="modal-buttons">
                 <button id="save-edit-btn" style="background:var(--color-primary);">Simpan</button>
                 <button onclick="closeModal()" style="background:#333;">Batal</button>
@@ -620,21 +571,19 @@ async function saveEditTransaction(rowId) {
     }
     
     const newAmount = parseInt(document.getElementById('edit-amount')?.value);
-    const newNotes = document.getElementById('edit-notes')?.value || "";
     
     if (!currentAdmin || !currentAdmin.nama) return window.showToast("Error: Data admin tidak ditemukan", true);
     
     closeModal();
     
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&notes=${encodeURIComponent(newNotes)}&adminName=${encodeURIComponent(currentAdmin.nama)}`);
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&adminName=${encodeURIComponent(currentAdmin.nama)}`);
         const data = await response.json();
         console.log("📡 saveEditTransaction response:", data);
         
         if (data.status === 'success') {
             window.showToast(data.message || "✅ Transaksi diperbarui");
             if (data.data) {
-                // 💾 UPDATE CACHE & DATA GLOBAL
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                 updateKasDataFromResponse(data.data);
             } else {
@@ -651,9 +600,8 @@ async function saveEditTransaction(rowId) {
 }
 
 // ==========================================
-// REFRESH & EXPOSE
+// EXPOSE
 // ==========================================
-window.refreshKas = () => { loadKasDashboard(); loadNotifCount(); };
 window.loadKasDashboard = loadKasDashboard;
 window.submitSetoran = submitSetoran;
 window.submitTransferRequest = submitTransferRequest;

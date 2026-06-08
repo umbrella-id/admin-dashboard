@@ -436,7 +436,7 @@ async function submitEditMember(oldIgn) {
                 window.showToast(result.message, true);
                 closeModal();
                 showAlertModal('SCAMMER DETEKSI', result.message, 'scammer');
-            } 
+            }
             else if (result.action === 'active') {
                 window.showToast(result.message, true);
                 closeModal();

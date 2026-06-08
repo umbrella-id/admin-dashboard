@@ -164,6 +164,75 @@
     color: var(--text-muted);
 }
 
+/* ==========================================
+   MODAL FORM MEMBER
+   ========================================== */
+.modal-content .form-group {
+    margin-bottom: 16px;
+}
+
+.modal-content .form-group label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+
+.modal-content .form-group input,
+.modal-content .form-group select {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: white;
+    font-size: 0.8rem;
+    font-family: inherit;
+}
+
+.modal-content .form-group input:focus,
+.modal-content .form-group select:focus {
+    border-color: var(--color-primary);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.1);
+}
+
+.modal-content .form-group input:disabled,
+.modal-content .form-group input[readonly] {
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+.modal-content .form-group small {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.6rem;
+    color: var(--text-muted);
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.modal-buttons button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.modal-buttons button:active {
+    transform: scale(0.97);
+}
+
 /* Responsive */
 @media (max-width: 640px) {
     .member-header {

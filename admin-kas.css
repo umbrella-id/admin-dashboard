@@ -443,7 +443,7 @@
 .kas-history-date {
     color: var(--text-muted);
     font-family: monospace;
-    font-size: 0.65rem;
+    font-size: 0.7rem;
 }
 
 .kas-history-ign {
@@ -477,7 +477,7 @@
 
 .kas-history-adm {
     color: var(--text-muted);
-    font-size: 0.6rem;
+    font-size: 0.7rem;
     text-align: center;
 }
 

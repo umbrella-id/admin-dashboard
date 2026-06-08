@@ -292,7 +292,7 @@ async function submitAddMember() {
         } else {
             if (result.action === 'scammer') {
                 window.showToast(result.message, true);
-                alert(`🔴 PERINGATAN!\n\n${result.message}\n\nSegera koordinasikan dengan Leader untuk tindakan!`);
+                showAlertModal(`🔴 PERINGATAN!\n\n${result.message}\n\nSegera koordinasikan dengan Leader untuk tindakan!`);
             } else {
                 window.showToast(result.message || "Gagal", true);
             }
@@ -436,7 +436,7 @@ async function submitEditMember(oldIgn) {
         } else {
             if (result.action === 'scammer') {
                 window.showToast(result.message, true);
-                alert(`🔴 PERINGATAN!\n\n${result.message}\n\nSegera koordinasikan dengan Leader untuk tindakan!`);
+                showAlertModal(`🔴 PERINGATAN!\n\n${result.message}\n\nSegera koordinasikan dengan Leader untuk tindakan!`);
             } else {
                 window.showToast(result.message || "Gagal", true);
             }
@@ -450,6 +450,38 @@ async function submitEditMember(oldIgn) {
             btn.disabled = false;
         }
     }
+}
+
+// ==========================================
+// MODAL PERINGATAN (BUKAN ALERT)
+// ==========================================
+function showAlertModal(title, message, type = 'warning') {
+    const modal = document.getElementById('modal-overlay');
+    
+    let icon = '⚠️';
+    let color = '#f59e0b';
+    if (type === 'scammer') {
+        icon = '🔴';
+        color = '#ff4444';
+    } else if (type === 'active') {
+        icon = '🟡';
+        color = '#f59e0b';
+    }
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 350px; text-align: center;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <div style="font-size: 3rem; margin-bottom: 10px;">${icon}</div>
+            <h3 style="color: ${color}; margin-bottom: 15px;">${title}</h3>
+            <p style="margin-bottom: 20px; color: var(--text-muted);">${message}</p>
+            <div class="modal-buttons">
+                <button onclick="window.closeModal()" style="background: ${color}; color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer;">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
 }
 
 // ==========================================

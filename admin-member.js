@@ -534,5 +534,6 @@ window.openAddMemberModal = openAddMemberModal;
 window.editMember = editMember;
 window.filterMissingWA = filterMissingWA;
 window.showAllMembers = showAllMembers;
+window.isValidWA = isValidWA;
 
 console.log("✅ [MEMBER] admin-member.js loaded");

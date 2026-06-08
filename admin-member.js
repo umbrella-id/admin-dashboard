@@ -293,7 +293,6 @@ async function submitAddMember() {
             if (result.action === 'scammer') {
                 window.showToast(result.message, true);
                 closeModal();
-                showAlertModal(`🔴 PERINGATAN!\n\n${result.message}\n\nSegera koordinasikan dengan Leader untuk tindakan!`);
             } else {
                 window.showToast(result.message || "Gagal", true);
             }

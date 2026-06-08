@@ -140,9 +140,16 @@ function updateNotifBadge() {
 // ==========================================
 // REFRESH DENGAN ANIMASI (seperti member)
 // ==========================================
-window.refreshKas = async function() {
+window.refreshKas = async function(event) {
+    // Cegah perilaku default (reload halaman)
+    if (event) event.preventDefault();
+    
+    // Cari tombol refresh di tab Kas
     const btn = document.querySelector('.tab-page[data-tab="kas"] .refresh-btn');
-    if (!btn) return;
+    if (!btn) {
+        console.log("❌ Tombol refresh tidak ditemukan");
+        return;
+    }
     
     const icon = btn.querySelector('i');
     if (icon) icon.classList.add('fa-spin');
@@ -158,6 +165,8 @@ window.refreshKas = async function() {
         if (icon) icon.classList.remove('fa-spin');
         btn.disabled = false;
     }
+    
+    return false;
 };
 
 // ==========================================

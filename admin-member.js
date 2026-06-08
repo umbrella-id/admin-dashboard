@@ -291,8 +291,8 @@ async function submitAddMember() {
             }
         } else {
             if (result.action === 'scammer') {
-                window.showToast(result.message, true);
                 closeModal();
+                showAlertModal('SCAMMER DETEKSI', result.message, 'scammer');
             } else {
                 window.showToast(result.message || "Gagal", true);
             }
@@ -432,7 +432,6 @@ async function submitEditMember(oldIgn) {
             }
         } else {
             if (result.action === 'scammer') {
-                window.showToast(result.message, true);
                 closeModal();
                 showAlertModal('SCAMMER DETEKSI', result.message, 'scammer');
             }

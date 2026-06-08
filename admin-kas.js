@@ -21,14 +21,12 @@ let kasCurrentForm = 'setoran';
 // ==========================================
 // UTILITY FUNCTIONS
 // ==========================================
-function formatRupiah(angka) {
-    if (angka === undefined || angka === null) return 'Rp 0';
+function formatSpina(angka) {
+    if (angka === undefined || angka === null) return '0S';
     return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
-    }).format(angka);
+    }).format(angka) + 'S';
 }
 
 function formatDate(timestamp) {
@@ -192,13 +190,13 @@ function renderKasDashboard() {
                 ${bendahara.map(nama => `
                     <div class="kas-saldo-row">
                         <span class="kas-saldo-name">${escapeHtml(nama)}</span>
-                        <span class="kas-saldo-value">${formatRupiah(saldo[nama] || 0)}</span>
+                        <span class="kas-saldo-value">${formatSpina(saldo[nama] || 0)}</span>
                     </div>
                 `).join('')}
             </div>
             <div class="kas-total-box">
                 <div class="kas-total-label">TOTAL KAS GUILD</div>
-                <div class="kas-total-value">${formatRupiah(totalSaldo)}</div>
+                <div class="kas-total-value">${formatSpina(totalSaldo)}</div>
             </div>
         </div>
     `;
@@ -217,7 +215,7 @@ function renderKasDashboard() {
                                 <span class="kas-pending-icon">${req.type === 'incoming' ? '📥' : '📤'}</span>
                                 <span class="kas-pending-desc">
                                     ${req.type === 'incoming' ? `Dari ${escapeHtml(req.fromName)}` : `Ke ${escapeHtml(req.toName)}`}
-                                    <span class="kas-pending-amount">${formatRupiah(req.amount)}</span>
+                                    <span class="kas-pending-amount">${formatSpina(req.amount)}</span>
                                 </span>
                             </div>
                             <div class="kas-pending-actions">
@@ -269,7 +267,7 @@ function renderKasDashboard() {
                     <select id="kas-transfer-to">
                         <option value="">Pilih Bendahara</option>
                         ${bendahara.filter(nama => nama !== currentAdmin.nama).map(nama => `
-                            <option value="${escapeHtml(nama)}">${escapeHtml(nama)} (${formatRupiah(saldo[nama] || 0)})</option>
+                            <option value="${escapeHtml(nama)}">${escapeHtml(nama)} (${formatSpina(saldo[nama] || 0)})</option>
                         `).join('')}
                     </select>
                 </div>
@@ -293,7 +291,7 @@ function renderKasDashboard() {
                     <div class="kas-history-row">
                         <div class="kas-history-date">${formatDate(log.timestamp)}</div>
                         <div class="kas-history-ign">${escapeHtml(log.ign || 'SISTEM')}</div>
-                        <div class="kas-history-amount ${log.spina > 0 ? 'positive' : 'negative'}">${log.spina > 0 ? '+' : ''}${formatRupiah(log.spina)}</div>
+                        <div class="kas-history-amount ${log.spina > 0 ? 'positive' : 'negative'}">${log.spina > 0 ? '+' : ''}${formatSpina(log.spina)}</div>
                         <div class="kas-history-notes">${escapeHtml(log.notes || '-')}</div>
                         <div class="kas-history-adm">${escapeHtml(log.adm || '?')}</div>
                         ${log.adm === currentAdmin.nama ? `
@@ -377,7 +375,7 @@ function showNotificationModal(notifications) {
                         <div class="kas-notif-modal-icon">${notif.type === 'APPROVED' ? '✅' : '❌'}</div>
                         <div class="kas-notif-modal-content">
                             <div class="kas-notif-modal-title">${notif.type === 'APPROVED' ? 'Transfer Disetujui' : (notif.type === 'REJECTED' ? 'Transfer Ditolak' : 'Transfer Expired')}</div>
-                            <div class="kas-notif-modal-desc">${formatRupiah(notif.amount)} dari ${escapeHtml(notif.fromName)} ke ${escapeHtml(notif.toName)}</div>
+                            <div class="kas-notif-modal-desc">${formatSpina(notif.amount)} dari ${escapeHtml(notif.fromName)} ke ${escapeHtml(notif.toName)}</div>
                             <div class="kas-notif-modal-time">${formatDate(notif.timestamp)}</div>
                         </div>
                     </div>
@@ -459,7 +457,7 @@ async function submitTransferRequest() {
         console.log("📡 submitTransferRequest response:", data);
         
         if (data.status === 'success') {
-            window.showToast(data.message || `✅ Request transfer ${formatRupiah(amount)} ke ${to} terkirim`);
+            window.showToast(data.message || `✅ Request transfer ${formatSpina(amount)} ke ${to} terkirim`);
             if (data.data) {
                 // 💾 UPDATE CACHE & DATA GLOBAL
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));

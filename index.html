@@ -47,12 +47,14 @@
                             <div class="member-search">
                                 <input type="text" id="member-search-input" placeholder="Cari IGN atau WhatsApp" autocomplete="off">
                             </div>
-                            <button class="refresh-btn btn-small" onclick="refreshMemberList()">
-                                <i class="fas fa-sync-alt"></i> Refresh
-                            </button>
-                            <button class="btn-small" onclick="openAddMemberModal()">
-                                <i class="fas fa-plus"></i> Add Member
-                            </button>
+                            <div class="member-buttons">
+                                <button class="refresh-btn btn-small" onclick="refreshMemberList()">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                                <button class="btn-small" onclick="openAddMemberModal()">
+                                    <i class="fas fa-plus"></i> Add Member
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div id="member-warning" class="member-warning" style="display: none;">

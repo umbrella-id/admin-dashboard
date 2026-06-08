@@ -22,6 +22,8 @@
 /* Search Bar */
 .member-search {
     position: relative;
+    flex: 1;
+    min-width: 180px;
 }
 
 .member-search input {
@@ -31,7 +33,7 @@
     padding: 8px 16px 8px 36px;
     color: white;
     font-size: 0.75rem;
-    width: 200px;
+    width: 100%;
     transition: all 0.2s;
 }
 
@@ -52,6 +54,13 @@
     color: var(--text-muted);
     font-size: 0.75rem;
     pointer-events: none;
+}
+
+/* Button Group (Refresh + Add Member) */
+.member-buttons {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 /* Warning Badge */
@@ -80,7 +89,6 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
     gap: 12px;
     transition: all 0.2s;
 }
@@ -92,6 +100,7 @@
 /* Member Info */
 .member-info {
     flex: 1;
+    min-width: 0;
 }
 
 .member-ign {
@@ -135,6 +144,7 @@
     font-size: 0.7rem;
     color: var(--text-muted);
     margin-bottom: 4px;
+    word-break: break-all;
 }
 
 .member-contact .no-wa {
@@ -148,8 +158,7 @@
 
 /* Actions */
 .member-actions {
-    display: flex;
-    gap: 8px;
+    flex-shrink: 0;
 }
 
 .filter-back {
@@ -162,6 +171,69 @@
     text-align: center;
     padding: 40px;
     color: var(--text-muted);
+}
+
+/* ==========================================
+   RESPONSIVE - LAYAR KECIL (HP)
+   ========================================== */
+@media (max-width: 640px) {
+    .member-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .member-search {
+        width: 100%;
+    }
+    
+    .member-buttons {
+        justify-content: flex-end;
+    }
+    
+    .member-row {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: nowrap;
+    }
+    
+    .member-info {
+        flex: 1;
+        overflow: hidden;
+    }
+    
+    .member-ign strong {
+        font-size: 0.85rem;
+    }
+    
+    .member-contact {
+        font-size: 0.65rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .member-dates {
+        font-size: 0.55rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .member-actions {
+        flex-shrink: 0;
+        margin-left: 8px;
+    }
+    
+    .member-actions .btn-small {
+        padding: 4px 8px;
+        font-size: 0.6rem;
+        white-space: nowrap;
+    }
+    
+    .member-warning {
+        flex-direction: column;
+        text-align: center;
+    }
 }
 
 /* ==========================================
@@ -231,34 +303,4 @@
 
 .modal-buttons button:active {
     transform: scale(0.97);
-}
-
-/* Responsive */
-@media (max-width: 640px) {
-    .member-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .member-stats {
-        justify-content: space-between;
-    }
-    
-    .member-search input {
-        width: 100%;
-    }
-    
-    .member-row {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .member-actions {
-        align-self: flex-end;
-    }
-    
-    .member-warning {
-        flex-direction: column;
-        text-align: center;
-    }
 }

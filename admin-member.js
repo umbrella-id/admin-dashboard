@@ -161,6 +161,20 @@ function updateMissingWABadge(members) {
 }
 
 // ==========================================
+// PENGECEKAN OFFLINE (HANYA UNTUK MEMBER AKTIF)
+// ==========================================
+function checkActiveWA(wa, excludeIgn = '') {
+    if (!wa) return null;
+    
+    // Cari di memberList (hanya berisi member aktif)
+    const existing = memberList.find(m => 
+        m.wa === wa && m.ign !== excludeIgn
+    );
+    
+    return existing || null;
+}
+
+// ==========================================
 // FILTER MEMBER TANPA WA
 // ==========================================
 function filterMissingWA() {
@@ -256,6 +270,15 @@ async function submitAddMember() {
     if (wa && !isValidWA(wa)) {
         window.showToast("❌ Format WA salah! Tidak boleh diawali 0. Gunakan kode negara (contoh: 628xxxxxxxxxx)", true);
         return;
+    }
+
+    // CEK OFFLINE: Apakah WA sudah dipakai member AKTIF?
+    if (wa) {
+        const existing = checkActiveWA(wa);
+        if (existing) {
+            window.showToast(`❌ WA "${wa}" sudah terdaftar sebagai "${existing.ign}" `, true);
+            return; // ❌ TOLAK, TIDAK PERLU KE BACKEND
+        }
     }
     
     const modalContent = document.querySelector('#modal-overlay .modal-content');
@@ -385,6 +408,15 @@ async function submitEditMember(oldIgn) {
     if (!newIGN) {
         window.showToast("IGN harus diisi", true);
         return;
+    }
+
+    // CEK OFFLINE: Apakah WA sudah dipakai member AKTIF?
+    if (wa) {
+        const existing = checkActiveWA(wa);
+        if (existing) {
+            window.showToast(`❌ WA "${wa}" sudah terdaftar sebagai "${existing.ign}" `, true);
+            return; // ❌ TOLAK, TIDAK PERLU KE BACKEND
+        }
     }
     
     newWA = sanitizeWA(newWA);

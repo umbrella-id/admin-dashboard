@@ -150,8 +150,7 @@ window.refreshKas = async function() {
     btn.disabled = true;
     
     try {
-        await updateKasDataFromResponse(true);
-        renderKasDashboard();
+        await loadKasDashboard(forceRefresh = false);
         window.showToast("✅ Data kas diperbarui");
     } catch(e) {
         console.error("Refresh kas error:", e);

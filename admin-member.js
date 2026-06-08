@@ -535,5 +535,6 @@ window.editMember = editMember;
 window.filterMissingWA = filterMissingWA;
 window.showAllMembers = showAllMembers;
 window.isValidWA = isValidWA;
+window.checkActiveWA = checkActiveWA;
 
 console.log("✅ [MEMBER] admin-member.js loaded");

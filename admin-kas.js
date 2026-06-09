@@ -407,20 +407,22 @@ async function submitSetoran() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
     btn.disabled = true;
     
+    // ✅ Tentukan apakah mode New Member
+    const isNewMember = !isListMode;
+    
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=addSetoran&ign=${encodeURIComponent(memberName)}&spina=${spina}&notes=${encodeURIComponent(notes)}&adm=${encodeURIComponent(currentAdmin.nama)}`);
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=addSetoran&ign=${encodeURIComponent(memberName)}&spina=${spina}&notes=${encodeURIComponent(notes)}&adm=${encodeURIComponent(currentAdmin.nama)}&isNewMember=${isNewMember}`);
         const data = await response.json();
         console.log("📡 submitSetoran response:", data);
         
         if (data.status === 'success') {
-            window.showToast("✅ Setoran berhasil");
+            window.showToast(data.message || "✅ Setoran berhasil");
             if (data.data) {
-                // 💾 UPDATE CACHE & DATA GLOBAL
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                 updateKasDataFromResponse(data.data);
             } else {
                 console.log("⚠️ Tidak ada data.data, refresh manual...");
-                await loadKasDashboard();
+                await loadKasDashboard(true);
             }
             document.getElementById('kas-member-name').value = '';
             document.getElementById('kas-spina').value = '';

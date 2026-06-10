@@ -51,14 +51,14 @@ function sortMembers(members) {
 // ==========================================
 // PENGECEKAN OFFLINE (HANYA UNTUK MEMBER AKTIF)
 // ==========================================
-function checkActiveWA(wa, excludeIgn = '') {
+function checkActiveWA(wa, excludeUID = '') {
     if (!wa) return null;
     
     const searchWA = wa.toString().trim();
     
     const existing = memberList.find(m => {
         const memberWA = m.wa ? m.wa.toString().trim() : '';
-        return memberWA === searchWA && m.ign !== excludeIgn;
+        return memberWA === searchWA && m.uid !== excludeUID;
     });
     
     return existing || null;
@@ -132,9 +132,10 @@ function renderMemberList(members) {
     let html = '';
     for (const member of sortedMembers) {
         const hasWA = member.wa ? `<i class="fab fa-whatsapp"></i> ${escapeHtml(member.wa)}` : '<span class="no-wa"><i class="fas fa-exclamation-triangle"></i> WA belum diisi</span>';
-        
+
+        // Di dalam loop renderMemberList
         html += `
-            <div class="member-row" data-ign="${escapeHtml(member.ign)}">
+            <div class="member-row" data-uid="${escapeHtml(member.uid)}">
                 <div class="member-info">
                     <div class="member-ign">
                         <strong>${escapeHtml(member.ign)}</strong>
@@ -149,7 +150,7 @@ function renderMemberList(members) {
                     </div>
                 </div>
                 <div class="member-actions">
-                    <button class="btn-small" onclick="editMember('${escapeHtml(member.ign)}')">
+                    <button class="btn-small" onclick="editMember('${escapeHtml(member.uid)}')">
                         <i class="fas fa-edit"></i> Edit
                     </button>
                 </div>
@@ -342,10 +343,10 @@ async function submitAddMember() {
 // ==========================================
 // EDIT MEMBER
 // ==========================================
-async function editMember(ign) {
-    console.log("✏️ [MEMBER] editMember dipanggil untuk:", ign);
+async function editMember(uid) {
+    console.log("✏️ [MEMBER] editMember dipanggil untuk UID:", uid);
     
-    const member = memberList.find(m => m.ign === ign);
+    const member = memberList.find(m => m.uid === uid);
     if (!member) {
         window.showToast("Member tidak ditemukan", true);
         return;
@@ -406,8 +407,13 @@ async function editMember(ign) {
     `;
     modal.style.display = 'flex';
 }
-
-async function submitEditMember(oldIgn) {
+async function submitEditMember(uid) {
+    const member = memberList.find(m => m.uid === uid);
+    if (!member) {
+        window.showToast("Member tidak ditemukan", true);
+        return;
+    }
+    
     const newIGN = document.getElementById('edit-ign')?.value.trim();
     let newWA = document.getElementById('edit-wa')?.value.trim() || '';
     const newRole = document.getElementById('edit-role')?.value;
@@ -445,7 +451,7 @@ async function submitEditMember(oldIgn) {
     }
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=updateMemberWithMerge&adminId=${currentAdmin.id}&ign=${encodeURIComponent(oldIgn)}&newIgn=${encodeURIComponent(newIGN)}&wa=${encodeURIComponent(newWA)}&role=${encodeURIComponent(newRole)}&status=${encodeURIComponent(newStatus)}`;
+        const url = `${window.GAS_ADMIN_URL}?action=updateMemberWithMerge&adminId=${currentAdmin.id}&uid=${encodeURIComponent(uid)}&ign=${encodeURIComponent(newIGN)}&wa=${encodeURIComponent(newWA)}&role=${encodeURIComponent(newRole)}&status=${encodeURIComponent(newStatus)}`;
         const res = await fetch(url);
         const result = await res.json();
         

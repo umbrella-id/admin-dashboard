@@ -132,8 +132,7 @@ function renderMemberList(members) {
     let html = '';
     for (const member of sortedMembers) {
         const hasWA = member.wa ? `<i class="fab fa-whatsapp"></i> ${escapeHtml(member.wa)}` : '<span class="no-wa"><i class="fas fa-exclamation-triangle"></i> WA belum diisi</span>';
-
-        // Di dalam loop renderMemberList
+        
         html += `
             <div class="member-row" data-uid="${escapeHtml(member.uid)}">
                 <div class="member-info">
@@ -308,7 +307,7 @@ async function submitAddMember() {
             closeModal();
             
             if (result.data) {
-                const existingIndex = memberList.findIndex(m => m.ign === result.data.ign);
+                const existingIndex = memberList.findIndex(m => m.uid === result.data.uid);
                 if (existingIndex >= 0) {
                     memberList[existingIndex] = result.data;
                 } else {
@@ -400,13 +399,14 @@ async function editMember(uid) {
             </div>
             
             <div class="modal-buttons" style="margin-top: 20px;">
-                <button onclick="submitEditMember('${escapeHtml(member.ign)}')" style="background:var(--color-primary);">Simpan</button>
+                <button onclick="submitEditMember('${escapeHtml(member.uid)}')" style="background:var(--color-primary);">Simpan</button>
                 <button onclick="closeModal()" style="background:#333;">Batal</button>
             </div>
         </div>
     `;
     modal.style.display = 'flex';
 }
+
 async function submitEditMember(uid) {
     const member = memberList.find(m => m.uid === uid);
     if (!member) {
@@ -435,7 +435,7 @@ async function submitEditMember(uid) {
     
     // 3. CEK OFFLINE: Apakah WA sudah dipakai member AKTIF lain?
     if (newWA) {
-        const existing = checkActiveWA(newWA, oldIgn);
+        const existing = checkActiveWA(newWA, uid);
         if (existing) {
             window.showToast(`❌ WA "${newWA}" sudah terdaftar sebagai "${existing.ign}"`, true);
             return;
@@ -460,12 +460,8 @@ async function submitEditMember(uid) {
             closeModal();
             
             if (result.data) {
-                if (oldIgn !== newIGN) {
-                    const oldIndex = memberList.findIndex(m => m.ign === oldIgn);
-                    if (oldIndex >= 0) memberList.splice(oldIndex, 1);
-                }
-                
-                const existingIndex = memberList.findIndex(m => m.ign === result.data.ign);
+                // Update atau tambah yang baru
+                const existingIndex = memberList.findIndex(m => m.uid === result.data.uid);
                 if (existingIndex >= 0) {
                     memberList[existingIndex] = result.data;
                 } else {

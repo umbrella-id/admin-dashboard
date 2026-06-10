@@ -64,6 +64,7 @@
 }
 
 /* Warning Badge */
+/* Warning Badge */
 .member-warning {
     background: rgba(245, 158, 11, 0.15);
     border: 1px solid #f59e0b;
@@ -72,27 +73,36 @@
     margin-bottom: 15px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
+    justify-content: flex-start;  /* ← GANTI dari space-between */
+    gap: 12px;                    /* ← jarak antar elemen */
     font-size: 0.75rem;
     color: #f59e0b;
 }
 
-/* Agar teks tidak renggang di PC */
+/* Teks warning */
 .member-warning span {
     white-space: nowrap;
 }
 
+/* Tombol Tampilkan */
 .member-warning .btn-small {
     flex-shrink: 0;
+    background: rgba(245, 158, 11, 0.2);
+    border: 1px solid #f59e0b;
+    color: #f59e0b;
 }
 
-/* Jika layar kecil (HP), baru di-wrap */
+.member-warning .btn-small:hover {
+    background: rgba(245, 158, 11, 0.3);
+}
+
+/* Jika layar kecil (HP), stack vertikal */
 @media (max-width: 640px) {
     .member-warning {
         flex-direction: column;
         text-align: center;
+        justify-content: center;
+        gap: 8px;
     }
     
     .member-warning span {

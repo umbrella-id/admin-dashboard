@@ -424,16 +424,12 @@ async function submitEditMember(uid) {
         return;
     }
     
-    // 1. Sanitize WA
     newWA = sanitizeWA(newWA);
-    
-    // 2. Validasi format WA
     if (newWA && !isValidWA(newWA)) {
         window.showToast("❌ Format WA salah! Tidak boleh diawali 0. Gunakan kode negara (contoh: 628xxxxxxxxxx)", true);
         return;
     }
     
-    // 3. CEK OFFLINE: Apakah WA sudah dipakai member AKTIF lain?
     if (newWA) {
         const existing = checkActiveWA(newWA, uid);
         if (existing) {
@@ -460,12 +456,19 @@ async function submitEditMember(uid) {
             closeModal();
             
             if (result.data) {
-                // Update atau tambah yang baru
-                const existingIndex = memberList.findIndex(m => m.uid === result.data.uid);
-                if (existingIndex >= 0) {
-                    memberList[existingIndex] = result.data;
+                // ✅ HAPUS JIKA STATUS NONAKTIF
+                if (result.data.status !== 'aktif') {
+                    const index = memberList.findIndex(m => m.uid === result.data.uid);
+                    if (index >= 0) {
+                        memberList.splice(index, 1);
+                    }
                 } else {
-                    memberList.push(result.data);
+                    const existingIndex = memberList.findIndex(m => m.uid === result.data.uid);
+                    if (existingIndex >= 0) {
+                        memberList[existingIndex] = result.data;
+                    } else {
+                        memberList.push(result.data);
+                    }
                 }
                 
                 memberList = sortMembers(memberList);

@@ -79,6 +79,27 @@
     color: #f59e0b;
 }
 
+/* Agar teks tidak renggang di PC */
+.member-warning span {
+    white-space: nowrap;
+}
+
+.member-warning .btn-small {
+    flex-shrink: 0;
+}
+
+/* Jika layar kecil (HP), baru di-wrap */
+@media (max-width: 640px) {
+    .member-warning {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .member-warning span {
+        white-space: normal;
+    }
+}
+
 /* Member Row */
 .member-row {
     background: var(--bg-solid-form);

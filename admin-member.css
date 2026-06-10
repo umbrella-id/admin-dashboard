@@ -96,20 +96,6 @@
     background: rgba(245, 158, 11, 0.3);
 }
 
-/* Jika layar kecil (HP), stack vertikal */
-@media (max-width: 640px) {
-    .member-warning {
-        flex-direction: column;
-        text-align: center;
-        justify-content: center;
-        gap: 8px;
-    }
-    
-    .member-warning span {
-        white-space: normal;
-    }
-}
-
 /* Member Row */
 .member-row {
     background: var(--bg-solid-form);

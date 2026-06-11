@@ -63,7 +63,7 @@
     flex-shrink: 0;
 }
 
-/* Warning Badge - MAKSIMAL 2 BARIS */
+/* Warning Badge - Teks menyatu */
 .member-warning {
     background: rgba(245, 158, 11, 0.15);
     border: 1px solid #f59e0b;
@@ -72,22 +72,20 @@
     margin-bottom: 15px;
     display: flex;
     align-items: center;
-    justify-content: center !important;
+    justify-content: space-between;
     gap: 12px;
     font-size: 0.75rem;
     color: #f59e0b;
-    flex-wrap: wrap;  /* ← boleh wrap, tapi batasi */
+    flex-wrap: wrap;
 }
 
-/* Teks warning - maksimal 2 baris */
-.member-warning span {
+/* Teks warning - PAKSA SATU KESATUAN */
+.member-warning .warning-text {
     flex: 1;
+    white-space: normal;
+    word-break: normal;      /* ← JANGAN patah di tengah kata */
+    word-wrap: normal;
     line-height: 1.4;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;  /* ← MAKSIMAL 2 BARIS */
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 /* Tombol Tampilkan */

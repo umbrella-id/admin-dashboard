@@ -200,28 +200,7 @@ function renderKasDashboard() {
             </div>
         </div>
     `;
-
-    // Di renderKasDashboard(), tambahkan untuk LEADER
-    if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
-      html += `
-        <div class="kas-tarif-section">
-          <div class="kas-tarif-header">
-            <span><i class="fas fa-tag"></i> TARIF KAS</span>
-            <button class="btn-small" onclick="openTarifModal()">
-              <i class="fas fa-edit"></i> Ubah Tarif
-            </button>
-          </div>
-          <div class="kas-tarif-current" id="kas-tarif-current">
-            Loading...
-          </div>
-          <div class="kas-tarif-history">
-            <div class="kas-tarif-history-header">Riwayat Perubahan</div>
-            <div id="kas-tarif-history-list"></div>
-          </div>
-        </div>
-      `;
-    }
-    
+                                            
     if (totalPending > 0) {
         html += `
             <div class="kas-pending-section">
@@ -249,6 +228,29 @@ function renderKasDashboard() {
                             </div>
                         </div>
                     `).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Section Tarif (hanya untuk LEADER)
+    if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+        html += `
+            <div id="kas-tarif-section" class="kas-tarif-section">
+                <div class="kas-tarif-header">
+                    <span><i class="fas fa-tag"></i> TARIF KAS</span>
+                    <button class="btn-small" onclick="openTarifModal()">
+                        <i class="fas fa-edit"></i> Ubah
+                    </button>
+                </div>
+                <div id="kas-tarif-current" class="kas-tarif-current">
+                    <div class="tarif-value">Loading...</div>
+                </div>
+                <div id="kas-tarif-history" class="kas-tarif-history">
+                    <div class="kas-tarif-history-header">Riwayat Perubahan</div>
+                    <div id="kas-tarif-history-list" class="kas-tarif-history-list">
+                        <div class="loading-state">Memuat...</div>
+                    </div>
                 </div>
             </div>
         `;

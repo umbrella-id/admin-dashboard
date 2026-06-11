@@ -121,6 +121,11 @@ async function loadKasDashboard(forceRefresh = false) {
     } finally {
         kasLoading = false;
     }
+    
+    // ✅ TARUH DI SINI (setelah finally, MASIH DI DALAM fungsi)
+    if (typeof window.loadTarif === 'function') {
+        window.loadTarif();
+    }
 }
 
 function updateNotifBadge() {
@@ -329,6 +334,12 @@ function renderKasDashboard() {
     `;
     
     container.innerHTML = html;
+    
+    // Setelah container.innerHTML = html
+    // Panggil loadTarif untuk mengisi data tarif
+    if (typeof window.loadTarif === 'function') {
+        window.loadTarif();
+    }
     
     // Event listeners
     document.querySelectorAll('.kas-form-tab').forEach(btn => {

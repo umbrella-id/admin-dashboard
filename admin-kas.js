@@ -200,6 +200,27 @@ function renderKasDashboard() {
             </div>
         </div>
     `;
+
+    // Di renderKasDashboard(), tambahkan untuk LEADER
+    if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+      html += `
+        <div class="kas-tarif-section">
+          <div class="kas-tarif-header">
+            <span><i class="fas fa-tag"></i> TARIF KAS</span>
+            <button class="btn-small" onclick="openTarifModal()">
+              <i class="fas fa-edit"></i> Ubah Tarif
+            </button>
+          </div>
+          <div class="kas-tarif-current" id="kas-tarif-current">
+            Loading...
+          </div>
+          <div class="kas-tarif-history">
+            <div class="kas-tarif-history-header">Riwayat Perubahan</div>
+            <div id="kas-tarif-history-list"></div>
+          </div>
+        </div>
+      `;
+    }
     
     if (totalPending > 0) {
         html += `

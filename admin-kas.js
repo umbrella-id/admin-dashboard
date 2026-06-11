@@ -12,7 +12,10 @@ let kasData = {
     outgoingRequests: [],
     notifications: [],
     unreadNotifCount: 0,
-    totalSaldo: 0
+    totalSaldo: 0,
+    currentTarif: null,
+    currentTarifDate: null,
+    tarifLogs: []
 };
 
 let kasLoading = false;
@@ -22,11 +25,11 @@ let kasCurrentForm = 'setoran';
 // UTILITY FUNCTIONS
 // ==========================================
 function formatSpina(angka) {
-    if (angka === undefined || angka === null) return '0S';
+    if (angka === undefined || angka === null) return '0 S';
     return new Intl.NumberFormat('id-ID', {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0
-    }).format(angka) + 'S';
+    }).format(angka) + ' S';
 }
 
 function formatDate(timestamp) {
@@ -48,8 +51,7 @@ function formatDate(timestamp) {
 // CORE FUNCTIONS - UPDATE CACHE & RENDER
 // ==========================================
 function updateKasDataFromResponse(responseData) {
-    console.log("🟢 updateKasDataFromResponse dipanggil", responseData);
-    console.log("📊 pendingCount:", responseData.pendingCount);
+    console.log("🟢 updateKasDataFromResponse dipanggil");
     if (!responseData) {
         console.log("⚠️ responseData kosong!");
         return false;
@@ -64,27 +66,31 @@ function updateKasDataFromResponse(responseData) {
     kasData.totalSaldo = kasData.bendahara.reduce((sum, nama) => sum + (kasData.saldo[nama] || 0), 0);
     kasData.unreadNotifCount = responseData.pendingCount?.notifications || 0;
     
+    // Data tarif dari response (1 request)
+    kasData.currentTarif = responseData.currentTarif || null;
+    kasData.currentTarifDate = responseData.currentTarifDate || null;
+    kasData.tarifLogs = responseData.tarifLogs || [];
+    
     renderKasDashboard();
     updateNotifBadge();
     return true;
 }
 
 async function loadKasDashboard(forceRefresh = false) {
-    console.log("🔄 loadKasDashboard DIPANGGIL");
+    console.log("🔄 loadKasDashboard DIPANGGIL", forceRefresh);
     
     if (!currentAdmin || kasLoading) return;
     
     const container = document.getElementById('kas-container');
     if (!container) return;
-    console.trace();
-    // 🔄 BACA DARI CACHE DULU (kecuali forceRefresh)
+    
+    // Baca dari cache dulu (kecuali forceRefresh)
     if (!forceRefresh) {
         const cached = sessionStorage.getItem('umbrella_cached_kas');
         if (cached) {
             try {
                 const data = JSON.parse(cached);
-                updateKasDataFromResponse(data);  // update global
-                renderKasDashboard();
+                updateKasDataFromResponse(data);
                 console.log("📦 Render kas dari cache");
             } catch(e) {}
         }
@@ -104,12 +110,9 @@ async function loadKasDashboard(forceRefresh = false) {
         console.log("📡 loadKasDashboard response:", result);
         
         if (result.status === 'success' && result.data) {
-            // 💾 SIMPAN KE CACHE
             sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(result.data));
             sessionStorage.setItem('umbrella_cached_kas_time', Date.now().toString());
-            
             updateKasDataFromResponse(result.data);
-            renderKasDashboard();
         } else if (!hasCache) {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
         }
@@ -136,10 +139,9 @@ function updateNotifBadge() {
 }
 
 // ==========================================
-// REFRESH DENGAN ANIMASI (seperti member)
+// REFRESH DENGAN ANIMASI (AJAX, TIDAK RELOAD)
 // ==========================================
 window.refreshKas = async function() {
-    // Cari tombol refresh di tab Kas (di HTML, bukan di innerHTML)
     const btn = document.querySelector('.tab-page[data-tab="kas"] .refresh-btn');
     if (!btn) return;
     
@@ -148,7 +150,7 @@ window.refreshKas = async function() {
     btn.disabled = true;
     
     try {
-        await loadKasDashboard(forceRefresh = false);
+        await loadKasDashboard(true);
         window.showToast("✅ Data kas diperbarui");
     } catch(e) {
         console.error("Refresh kas error:", e);
@@ -167,7 +169,7 @@ function renderKasDashboard() {
     const container = document.getElementById('kas-container');
     if (!container) return;
     
-    const { bendahara, saldo, totalSaldo, incomingRequests, outgoingRequests, history, unreadNotifCount } = kasData;
+    const { bendahara, saldo, totalSaldo, incomingRequests, outgoingRequests, history, unreadNotifCount, currentTarif, currentTarifDate, tarifLogs } = kasData;
     
     const allPending = [
         ...incomingRequests.map(r => ({ ...r, type: 'incoming' })),
@@ -200,6 +202,37 @@ function renderKasDashboard() {
             </div>
         </div>
     `;
+    
+    // Section Tarif (hanya untuk LEADER)
+    if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+        html += `
+            <div id="kas-tarif-section" class="kas-tarif-section">
+                <div class="kas-tarif-header">
+                    <span><i class="fas fa-tag"></i> TARIF KAS</span>
+                    <button class="btn-small" onclick="openTarifModal()">
+                        <i class="fas fa-edit"></i> Ubah
+                    </button>
+                </div>
+                <div id="kas-tarif-current" class="kas-tarif-current">
+                    ${currentTarif ? `
+                        <div class="tarif-value">${formatSpina(currentTarif)} / bulan</div>
+                        <div class="tarif-date">Berlaku sejak: ${currentTarifDate || '-'}</div>
+                    ` : '<div class="tarif-value">Belum ada tarif</div>'}
+                </div>
+                <div id="kas-tarif-history" class="kas-tarif-history">
+                    <div class="kas-tarif-history-header">Riwayat Perubahan</div>
+                    <div id="kas-tarif-history-list" class="kas-tarif-history-list">
+                        ${tarifLogs && tarifLogs.length > 0 ? tarifLogs.map(log => `
+                            <div class="tarif-history-row">
+                                <span class="tarif-history-date">${log.tanggal}</span>
+                                <span class="tarif-history-value">${formatSpina(log.tarif)}</span>
+                            </div>
+                        `).join('') : '<div class="empty-state">Belum ada perubahan tarif</div>'}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
     
     if (totalPending > 0) {
         html += `
@@ -407,7 +440,6 @@ async function submitSetoran() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
     btn.disabled = true;
     
-    // ✅ Tentukan apakah mode New Member
     const isNewMember = !isListMode;
     
     try {
@@ -461,12 +493,11 @@ async function submitTransferRequest() {
         if (data.status === 'success') {
             window.showToast(data.message || `✅ Request transfer ${formatSpina(amount)} ke ${to} terkirim`);
             if (data.data) {
-                // 💾 UPDATE CACHE & DATA GLOBAL
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                 updateKasDataFromResponse(data.data);
             } else {
                 console.log("⚠️ Tidak ada data.data, refresh manual...");
-                await loadKasDashboard();
+                await loadKasDashboard(true);
             }
             document.getElementById('kas-transfer-to').value = '';
             document.getElementById('kas-transfer-amount').value = '';
@@ -494,12 +525,11 @@ async function approveTransferRequest(requestId) {
             if (data.status === 'success') {
                 window.showToast(data.message || "Transfer disetujui");
                 if (data.data) {
-                    // 💾 UPDATE CACHE & DATA GLOBAL
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                     updateKasDataFromResponse(data.data);
                 } else {
                     console.log("⚠️ Tidak ada data.data, refresh manual...");
-                    await loadKasDashboard();
+                    await loadKasDashboard(true);
                 }
             } else {
                 window.showToast(data.message || "Gagal menyetujui", true);
@@ -522,12 +552,11 @@ async function rejectTransferRequest(requestId) {
             if (data.status === 'success') {
                 window.showToast(data.message || "Transfer ditolak");
                 if (data.data) {
-                    // 💾 UPDATE CACHE & DATA GLOBAL
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                     updateKasDataFromResponse(data.data);
                 } else {
                     console.log("⚠️ Tidak ada data.data, refresh manual...");
-                    await loadKasDashboard();
+                    await loadKasDashboard(true);
                 }
             } else {
                 window.showToast(data.message || "Gagal menolak", true);
@@ -550,12 +579,11 @@ async function cancelTransferRequest(requestId) {
             if (data.status === 'success') {
                 window.showToast(data.message || "Request dibatalkan");
                 if (data.data) {
-                    // 💾 UPDATE CACHE & DATA GLOBAL
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                     updateKasDataFromResponse(data.data);
                 } else {
                     console.log("⚠️ Tidak ada data.data, refresh manual...");
-                    await loadKasDashboard();
+                    await loadKasDashboard(true);
                 }
             } else {
                 window.showToast(data.message || "Gagal membatalkan", true);
@@ -583,8 +611,6 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
                 <small>Isi 0 untuk menghapus transaksi ini</small>
             </div>
             
-            <!-- ❌ Notes TIDAK ditampilkan -->
-            
             <div class="modal-buttons">
                 <button id="save-edit-btn" style="background:var(--color-primary);">Simpan</button>
                 <button onclick="closeModal()" style="background:#333;">Batal</button>
@@ -611,19 +637,18 @@ async function saveEditTransaction(rowId) {
     closeModal();
     
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&notes=${encodeURIComponent(newNotes)}&adminName=${encodeURIComponent(currentAdmin.nama)}`);
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&adminName=${encodeURIComponent(currentAdmin.nama)}`);
         const data = await response.json();
         console.log("📡 saveEditTransaction response:", data);
         
         if (data.status === 'success') {
             window.showToast(data.message || "✅ Transaksi diperbarui");
             if (data.data) {
-                // 💾 UPDATE CACHE & DATA GLOBAL
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                 updateKasDataFromResponse(data.data);
             } else {
                 console.log("⚠️ Tidak ada data.data, refresh manual...");
-                await loadKasDashboard();
+                await loadKasDashboard(true);
             }
         } else {
             window.showToast(data.message || "Gagal mengupdate", true);
@@ -635,9 +660,71 @@ async function saveEditTransaction(rowId) {
 }
 
 // ==========================================
-// REFRESH & EXPOSE
+// TARIF KAS (MODAL & UPDATE)
 // ==========================================
-window.refreshKas = refreshKas;
+function openTarifModal() {
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 350px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <h3><i class="fas fa-tag"></i> Ubah Tarif Kas</h3>
+            <div class="form-group">
+                <label>Tarif baru (Spina) per bulan</label>
+                <input type="number" id="tarif-baru" placeholder="Contoh: 50000" step="1" value="0">
+                <small>Tarif akan berlaku mulai awal bulan depan</small>
+            </div>
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button onclick="submitUpdateTarif()" style="background:var(--color-primary);">Simpan</button>
+                <button onclick="closeModal()" style="background:#333;">Batal</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+async function submitUpdateTarif() {
+    const tarifBaru = parseInt(document.getElementById('tarif-baru')?.value);
+    
+    if (isNaN(tarifBaru) || tarifBaru <= 0) {
+        window.showToast("Tarif harus lebih dari 0", true);
+        return;
+    }
+    
+    const modalContent = document.querySelector('#modal-overlay .modal-content');
+    const btn = modalContent?.querySelector('button:first-of-type');
+    const originalHtml = btn?.innerHTML;
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        btn.disabled = true;
+    }
+    
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=updateTarif&adminId=${currentAdmin.id}&tarif=${tarifBaru}`;
+        const res = await fetch(url);
+        const result = await res.json();
+        
+        if (result.status === 'success') {
+            window.showToast(result.message);
+            closeModal();
+            await loadKasDashboard(true); // refresh data kas (termasuk tarif)
+        } else {
+            window.showToast(result.message || "Gagal", true);
+        }
+    } catch(e) {
+        console.error("Update tarif error:", e);
+        window.showToast("Gagal koneksi", true);
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
+}
+
+// ==========================================
+// EXPOSE
+// ==========================================
+window.refreshKas = window.refreshKas;
 window.loadKasDashboard = loadKasDashboard;
 window.submitSetoran = submitSetoran;
 window.submitTransferRequest = submitTransferRequest;
@@ -647,5 +734,7 @@ window.cancelTransferRequest = cancelTransferRequest;
 window.openKasNotification = openKasNotification;
 window.editTransaction = editTransaction;
 window.saveEditTransaction = saveEditTransaction;
+window.openTarifModal = openTarifModal;
+window.submitUpdateTarif = submitUpdateTarif;
 
 console.log("✅ admin-kas.js loaded");

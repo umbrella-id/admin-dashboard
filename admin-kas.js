@@ -63,6 +63,21 @@ function updateKasDataFromResponse(responseData) {
     kasData.bendahara = Object.keys(kasData.saldo);
     kasData.totalSaldo = kasData.bendahara.reduce((sum, nama) => sum + (kasData.saldo[nama] || 0), 0);
     kasData.unreadNotifCount = responseData.pendingCount?.notifications || 0;
+
+    function updateKasDataFromResponse(responseData) {
+    console.log("🟢 updateKasDataFromResponse dipanggil", responseData);
+    
+    // ... kode existing (members, saldo, history, dll)
+    
+    // ✅ TAMBAHKAN DATA TARIF
+    kasData.currentTarif = responseData.currentTarif;
+    kasData.currentTarifDate = responseData.currentTarifDate;
+    kasData.tarifLogs = responseData.tarifLogs || [];
+    
+    renderKasDashboard();
+    updateNotifBadge();
+    return true;
+}
     
     renderKasDashboard();
     updateNotifBadge();
@@ -233,8 +248,12 @@ function renderKasDashboard() {
         `;
     }
     
-    // Section Tarif (hanya untuk LEADER)
+    // Di renderKasDashboard, bagian tarif
     if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+        const currentTarif = kasData.currentTarif;
+        const currentTarifDate = kasData.currentTarifDate;
+        const tarifLogs = kasData.tarifLogs || [];
+        
         html += `
             <div id="kas-tarif-section" class="kas-tarif-section">
                 <div class="kas-tarif-header">
@@ -244,12 +263,20 @@ function renderKasDashboard() {
                     </button>
                 </div>
                 <div id="kas-tarif-current" class="kas-tarif-current">
-                    <div class="tarif-value">Loading...</div>
+                    ${currentTarif ? `
+                        <div class="tarif-value">${formatSpina(currentTarif)} / bulan</div>
+                        <div class="tarif-date">Berlaku sejak: ${currentTarifDate || '-'}</div>
+                    ` : '<div class="tarif-value">Belum ada tarif</div>'}
                 </div>
                 <div id="kas-tarif-history" class="kas-tarif-history">
                     <div class="kas-tarif-history-header">Riwayat Perubahan</div>
                     <div id="kas-tarif-history-list" class="kas-tarif-history-list">
-                        <div class="loading-state">Memuat...</div>
+                        ${tarifLogs.length > 0 ? tarifLogs.map(log => `
+                            <div class="tarif-history-row">
+                                <span class="tarif-history-date">${log.tanggal}</span>
+                                <span class="tarif-history-value">${formatSpina(log.tarif)}</span>
+                            </div>
+                        `).join('') : '<div class="empty-state">Belum ada perubahan tarif</div>'}
                     </div>
                 </div>
             </div>
@@ -658,54 +685,6 @@ async function saveEditTransaction(rowId) {
 // TARIF KAS
 // ==========================================
 
-async function loadTarif() {
-    if (currentAdmin.role1 !== 'LEADER' && currentAdmin.role2 !== 'LEADER') {
-        const tarifSection = document.getElementById('kas-tarif-section');
-        if (tarifSection) tarifSection.style.display = 'none';
-        return;
-    }
-    
-    try {
-        const resCurrent = await fetch(`${window.GAS_ADMIN_URL}?action=getCurrentTarif&adminId=${currentAdmin.id}`);
-        const resultCurrent = await resCurrent.json();
-        
-        if (resultCurrent.status === 'success') {
-            const tarifBox = document.getElementById('kas-tarif-current');
-            if (tarifBox) {
-                if (resultCurrent.data.tarif) {
-                    tarifBox.innerHTML = `
-                        <div class="tarif-value">${formatSpina(resultCurrent.data.tarif)} / bulan</div>
-                        <div class="tarif-date">Berlaku sejak: ${resultCurrent.data.berlakuMulai || '-'}</div>
-                    `;
-                } else {
-                    tarifBox.innerHTML = '<div class="tarif-value">Belum ada tarif</div>';
-                }
-            }
-        }
-        
-        const resLog = await fetch(`${window.GAS_ADMIN_URL}?action=getAllTarifLog&adminId=${currentAdmin.id}`);
-        const resultLog = await resLog.json();
-        
-        if (resultLog.status === 'success' && resultLog.data && resultLog.data.length > 0) {
-            const historyList = document.getElementById('kas-tarif-history-list');
-            if (historyList) {
-                let html = '';
-                for (const log of resultLog.data) {
-                    html += `
-                        <div class="tarif-history-row">
-                            <span class="tarif-history-date">${log.tanggal}</span>
-                            <span class="tarif-history-value">${formatSpina(log.tarif)}</span>
-                        </div>
-                    `;
-                }
-                historyList.innerHTML = html;
-            }
-        }
-    } catch(e) {
-        console.error("Load tarif error:", e);
-    }
-}
-
 function openTarifModal() {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
@@ -778,7 +757,6 @@ window.cancelTransferRequest = cancelTransferRequest;
 window.openKasNotification = openKasNotification;
 window.editTransaction = editTransaction;
 window.saveEditTransaction = saveEditTransaction;
-window.loadTarif = loadTarif;
 window.openTarifModal = openTarifModal;
 window.submitUpdateTarif = submitUpdateTarif;
 

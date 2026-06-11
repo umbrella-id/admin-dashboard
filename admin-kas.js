@@ -658,6 +658,124 @@ async function saveEditTransaction(rowId) {
 }
 
 // ==========================================
+// TARIF KAS
+// ==========================================
+
+// Load tarif saat ini dan history
+async function loadTarif() {
+    // Hanya LEADER yang bisa melihat dan mengubah tarif
+    if (currentAdmin.role1 !== 'LEADER' && currentAdmin.role2 !== 'LEADER') {
+        // Sembunyikan section tarif untuk non-leader
+        const tarifSection = document.getElementById('kas-tarif-section');
+        if (tarifSection) tarifSection.style.display = 'none';
+        return;
+    }
+    
+    try {
+        // Load tarif saat ini
+        const resCurrent = await fetch(`${window.GAS_ADMIN_URL}?action=getCurrentTarif&adminId=${currentAdmin.id}`);
+        const resultCurrent = await resCurrent.json();
+        
+        if (resultCurrent.status === 'success') {
+            const tarifBox = document.getElementById('kas-tarif-current');
+            if (tarifBox) {
+                if (resultCurrent.data.tarif) {
+                    tarifBox.innerHTML = `
+                        <div class="tarif-value">${formatSpina(resultCurrent.data.tarif)} / bulan</div>
+                        <div class="tarif-date">Berlaku sejak: ${resultCurrent.data.berlakuMulai || '-'}</div>
+                    `;
+                } else {
+                    tarifBox.innerHTML = '<div class="tarif-value">Belum ada tarif</div>';
+                }
+            }
+        }
+        
+        // Load history tarif (opsional)
+        const resLog = await fetch(`${window.GAS_ADMIN_URL}?action=getAllTarifLog&adminId=${currentAdmin.id}`);
+        const resultLog = await resLog.json();
+        
+        if (resultLog.status === 'success' && resultLog.data && resultLog.data.length > 0) {
+            const historyList = document.getElementById('kas-tarif-history-list');
+            if (historyList) {
+                let html = '';
+                for (const log of resultLog.data) {
+                    html += `
+                        <div class="tarif-history-row">
+                            <span class="tarif-history-date">${log.tanggal}</span>
+                            <span class="tarif-history-value">${formatSpina(log.tarif)}</span>
+                        </div>
+                    `;
+                }
+                historyList.innerHTML = html;
+            }
+        }
+    } catch(e) {
+        console.error("Load tarif error:", e);
+    }
+}
+
+// Buka modal ubah tarif
+function openTarifModal() {
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 350px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <h3><i class="fas fa-tag"></i> Ubah Tarif Kas</h3>
+            <div class="form-group">
+                <label>Tarif baru (Spina) per bulan</label>
+                <input type="number" id="tarif-baru" placeholder="Contoh: 50000" step="1" value="0">
+                <small>Tarif akan berlaku mulai awal bulan depan</small>
+            </div>
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button onclick="submitUpdateTarif()" style="background:var(--color-primary);">Simpan</button>
+                <button onclick="closeModal()" style="background:#333;">Batal</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+// Submit ubah tarif
+async function submitUpdateTarif() {
+    const tarifBaru = parseInt(document.getElementById('tarif-baru')?.value);
+    
+    if (isNaN(tarifBaru) || tarifBaru <= 0) {
+        window.showToast("Tarif harus lebih dari 0", true);
+        return;
+    }
+    
+    const modalContent = document.querySelector('#modal-overlay .modal-content');
+    const btn = modalContent?.querySelector('button:first-of-type');
+    const originalHtml = btn?.innerHTML;
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        btn.disabled = true;
+    }
+    
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=updateTarif&adminId=${currentAdmin.id}&tarif=${tarifBaru}`;
+        const res = await fetch(url);
+        const result = await res.json();
+        
+        if (result.status === 'success') {
+            window.showToast(result.message);
+            closeModal();
+            await loadTarif(); // refresh tampilan
+        } else {
+            window.showToast(result.message || "Gagal", true);
+        }
+    } catch(e) {
+        console.error("Update tarif error:", e);
+        window.showToast("Gagal koneksi", true);
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
+}
+
+// ==========================================
 // REFRESH & EXPOSE
 // ==========================================
 window.refreshKas = refreshKas;
@@ -670,5 +788,8 @@ window.cancelTransferRequest = cancelTransferRequest;
 window.openKasNotification = openKasNotification;
 window.editTransaction = editTransaction;
 window.saveEditTransaction = saveEditTransaction;
+window.loadTarif = loadTarif;
+window.openTarifModal = openTarifModal;
+window.submitUpdateTarif = submitUpdateTarif;
 
 console.log("✅ admin-kas.js loaded");

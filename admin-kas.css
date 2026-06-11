@@ -146,6 +146,84 @@
 }
 
 /* ==========================================
+   TARIF KAS SECTION
+   ========================================== */
+.kas-tarif-section {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.kas-tarif-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-line);
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.kas-tarif-current {
+    text-align: center;
+    padding: 12px;
+    background: rgba(168, 85, 247, 0.1);
+    border-radius: 12px;
+    margin-bottom: 12px;
+}
+
+.kas-tarif-current .tarif-value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.kas-tarif-current .tarif-date {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.kas-tarif-history-header {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    padding-left: 4px;
+}
+
+.kas-tarif-history-list {
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.kas-tarif-history-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.7rem;
+}
+
+.kas-tarif-history-row:last-child {
+    border-bottom: none;
+}
+
+.kas-tarif-history-date {
+    color: var(--text-muted);
+    font-family: monospace;
+}
+
+.kas-tarif-history-value {
+    color: var(--color-primary);
+    font-weight: bold;
+}
+
+/* ==========================================
    PENDING SECTION (REQUEST TRANSFER)
    ========================================== */
 .kas-pending-section {

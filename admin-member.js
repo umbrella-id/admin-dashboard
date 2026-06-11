@@ -165,17 +165,20 @@ function renderMemberList(members) {
 // ==========================================
 function updateMissingWABadge(members) {
     const missingWA = members.filter(m => !m.wa || m.wa === '');
-    const badge = document.getElementById('missing-wa-badge');
     const warningDiv = document.getElementById('member-warning');
     
     if (missingWA.length > 0) {
-        if (badge) badge.innerText = missingWA.length;
-        if (warningDiv) warningDiv.style.display = 'flex';
+        if (warningDiv) {
+            warningDiv.innerHTML = `
+                <span class="warning-text">⚠️ Ada ${missingWA.length} member yang belum mengisi nomor WhatsApp.</span>
+                <button class="btn-small" onclick="filterMissingWA()">Tampilkan</button>
+            `;
+            warningDiv.style.display = 'flex';
+        }
     } else {
         if (warningDiv) warningDiv.style.display = 'none';
     }
 }
-
 // ==========================================
 // FILTER MEMBER TANPA WA
 // ==========================================

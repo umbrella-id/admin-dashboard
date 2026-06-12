@@ -84,23 +84,23 @@ async function loadKasDashboard(forceRefresh = false) {
     const container = document.getElementById('kas-container');
     if (!container) return;
     
-    // Baca dari cache dulu (kecuali forceRefresh)
-    if (!forceRefresh) {
-        const cached = sessionStorage.getItem('umbrella_cached_kas');
-        if (cached) {
-            try {
-                const data = JSON.parse(cached);
-                updateKasDataFromResponse(data);
-                console.log("📦 Render kas dari cache");
-            } catch(e) {}
-        }
+    // 🔄 BACA DARI CACHE DULU (selalu, agar UI tetap ada)
+    const cached = sessionStorage.getItem('umbrella_cached_kas');
+    if (cached && !forceRefresh) {
+        try {
+            const data = JSON.parse(cached);
+            updateKasDataFromResponse(data);
+            console.log("📦 Render kas dari cache");
+        } catch(e) {}
     }
     
     kasLoading = true;
     
-    // Tampilkan loading hanya jika tidak ada cache
-    const hasCache = !forceRefresh && sessionStorage.getItem('umbrella_cached_kas');
-    if (!hasCache) {
+    // ✅ HANYA TAMPILKAN LOADING JIKA:
+    // 1. BUKAN forceRefresh (refresh manual)
+    // 2. DAN tidak ada cache (pertama kali load)
+    const showLoading = !forceRefresh && !cached;
+    if (showLoading) {
         container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data kas...</div>';
     }
     
@@ -113,28 +113,16 @@ async function loadKasDashboard(forceRefresh = false) {
             sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(result.data));
             sessionStorage.setItem('umbrella_cached_kas_time', Date.now().toString());
             updateKasDataFromResponse(result.data);
-        } else if (!hasCache) {
+        } else if (showLoading) {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
         }
     } catch(e) {
         console.error("Load kas error:", e);
-        if (!hasCache) {
+        if (showLoading) {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal koneksi</div>';
         }
     } finally {
         kasLoading = false;
-    }
-}
-
-function updateNotifBadge() {
-    const badge = document.getElementById('kas-notif-badge');
-    if (badge) {
-        if (kasData.unreadNotifCount > 0) {
-            badge.textContent = kasData.unreadNotifCount > 99 ? '99+' : kasData.unreadNotifCount;
-            badge.style.display = 'inline-flex';
-        } else {
-            badge.style.display = 'none';
-        }
     }
 }
 
@@ -150,7 +138,7 @@ window.refreshKas = async function() {
     btn.disabled = true;
     
     try {
-        await loadKasDashboard(true);
+        await loadKasDashboard(true);  // forceRefresh = true
         window.showToast("✅ Data kas diperbarui");
     } catch(e) {
         console.error("Refresh kas error:", e);

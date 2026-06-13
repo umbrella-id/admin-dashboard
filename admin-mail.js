@@ -293,7 +293,7 @@ function showMailDetail(mail) {
             </div>
         </div>
     `;
-    modal.style.display = 'flex
+    modal.style.display = 'flex';
     history.pushState({ modal: true }, "");
 }
 

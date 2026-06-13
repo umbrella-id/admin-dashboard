@@ -62,6 +62,7 @@ window.showConfirmModal = function(pesan, onConfirm, onCancel) {
         </div>
     `;
     modal.style.display = 'flex';
+    history.pushState({ modal: true }, "");
     document.getElementById('confirm-yes').onclick = () => { modal.style.display = 'none'; if(onConfirm) onConfirm(); };
     document.getElementById('confirm-no').onclick = () => { modal.style.display = 'none'; if(onCancel) onCancel(); };
 };
@@ -715,6 +716,7 @@ function openSettingsModal() {
         </div>
     `;
     modal.style.display = 'flex';
+    history.pushState({ modal: true }, "");
 }
 
 async function toggleNotificationSetting() {
@@ -763,6 +765,7 @@ function openChangePasskey() {
         </div>
     `;
     modal.style.display = 'flex';
+    history.pushState({ modal: true }, "");
 }
 
 async function changeMyPasskey() {

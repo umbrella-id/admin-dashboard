@@ -646,6 +646,7 @@ async function saveEditTransaction(rowId) {
             }
         } else {
             window.showToast(data.message || "Gagal mengupdate", true);
+            console.log("📡 Response:", data);
         }
     } catch(e) {
         console.error("❌ saveEditTransaction error:", e);

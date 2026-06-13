@@ -63,6 +63,23 @@
     flex-shrink: 0;
 }
 
+/* Tombol Update Xixi */
+.btn-update-xixi {
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    color: white;
+    border: none;
+    transition: all 0.2s;
+}
+
+.btn-update-xixi:hover {
+    background: linear-gradient(135deg, #128C7E, #075E54);
+    transform: scale(1.02);
+}
+
+.btn-update-xixi:active {
+    transform: scale(0.97);
+}
+
 /* Warning Badge - Teks menyatu */
 .member-warning {
     background: rgba(245, 158, 11, 0.15);

@@ -534,6 +534,46 @@ function showAlertModal(title, message, type = 'warning') {
 }
 
 // ==========================================
+// EXPORT
+// ==========================================
+async function exportMemberList() {
+    // Filter member aktif dan PUNYA WA
+    const membersToExport = memberList.filter(m => m.status === 'aktif' && m.wa && m.wa !== '');
+    
+    if (membersToExport.length === 0) {
+        window.showToast("Tidak ada member yang memiliki WA", true);
+        return;
+    }
+    
+    // Hitung jumlah yang akan diexport
+    const totalExport = membersToExport.length;
+    
+    // Tentukan lebar maksimal nomor WA (15 digit cukup)
+    const maxWALength = 15;
+    
+    // Format header
+    let text = "#editmember\n";
+    text += "傘 ᴜᴍʙʀᴇʟʟᴀ               " + totalExport + " ᴍᴇᴍʙᴇʀ\n";
+    text += "ᴳᵘⁱˡᵈ ᶠᵒʳ ᴴᵃᵛᵉ ᶠᵘⁿ———————————\n\n";
+    
+    // Format list member
+    for (const member of membersToExport) {
+        let wa = member.wa;
+        wa = wa.padEnd(maxWALength, ' ');
+        text += `${wa}  ${member.ign}\n`;
+    }
+    
+    // Salin ke clipboard
+    try {
+        await navigator.clipboard.writeText(text);
+        window.showToast("✅ Daftar tersalin! Tempel dan kirim pada grup WA untuk update xixi");
+    } catch(e) {
+        console.error("Copy failed:", e);
+        window.showToast("❌ Gagal menyalin", true);
+    }
+}
+
+// ==========================================
 // REFRESH
 // ==========================================
 async function refreshMemberList() {
@@ -553,5 +593,6 @@ window.openAddMemberModal = openAddMemberModal;
 window.editMember = editMember;
 window.filterMissingWA = filterMissingWA;
 window.showAllMembers = showAllMembers;
+window.exportMemberList = exportMemberList;
 
 console.log("✅ [MEMBER] admin-member.js loaded");

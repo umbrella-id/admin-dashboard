@@ -12,6 +12,7 @@ let toastTimeout = null;
 // ==========================================
 function showToast(msg, isError = false) {
     const toast = document.getElementById('toast');
+    console.trace();
     
     if (toastTimeout) {
         clearTimeout(toastTimeout);

@@ -262,6 +262,7 @@ function openAddMemberModal() {
         </div>
     `;
     modal.style.display = 'flex';
+    history.pushState({ modal: true }, "");
     document.getElementById('add-ign')?.focus();
 }
 
@@ -408,6 +409,7 @@ async function editMember(uid) {
         </div>
     `;
     modal.style.display = 'flex';
+    history.pushState({ modal: true }, "");
 }
 
 async function submitEditMember(uid) {

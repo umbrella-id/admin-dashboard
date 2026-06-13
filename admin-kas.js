@@ -158,6 +158,8 @@ function renderKasDashboard() {
     if (!container) return;
     
     const { bendahara, saldo, totalSaldo, incomingRequests, outgoingRequests, history, unreadNotifCount, currentTarif, currentTarifDate, tarifLogs } = kasData;
+
+    const today = new Date().toISOString().split('T')[0];
     
     const allPending = [
         ...incomingRequests.map(r => ({ ...r, type: 'incoming' })),
@@ -210,7 +212,7 @@ function renderKasDashboard() {
                 <div id="kas-tarif-history" class="kas-tarif-history">
                     <div class="kas-tarif-history-header">Riwayat Perubahan</div>
                     <div id="kas-tarif-history-list" class="kas-tarif-history-list">
-                        ${kasData.tarifLogs && kasData.tarifLogs.length > 0 ? kasData.tarifLogs.map(log => {
+                        ${tarifLogs && tarifLogs.length > 0 ? tarifLogs.map(log => {
                             const isUpcoming = log.tanggal > today;
                             return `
                                 <div class="tarif-history-row ${isUpcoming ? 'upcoming' : ''}">

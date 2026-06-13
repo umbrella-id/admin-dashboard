@@ -624,6 +624,7 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
         </div>
     `;
     modal.style.display = 'flex';
+    history.pushState({ modal: true }, "");
     
     document.getElementById('save-transaction-btn').onclick = () => saveEditTransaction(rowId);
 }
@@ -703,6 +704,7 @@ function openTarifModal() {
         </div>
     `;
     modal.style.display = 'flex';
+    history.pushState({ modal: true }, "");
 }
 
 async function submitUpdateTarif() {

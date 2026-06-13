@@ -547,7 +547,7 @@ async function exportMemberList() {
     const totalExport = membersToExport.length;
     
     // Tentukan lebar maksimal nomor WA (15 digit cukup)
-    const maxWALength = 15;
+    const maxWALength = 13;
     
     let text = "#editmember\n";
     text += "傘 ᴜᴍʙʀᴇʟʟᴀ               " + totalExport + " ᴍᴇᴍʙᴇʀ\n\n";

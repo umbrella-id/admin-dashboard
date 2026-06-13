@@ -210,12 +210,16 @@ function renderKasDashboard() {
                 <div id="kas-tarif-history" class="kas-tarif-history">
                     <div class="kas-tarif-history-header">Riwayat Perubahan</div>
                     <div id="kas-tarif-history-list" class="kas-tarif-history-list">
-                        ${tarifLogs && tarifLogs.length > 0 ? tarifLogs.map(log => `
-                            <div class="tarif-history-row">
-                                <span class="tarif-history-date">${log.tanggal}</span>
-                                <span class="tarif-history-value">${formatSpina(log.tarif)}</span>
-                            </div>
-                        `).join('') : '<div class="empty-state">Belum ada perubahan tarif</div>'}
+                        ${kasData.tarifLogs && kasData.tarifLogs.length > 0 ? kasData.tarifLogs.map(log => {
+                            const isUpcoming = log.tanggal > today;
+                            return `
+                                <div class="tarif-history-row ${isUpcoming ? 'upcoming' : ''}">
+                                    <span class="tarif-history-date">${log.tanggal}</span>
+                                    <span class="tarif-history-value">${formatSpina(log.tarif)}</span>
+                                    ${isUpcoming ? '<span class="tarif-history-badge">akan datang</span>' : ''}
+                                </div>
+                            `;
+                        }).join('') : '<div class="empty-state">Belum ada perubahan tarif</div>'}
                     </div>
                 </div>
             </div>

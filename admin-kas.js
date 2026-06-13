@@ -618,42 +618,54 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
 
 async function saveEditTransaction(rowId) {
     console.log("🔵 saveEditTransaction DIPANGGIL", rowId);
-    const parsedRowId = parseInt(rowId);
-    if (isNaN(parsedRowId) || parsedRowId <= 0) {
-        window.showToast("Error: ID transaksi tidak valid", true);
-        return;
-    }
-    
-    const newAmount = parseInt(document.getElementById('edit-amount')?.value);
-    
-    if (!currentAdmin || !currentAdmin.nama) return window.showToast("Error: Data admin tidak ditemukan", true);
-    
-    closeModal();
     
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&adminName=${encodeURIComponent(currentAdmin.nama)}`);
+        const parsedRowId = parseInt(rowId);
+        console.log("🔍 parsedRowId:", parsedRowId);
+        
+        if (isNaN(parsedRowId) || parsedRowId <= 0) {
+            console.log("❌ parsedRowId invalid");
+            window.showToast("Error: ID transaksi tidak valid", true);
+            return;
+        }
+        
+        const newAmount = parseInt(document.getElementById('edit-amount')?.value);
+        console.log("🔍 newAmount:", newAmount);
+        
+        if (!currentAdmin || !currentAdmin.nama) {
+            console.log("❌ currentAdmin.nama not found");
+            window.showToast("Error: Data admin tidak ditemukan", true);
+            return;
+        }
+        
+        closeModal();
+        
+        const url = `${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&adminName=${encodeURIComponent(currentAdmin.nama)}`;
+        console.log("🔍 URL:", url);
+        
+        const response = await fetch(url);
+        console.log("🔍 Response status:", response.status);
+        
         const data = await response.json();
-        console.log("📡 saveEditTransaction response:", data);
-        console.log("📡 Response:", data);
-        console.log("📡 data.status:", data.status);
-        console.log("📡 data.status === 'success':", data.status === 'success');
+        console.log("🔍 Response data:", data);
         
         if (data.status === 'success') {
-            console.log("✅ MASUK KE BLOK SUCCESS");
+            console.log("✅ SUCCESS!");
             window.showToast(data.message || "✅ Transaksi diperbarui");
             if (data.data) {
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                 updateKasDataFromResponse(data.data);
             } else {
-                console.log("⚠️ Tidak ada data.data, refresh manual...");
                 await loadKasDashboard(true);
             }
         } else {
-            console.log("❌ MASUK KE BLOK ERROR");
+            console.log("❌ Backend error:", data.message);
             window.showToast(data.message || "Gagal mengupdate", true);
         }
     } catch(e) {
-        console.error("❌ saveEditTransaction error:", e);
+        console.error("❌ CATCH ERROR:", e);
+        console.error("❌ ERROR MESSAGE:", e.message);
+        console.error("❌ ERROR STACK:", e.stack);
         window.showToast("Gagal koneksi", true);
     }
 }

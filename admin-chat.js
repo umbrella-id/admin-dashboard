@@ -48,6 +48,7 @@ window.toggleChatWidget = async function() {
     
     if (isOpening) {
         widget.classList.add('show');
+        history.pushState({ chat: true }, "");
         isChatOpen = true;
         
         if (typeof window.sendPresence === 'function') await window.sendPresence('active');

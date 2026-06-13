@@ -606,14 +606,14 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
             </div>
             
             <div class="modal-buttons">
-                <button id="save-edit-btn" style="background:var(--color-primary);">Simpan</button>
+                <button id="save-transaction-btn" style="background:var(--color-primary);">Simpan</button>
                 <button onclick="closeModal()" style="background:#333;">Batal</button>
             </div>
         </div>
     `;
     modal.style.display = 'flex';
     
-    document.getElementById('save-edit-btn').onclick = () => saveEditTransaction(rowId);
+    document.getElementById('save-transaction-btn').onclick = () => saveEditTransaction(rowId);
 }
 
 async function saveEditTransaction(rowId) {

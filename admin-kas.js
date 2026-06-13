@@ -76,6 +76,18 @@ function updateKasDataFromResponse(responseData) {
     return true;
 }
 
+function updateNotifBadge() {
+    const badge = document.getElementById('kas-notif-badge');
+    if (badge) {
+        if (kasData.unreadNotifCount > 0) {
+            badge.textContent = kasData.unreadNotifCount > 99 ? '99+' : kasData.unreadNotifCount;
+            badge.style.display = 'inline-flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
 async function loadKasDashboard(forceRefresh = false) {
     console.log("🔄 loadKasDashboard DIPANGGIL", forceRefresh);
     

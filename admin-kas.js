@@ -634,8 +634,12 @@ async function saveEditTransaction(rowId) {
         const response = await fetch(`${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&adminName=${encodeURIComponent(currentAdmin.nama)}`);
         const data = await response.json();
         console.log("📡 saveEditTransaction response:", data);
+        console.log("📡 Response:", data);
+        console.log("📡 data.status:", data.status);
+        console.log("📡 data.status === 'success':", data.status === 'success');
         
         if (data.status === 'success') {
+            console.log("✅ MASUK KE BLOK SUCCESS");
             window.showToast(data.message || "✅ Transaksi diperbarui");
             if (data.data) {
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
@@ -645,8 +649,8 @@ async function saveEditTransaction(rowId) {
                 await loadKasDashboard(true);
             }
         } else {
+            console.log("❌ MASUK KE BLOK ERROR");
             window.showToast(data.message || "Gagal mengupdate", true);
-            console.log("📡 Response:", data);
         }
     } catch(e) {
         console.error("❌ saveEditTransaction error:", e);

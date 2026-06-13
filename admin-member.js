@@ -537,7 +537,6 @@ function showAlertModal(title, message, type = 'warning') {
 // EXPORT
 // ==========================================
 async function exportMemberList() {
-    // Filter member aktif dan PUNYA WA
     const membersToExport = memberList.filter(m => m.status === 'aktif' && m.wa && m.wa !== '');
     
     if (membersToExport.length === 0) {
@@ -545,25 +544,21 @@ async function exportMemberList() {
         return;
     }
     
-    // Hitung jumlah yang akan diexport
     const totalExport = membersToExport.length;
     
     // Tentukan lebar maksimal nomor WA (15 digit cukup)
     const maxWALength = 15;
     
-    // Format header
     let text = "#editmember\n";
-    text += "傘 ᴜᴍʙʀᴇʟʟᴀ               " + totalExport + " ᴍᴇᴍʙᴇʀ\n";
-    text += "ᴳᵘⁱˡᵈ ᶠᵒʳ ᴴᵃᵛᵉ ᶠᵘⁿ———————————\n\n";
+    text += "傘 ᴜᴍʙʀᴇʟʟᴀ               " + totalExport + " ᴍᴇᴍʙᴇʀ\n\n";
     
-    // Format list member
     for (const member of membersToExport) {
         let wa = member.wa;
+        // Pad dengan spasi agar lebar tetap
         wa = wa.padEnd(maxWALength, ' ');
-        text += `${wa}  ${member.ign}\n`;
+        text += `\`\`\`${wa} |\`\`\` ${member.ign}\n`;
     }
     
-    // Salin ke clipboard
     try {
         await navigator.clipboard.writeText(text);
         window.showToast("✅ Daftar tersalin! Tempel dan kirim pada grup WA untuk update xixi");

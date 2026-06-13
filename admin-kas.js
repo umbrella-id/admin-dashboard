@@ -424,6 +424,7 @@ function showNotificationModal(notifications) {
         </div>
     `;
     modal.style.display = 'flex';
+    history.pushState({ modal: true }, "");
 }
 
 // ==========================================

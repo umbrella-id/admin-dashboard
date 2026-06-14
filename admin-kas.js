@@ -697,6 +697,9 @@ async function cancelTransferRequest(requestId) {
 // EDIT TRANSACTION
 // ==========================================
 async function editTransaction(rowId, oldNotes, oldAmount) {
+    // Deteksi apakah ini pengeluaran (oldAmount negatif ATAU oldNotes mengandung "[PENGELUARAN]")
+    const isPengeluaran = oldAmount < 0 || (oldNotes && oldNotes.includes('[PENGELUARAN]'));
+    
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
         <div class="modal-content">
@@ -706,8 +709,16 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
             <div class="kas-form-group">
                 <label>Nominal Baru</label>
                 <input type="number" id="edit-amount" value="${Math.abs(oldAmount)}" step="1">
-                <small>Isi 0 untuk menghapus transaksi ini</small>
+                <small>Isi 0 untuk menghapus transaksi ini.</small>
             </div>
+            
+            ${isPengeluaran ? `
+            <div class="kas-form-group">
+                <label>Notes (Detail Pengeluaran)</label>
+                <textarea id="edit-notes" rows="3" placeholder="Detail pengeluaran...">${escapeHtml(oldNotes.replace('[PENGELUARAN]', '').trim())}</textarea>
+                <small>Catatan: Pengeluaran akan tetap bertanda negatif.</small>
+            </div>
+            ` : ''}
             
             <div class="modal-buttons">
                 <button id="save-transaction-btn" style="background:var(--color-primary);">Simpan</button>
@@ -726,36 +737,39 @@ async function saveEditTransaction(rowId) {
     
     try {
         const parsedRowId = parseInt(rowId);
-        console.log("🔍 parsedRowId:", parsedRowId);
-        
         if (isNaN(parsedRowId) || parsedRowId <= 0) {
-            console.log("❌ parsedRowId invalid");
             window.showToast("Error: ID transaksi tidak valid", true);
             return;
         }
         
-        const newAmount = parseInt(document.getElementById('edit-amount')?.value);
-        console.log("🔍 newAmount:", newAmount);
+        let newAmount = parseInt(document.getElementById('edit-amount')?.value);
+        if (isNaN(newAmount)) newAmount = 0;
+        
+        // ✅ Ambil notes jika ada (untuk pengeluaran)
+        const notesTextarea = document.getElementById('edit-notes');
+        let newNotes = '';
+        if (notesTextarea) {
+            newNotes = notesTextarea.value.trim();
+        }
         
         if (!currentAdmin || !currentAdmin.nama) {
-            console.log("❌ currentAdmin.nama not found");
             window.showToast("Error: Data admin tidak ditemukan", true);
             return;
         }
         
         closeModal();
         
-        const url = `${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&adminName=${encodeURIComponent(currentAdmin.nama)}`;
+        // ✅ Kirim notes jika ada
+        let url = `${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&adminName=${encodeURIComponent(currentAdmin.nama)}`;
+        if (newNotes) {
+            url += `&notes=${encodeURIComponent(newNotes)}`;
+        }
         console.log("🔍 URL:", url);
         
         const response = await fetch(url);
-        console.log("🔍 Response status:", response.status);
-        
         const data = await response.json();
-        console.log("🔍 Response data:", data);
         
         if (data.status === 'success') {
-            console.log("✅ SUCCESS!");
             window.showToast(data.message || "✅ Transaksi diperbarui");
             if (data.data) {
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
@@ -764,13 +778,10 @@ async function saveEditTransaction(rowId) {
                 await loadKasDashboard(true);
             }
         } else {
-            console.log("❌ Backend error:", data.message);
             window.showToast(data.message || "Gagal mengupdate", true);
         }
     } catch(e) {
         console.error("❌ CATCH ERROR:", e);
-        console.error("❌ ERROR MESSAGE:", e.message);
-        console.error("❌ ERROR STACK:", e.stack);
         window.showToast("Gagal koneksi", true);
     }
 }

@@ -938,6 +938,21 @@ async function resetPasskey(adminId) {
     } catch(e) { showToast("Gagal koneksi", true); }
 }
 
+// ==========================================
+// LOGIN DENGAN ENTER
+// ==========================================
+document.addEventListener('DOMContentLoaded', function() {
+    const passkeyInput = document.getElementById('login-passkey');
+    if (passkeyInput) {
+        passkeyInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                doLogin();
+            }
+        });
+    }
+});
+
 function promoteToLeader(targetId) {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `

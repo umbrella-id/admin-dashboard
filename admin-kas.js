@@ -277,6 +277,9 @@ function renderKasDashboard() {
             <div class="kas-form-tabs">
                 <button class="kas-form-tab ${kasCurrentForm === 'setoran' ? 'active' : ''}" data-form="setoran">📥 INPUT KAS</button>
                 <button class="kas-form-tab ${kasCurrentForm === 'transfer' ? 'active' : ''}" data-form="transfer">🔄 TRANSFER BENDAHARA</button>
+                if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+                    html += `<button class="kas-form-tab ${kasCurrentForm === 'pengeluaran' ? 'active' : ''}" data-form="pengeluaran">📤 KAS KELUAR</button>`;
+                }
             </div>
             
             <div id="kas-form-setoran" class="kas-form-panel ${kasCurrentForm === 'setoran' ? 'active' : ''}">
@@ -321,6 +324,28 @@ function renderKasDashboard() {
                 <button class="kas-submit-btn" onclick="submitTransferRequest()"><i class="fas fa-paper-plane"></i> AJUKAN</button>
             </div>
         </div>
+
+        if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+            html += `
+                <div id="kas-form-pengeluaran" class="kas-form-panel ${kasCurrentForm === 'pengeluaran' ? 'active' : ''}">
+                    <div class="kas-form-group">
+                        <label>Keterangan <span style="color:#ff4444;">*</span></label>
+                        <input type="text" id="kas-keterangan" placeholder="Contoh: Beli perlengkapan guild" autocomplete="off">
+                    </div>
+                    <div class="kas-form-group">
+                        <label>Jumlah (Spina)</label>
+                        <input type="number" id="kas-pengeluaran" placeholder="Contoh: 50000" step="1">
+                    </div>
+                    <div class="kas-form-group">
+                        <label>Notes (Opsional)</label>
+                        <input type="text" id="kas-notes-pengeluaran" placeholder="Detail tambahan...">
+                    </div>
+                    <button class="kas-submit-btn" onclick="submitPengeluaran()">
+                        <i class="fas fa-money-bill-wave"></i> Catat Pengeluaran
+                    </button>
+                </div>
+            `;
+        }
         
         <div class="kas-history-section">
             <div class="kas-history-header"><span><i class="fas fa-history"></i> RIWAYAT TRANSAKSI (50 terakhir)</span></div>
@@ -514,6 +539,60 @@ async function submitTransferRequest() {
         }
     } catch(e) {
         console.error("❌ submitTransferRequest error:", e);
+        window.showToast("Gagal koneksi", true);
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+// ==========================================
+// KAS KELUAR (PENGELUARAN)
+// ==========================================
+async function submitPengeluaran() {
+    if (currentAdmin.role1 !== 'LEADER' && currentAdmin.role2 !== 'LEADER') {
+        window.showToast("Hanya Leader yang bisa mencatat pengeluaran", true);
+        return;
+    }
+    
+    const keterangan = document.getElementById('kas-keterangan')?.value.trim();
+    const spina = parseInt(document.getElementById('kas-pengeluaran')?.value);
+    const notes = document.getElementById('kas-notes-pengeluaran')?.value || "";
+    
+    if (!keterangan) {
+        window.showToast("Keterangan harus diisi", true);
+        return;
+    }
+    if (isNaN(spina) || spina <= 0) {
+        window.showToast("Jumlah harus diisi dengan bilangan bulat positif", true);
+        return;
+    }
+    
+    const btn = document.querySelector('#kas-form-pengeluaran .kas-submit-btn');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=addPengeluaran&adm=${encodeURIComponent(currentAdmin.nama)}&spina=${spina}&notes=${encodeURIComponent(notes)}&keterangan=${encodeURIComponent(keterangan)}`);
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            window.showToast("✅ Pengeluaran dicatat");
+            if (data.data) {
+                sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
+                updateKasDataFromResponse(data.data);
+            } else {
+                await loadKasDashboard(true);
+            }
+            document.getElementById('kas-keterangan').value = '';
+            document.getElementById('kas-pengeluaran').value = '';
+            document.getElementById('kas-notes-pengeluaran').value = '';
+        } else {
+            window.showToast(data.message || "Gagal", true);
+        }
+    } catch(e) {
+        console.error("Pengeluaran error:", e);
         window.showToast("Gagal koneksi", true);
     } finally {
         btn.innerHTML = originalHtml;
@@ -754,6 +833,7 @@ window.refreshKas = window.refreshKas;
 window.loadKasDashboard = loadKasDashboard;
 window.submitSetoran = submitSetoran;
 window.submitTransferRequest = submitTransferRequest;
+window.submitPengeluaran = submitPengeluaran;
 window.approveTransferRequest = approveTransferRequest;
 window.rejectTransferRequest = rejectTransferRequest;
 window.cancelTransferRequest = cancelTransferRequest;

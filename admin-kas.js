@@ -272,16 +272,23 @@ function renderKasDashboard() {
         `;
     }
     
+    // ========== FORM KAS (3 TABS) ==========
     html += `
         <div class="kas-forms-section">
             <div class="kas-form-tabs">
                 <button class="kas-form-tab ${kasCurrentForm === 'setoran' ? 'active' : ''}" data-form="setoran">📥 INPUT KAS</button>
                 <button class="kas-form-tab ${kasCurrentForm === 'transfer' ? 'active' : ''}" data-form="transfer">🔄 TRANSFER BENDAHARA</button>
-                if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
-                    html += `<button class="kas-form-tab ${kasCurrentForm === 'pengeluaran' ? 'active' : ''}" data-form="pengeluaran">📤 KAS KELUAR</button>`;
-                }
+    `;
+    
+    // Tambah tab Kas Keluar (hanya untuk LEADER)
+    if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+        html += `<button class="kas-form-tab ${kasCurrentForm === 'pengeluaran' ? 'active' : ''}" data-form="pengeluaran">📤 KAS KELUAR</button>`;
+    }
+    
+    html += `
             </div>
             
+            <!-- Panel INPUT KAS -->
             <div id="kas-form-setoran" class="kas-form-panel ${kasCurrentForm === 'setoran' ? 'active' : ''}">
                 <div class="kas-mode-selector">
                     <label class="kas-radio-label"><input type="radio" name="member-mode" value="list" checked> <i class="fas fa-list"></i> List Member</label>
@@ -303,6 +310,7 @@ function renderKasDashboard() {
                 <button class="kas-submit-btn" onclick="submitSetoran()"><i class="fas fa-save"></i> INPUT</button>
             </div>
             
+            <!-- Panel TRANSFER -->
             <div id="kas-form-transfer" class="kas-form-panel ${kasCurrentForm === 'transfer' ? 'active' : ''}">
                 <div class="kas-form-group">
                     <label>Penerima Dana</label>
@@ -323,29 +331,33 @@ function renderKasDashboard() {
                 </div>
                 <button class="kas-submit-btn" onclick="submitTransferRequest()"><i class="fas fa-paper-plane"></i> AJUKAN</button>
             </div>
-        </div>
-
-        if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
-            html += `
-                <div id="kas-form-pengeluaran" class="kas-form-panel ${kasCurrentForm === 'pengeluaran' ? 'active' : ''}">
-                    <div class="kas-form-group">
-                        <label>Keterangan <span style="color:#ff4444;">*</span></label>
-                        <input type="text" id="kas-keterangan" placeholder="Contoh: Beli perlengkapan guild" autocomplete="off">
-                    </div>
-                    <div class="kas-form-group">
-                        <label>Jumlah (Spina)</label>
-                        <input type="number" id="kas-pengeluaran" placeholder="Contoh: 50000" step="1">
-                    </div>
-                    <div class="kas-form-group">
-                        <label>Notes (Opsional)</label>
-                        <input type="text" id="kas-notes-pengeluaran" placeholder="Detail tambahan...">
-                    </div>
-                    <button class="kas-submit-btn" onclick="submitPengeluaran()">
-                        <i class="fas fa-money-bill-wave"></i> Catat Pengeluaran
-                    </button>
+    `;
+    
+    // Panel KAS KELUAR (hanya untuk LEADER)
+    if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+        html += `
+            <div id="kas-form-pengeluaran" class="kas-form-panel ${kasCurrentForm === 'pengeluaran' ? 'active' : ''}">
+                <div class="kas-form-group">
+                    <label>Keterangan <span style="color:#ff4444;">*</span></label>
+                    <input type="text" id="kas-keterangan" placeholder="Contoh: Beli perlengkapan guild" autocomplete="off">
                 </div>
-            `;
-        }
+                <div class="kas-form-group">
+                    <label>Jumlah (Spina)</label>
+                    <input type="number" id="kas-pengeluaran" placeholder="Contoh: 50000" step="1">
+                </div>
+                <div class="kas-form-group">
+                    <label>Notes (Opsional)</label>
+                    <input type="text" id="kas-notes-pengeluaran" placeholder="Detail tambahan...">
+                </div>
+                <button class="kas-submit-btn" onclick="submitPengeluaran()">
+                    <i class="fas fa-money-bill-wave"></i> Catat Pengeluaran
+                </button>
+            </div>
+        `;
+    }
+    
+    html += `
+        </div>
         
         <div class="kas-history-section">
             <div class="kas-history-header"><span><i class="fas fa-history"></i> RIWAYAT TRANSAKSI (50 terakhir)</span></div>

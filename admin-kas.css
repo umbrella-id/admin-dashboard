@@ -672,7 +672,7 @@
         grid-row: 2 / 3 !important;
        color: var(--text-muted);
        font-size: 0.6rem;
-       text-align: center;
+       text-align: left !important;
    }
    
     .kas-history-notes {

@@ -501,6 +501,26 @@
     transform: scale(0.97);
 }
 
+/* Textarea untuk notes pengeluaran */
+#kas-form-pengeluaran textarea {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: white;
+    font-size: 0.8rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+}
+
+#kas-form-pengeluaran textarea:focus {
+    border-color: var(--color-primary);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.1);
+}
+
 /* ==========================================
    RIWAYAT TRANSAKSI
    ========================================== */

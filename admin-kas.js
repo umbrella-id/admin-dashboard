@@ -346,8 +346,8 @@ function renderKasDashboard() {
                     <input type="number" id="kas-pengeluaran" placeholder="Contoh: 50000" step="1">
                 </div>
                 <div class="kas-form-group">
-                    <label>Notes (Opsional)</label>
-                    <input type="text" id="kas-notes-pengeluaran" placeholder="Detail tambahan...">
+                    <label>Notes (Detail Pengeluaran)</label>
+                    <textarea id="kas-notes-pengeluaran" rows="3" placeholder="Detail pengeluaran...&#10;Contoh:&#10;- Pembelian banner event 1 pcs = 25.000&#10;- Stiker guild 10 pcs = 25.000"></textarea>
                 </div>
                 <button class="kas-submit-btn" onclick="submitPengeluaran()">
                     <i class="fas fa-money-bill-wave"></i> Catat Pengeluaran

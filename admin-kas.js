@@ -217,7 +217,7 @@ function renderKasDashboard() {
                 </div>
                 <div id="kas-tarif-current" class="kas-tarif-current">
                     ${currentTarif ? `
-                        <div class="tarif-value">${formatSpina(currentTarif)} / bulan</div>
+                        <div class="tarif-value">${formatSpina(currentTarif)} / minggu</div>
                         <div class="tarif-date">Berlaku sejak: ${currentTarifDate || '-'}</div>
                     ` : '<div class="tarif-value">Belum ada tarif</div>'}
                 </div>

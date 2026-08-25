@@ -1,23 +1,15 @@
 /**
  * admin-member.js - Member Management Module
  * Hanya untuk LEADER & CO-LEAD
+ * 
+ * PERBAIKAN HIERARKI:
+ * - CO-LEAD hanya bisa edit member biasa
+ * - CO-LEAD TIDAK BISA edit LEADER
+ * - CO-LEAD TIDAK BISA edit CO-LEAD (termasuk dirinya sendiri)
+ * - Hanya LEADER yang bisa mengedit CO-LEAD & LEADER
  */
 
 let memberList = [];
-
-// Override escapeHtml untuk keamanan
-function escapeHtml(str) {
-    if (str === undefined || str === null) return '';
-    if (typeof str !== 'string') str = String(str);
-    return str.replace(/[&<>"']/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        if (m === '"') return '&quot;';
-        if (m === "'") return '&#39;';
-        return m;
-    });
-}
 
 // ==========================================
 // VALIDASI WA
@@ -31,6 +23,7 @@ function isValidWA(wa) {
     if (!wa) return true; // WA boleh kosong
     if (!/^\d+$/.test(wa)) return false;
     if (wa.startsWith('0')) return false; // TOLAK awalan 0
+    if (wa.length < 10 || wa.length > 15) return false;
     return true;
 }
 
@@ -49,7 +42,68 @@ function sortMembers(members) {
 }
 
 // ==========================================
-// PENGECEKAN OFFLINE (HANYA UNTUK MEMBER AKTIF)
+// VALIDASI AKSES EDIT MEMBER (PERBAIKAN HIERARKI)
+// ==========================================
+function canEditMember(admin, targetMember) {
+    const isLeader = admin?.role1 === 'LEADER' || admin?.role2 === 'LEADER';
+    const isCoLead = admin?.role1 === 'CO-LEAD' || admin?.role2 === 'CO-LEAD';
+    const isTargetLeader = targetMember?.role === 'leader';
+    const isTargetCoLead = targetMember?.role === 'co-lead';
+    
+    // ✅ LEADER: Bisa edit semua
+    if (isLeader) return true;
+    
+    // ❌ CO-LEAD: TIDAK BISA edit siapapun yang berstatus CO-LEAD atau LEADER
+    if (isCoLead) {
+        if (isTargetLeader) return false;
+        if (isTargetCoLead) return false;
+        return true;  // ✅ Hanya bisa edit member biasa
+    }
+    
+    // ❌ Selain itu tidak boleh
+    return false;
+}
+
+function canEditStatus(admin, targetMember) {
+    const isLeader = admin?.role1 === 'LEADER' || admin?.role2 === 'LEADER';
+    const isCoLead = admin?.role1 === 'CO-LEAD' || admin?.role2 === 'CO-LEAD';
+    const isTargetCoLead = targetMember?.role === 'co-lead';
+    const isTargetLeader = targetMember?.role === 'leader';
+    
+    // ✅ LEADER: Bisa ubah semua status
+    if (isLeader) return true;
+    
+    // ❌ CO-LEAD: Hanya bisa ubah status member biasa
+    if (isCoLead) {
+        if (isTargetLeader) return false;
+        if (isTargetCoLead) return false;
+        return true;
+    }
+    
+    return false;
+}
+
+function canEditWA(admin, targetMember) {
+    const isLeader = admin?.role1 === 'LEADER' || admin?.role2 === 'LEADER';
+    const isCoLead = admin?.role1 === 'CO-LEAD' || admin?.role2 === 'CO-LEAD';
+    const isTargetCoLead = targetMember?.role === 'co-lead';
+    const isTargetLeader = targetMember?.role === 'leader';
+    
+    // ✅ LEADER: Bisa edit semua
+    if (isLeader) return true;
+    
+    // ❌ CO-LEAD: Hanya bisa edit WA member biasa
+    if (isCoLead) {
+        if (isTargetLeader) return false;
+        if (isTargetCoLead) return false;
+        return true;
+    }
+    
+    return false;
+}
+
+// ==========================================
+// PENGECEKAN WA DUPLIKAT (HANYA UNTUK MEMBER AKTIF)
 // ==========================================
 function checkActiveWA(wa, excludeUID = '') {
     if (!wa) return null;
@@ -58,7 +112,7 @@ function checkActiveWA(wa, excludeUID = '') {
     
     const existing = memberList.find(m => {
         const memberWA = m.wa ? m.wa.toString().trim() : '';
-        return memberWA === searchWA && m.uid !== excludeUID;
+        return memberWA === searchWA && m.uid !== excludeUID && m.status === 'aktif';
     });
     
     return existing || null;
@@ -179,6 +233,7 @@ function updateMissingWABadge(members) {
         if (warningDiv) warningDiv.style.display = 'none';
     }
 }
+
 // ==========================================
 // FILTER MEMBER TANPA WA
 // ==========================================
@@ -344,7 +399,7 @@ async function submitAddMember() {
 }
 
 // ==========================================
-// EDIT MEMBER
+// EDIT MEMBER (DENGAN VALIDASI HIERARKI)
 // ==========================================
 async function editMember(uid) {
     console.log("✏️ [MEMBER] editMember dipanggil untuk UID:", uid);
@@ -355,40 +410,114 @@ async function editMember(uid) {
         return;
     }
     
-    const isLeader = currentAdmin?.role1 === 'LEADER';
+    // ========== VALIDASI AKSES ==========
+    const isLeader = currentAdmin?.role1 === 'LEADER' || currentAdmin?.role2 === 'LEADER';
+    const isCoLead = currentAdmin?.role1 === 'CO-LEAD' || currentAdmin?.role2 === 'CO-LEAD';
+    const isTargetLeader = member?.role === 'leader';
+    const isTargetCoLead = member?.role === 'co-lead';
+    const isTargetSelf = member?.uid === currentAdmin?.id;
     
+    // ❌ CEK: CO-LEAD mencoba edit LEADER
+    if (isCoLead && isTargetLeader) {
+        window.showToast("❌ Anda tidak memiliki izin untuk mengedit LEADER!", true);
+        return;
+    }
+    
+    // ❌ CEK: CO-LEAD mencoba edit CO-LEAD (termasuk diri sendiri!)
+    if (isCoLead && isTargetCoLead) {
+        if (isTargetSelf) {
+            window.showToast("❌ Anda tidak bisa mengedit diri sendiri sebagai CO-LEAD! Hubungi LEADER.", true);
+        } else {
+            window.showToast("❌ Anda tidak memiliki izin untuk mengedit CO-LEAD lain!", true);
+        }
+        return;
+    }
+    
+    // ❌ CEK: Bukan LEADER atau CO-LEAD
+    if (!isLeader && !isCoLead) {
+        window.showToast("❌ Anda tidak memiliki izin untuk mengedit member!", true);
+        return;
+    }
+    
+    // ========== ROLE OPTIONS (HANYA LEADER) ==========
     const roleOptions = isLeader ? 
         `<select id="edit-role">
             <option value="member" ${member.role === 'member' ? 'selected' : ''}>Member</option>
             <option value="co-lead" ${member.role === 'co-lead' ? 'selected' : ''}>Co-Lead</option>
             <option value="leader" ${member.role === 'leader' ? 'selected' : ''}>Leader</option>
         </select>` :
-        `<input type="text" id="edit-role" value="${member.role}" readonly disabled>`;
+        `<input type="text" id="edit-role" value="${member.role.toUpperCase()}" readonly disabled>`;
     
-    const statusOptions = `
-        <select id="edit-status">
-            <option value="aktif" ${member.status === 'aktif' ? 'selected' : ''}>✅ Aktif</option>
-            <option value="nonaktif" ${member.status === 'nonaktif' ? 'selected' : ''}>⚪ Nonaktif</option>
-            <option value="scammer" ${member.status === 'scammer' ? 'selected' : ''}>🔴 Scammer</option>
-        </select>
-    `;
+    // ========== STATUS OPTIONS ==========
+    let statusOptions = '';
     
+    if (isLeader) {
+        statusOptions = `
+            <select id="edit-status">
+                <option value="aktif" ${member.status === 'aktif' ? 'selected' : ''}>✅ Aktif</option>
+                <option value="nonaktif" ${member.status === 'nonaktif' ? 'selected' : ''}>⚪ Nonaktif</option>
+                <option value="scammer" ${member.status === 'scammer' ? 'selected' : ''}>🔴 Scammer</option>
+            </select>
+        `;
+    } else if (isCoLead) {
+        if (member.role === 'member') {
+            statusOptions = `
+                <select id="edit-status">
+                    <option value="aktif" ${member.status === 'aktif' ? 'selected' : ''}>✅ Aktif</option>
+                    <option value="nonaktif" ${member.status === 'nonaktif' ? 'selected' : ''}>⚪ Nonaktif</option>
+                    <option value="scammer" ${member.status === 'scammer' ? 'selected' : ''}>🔴 Scammer</option>
+                </select>
+            `;
+        } else {
+            statusOptions = `
+                <input type="text" id="edit-status" value="${member.status.toUpperCase()}" readonly disabled>
+                <small style="color:#ff6b6b;">⚠️ Hanya LEADER yang bisa mengubah status ${member.role.toUpperCase()}</small>
+            `;
+        }
+    }
+    
+    // ========== CEK IZIN EDIT WA ==========
+    const canEditWAField = canEditWA(currentAdmin, member);
+    
+    // ========== TAMPILKAN MODAL ==========
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 450px;">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-user-edit"></i> Edit Member</h3>
             
+            ${isCoLead && isTargetSelf ? `
+                <div style="background:rgba(255,68,68,0.15); border:1px solid #ff4444; border-radius:8px; padding:10px; margin-bottom:15px; color:#ff6b6b; font-size:0.8rem;">
+                    ⚠️ Anda adalah CO-LEAD. Hubungi LEADER untuk mengubah data Anda sendiri.
+                </div>
+            ` : ''}
+            
+            ${isCoLead && isTargetCoLead && !isTargetSelf ? `
+                <div style="background:rgba(255,68,68,0.15); border:1px solid #ff4444; border-radius:8px; padding:10px; margin-bottom:15px; color:#ff6b6b; font-size:0.8rem;">
+                    ⚠️ Anda tidak memiliki izin untuk mengedit CO-LEAD lain!
+                </div>
+            ` : ''}
+            
+            ${isCoLead && isTargetLeader ? `
+                <div style="background:rgba(255,68,68,0.15); border:1px solid #ff4444; border-radius:8px; padding:10px; margin-bottom:15px; color:#ff6b6b; font-size:0.8rem;">
+                    ⚠️ Anda tidak memiliki izin untuk mengedit LEADER!
+                </div>
+            ` : ''}
+            
             <div class="form-group">
                 <label>IGN <span style="color:#ff4444;">*</span></label>
-                <input type="text" id="edit-ign" value="${escapeHtml(member.ign)}" placeholder="Nama IGN">
-                <small>Nama bisa berubah kapan saja (ganti nama di game)</small>
+                <input type="text" id="edit-ign" value="${escapeHtml(member.ign)}" placeholder="Nama IGN"
+                       ${!canEditWAField ? 'disabled style="opacity:0.6;cursor:not-allowed;"' : ''}>
+                <small>Nama bisa berubah kapan saja</small>
+                ${!canEditWAField ? '<small style="color:#ff6b6b;">❌ Hanya LEADER yang bisa mengedit data CO-LEAD/LEADER</small>' : ''}
             </div>
             
             <div class="form-group">
                 <label>WhatsApp</label>
-                <input type="text" id="edit-wa" value="${escapeHtml(member.wa)}" placeholder="628123456789">
-                <small>Contoh: 628123456789 (tanpa 0, tanpa +62, tanpa spasi/tanda hubung)</small>
+                <input type="text" id="edit-wa" value="${escapeHtml(member.wa)}" placeholder="628123456789"
+                       ${!canEditWAField ? 'disabled style="opacity:0.6;cursor:not-allowed;"' : ''}>
+                <small>Contoh: 628123456789 (tanpa 0, tanpa +62)</small>
+                ${!canEditWAField ? '<small style="color:#ff6b6b;">❌ Hanya LEADER yang bisa mengedit data CO-LEAD/LEADER</small>' : ''}
             </div>
             
             <div class="form-group">
@@ -403,7 +532,11 @@ async function editMember(uid) {
             </div>
             
             <div class="modal-buttons" style="margin-top: 20px;">
-                <button onclick="submitEditMember('${escapeHtml(member.uid)}')" style="background:var(--color-primary);">Simpan</button>
+                <button onclick="submitEditMember('${escapeHtml(member.uid)}')" 
+                        style="background:var(--color-primary);" 
+                        ${(!isLeader && (isTargetLeader || isTargetCoLead)) ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
+                    Simpan
+                </button>
                 <button onclick="closeModal()" style="background:#333;">Batal</button>
             </div>
         </div>
@@ -412,10 +545,42 @@ async function editMember(uid) {
     history.pushState({ modal: true }, "");
 }
 
+// ==========================================
+// SUBMIT EDIT MEMBER (DENGAN VALIDASI HIERARKI)
+// ==========================================
 async function submitEditMember(uid) {
     const member = memberList.find(m => m.uid === uid);
     if (!member) {
         window.showToast("Member tidak ditemukan", true);
+        return;
+    }
+    
+    // ========== VALIDASI ULANG ==========
+    const isLeader = currentAdmin?.role1 === 'LEADER' || currentAdmin?.role2 === 'LEADER';
+    const isCoLead = currentAdmin?.role1 === 'CO-LEAD' || currentAdmin?.role2 === 'CO-LEAD';
+    const isTargetLeader = member?.role === 'leader';
+    const isTargetCoLead = member?.role === 'co-lead';
+    const isTargetSelf = member?.uid === currentAdmin?.id;
+    
+    // ❌ CEK: CO-LEAD mencoba edit LEADER
+    if (isCoLead && isTargetLeader) {
+        window.showToast("❌ Anda tidak memiliki izin untuk mengedit LEADER!", true);
+        return;
+    }
+    
+    // ❌ CEK: CO-LEAD mencoba edit CO-LEAD (termasuk diri sendiri!)
+    if (isCoLead && isTargetCoLead) {
+        if (isTargetSelf) {
+            window.showToast("❌ Anda tidak bisa mengedit diri sendiri sebagai CO-LEAD! Hubungi LEADER.", true);
+        } else {
+            window.showToast("❌ Anda tidak memiliki izin untuk mengedit CO-LEAD lain!", true);
+        }
+        return;
+    }
+    
+    // ❌ CEK: Bukan LEADER atau CO-LEAD
+    if (!isLeader && !isCoLead) {
+        window.showToast("❌ Anda tidak memiliki izin untuk mengedit member!", true);
         return;
     }
     
@@ -429,13 +594,18 @@ async function submitEditMember(uid) {
         return;
     }
     
-    newWA = sanitizeWA(newWA);
-    if (newWA && !isValidWA(newWA)) {
-        window.showToast("❌ Format WA salah! Tidak boleh diawali 0. Gunakan kode negara (contoh: 628xxxxxxxxxx)", true);
-        return;
+    // ========== VALIDASI WA (CO-LEAD tidak bisa edit WA sendiri jika CO-LEAD) ==========
+    if (isCoLead && isTargetSelf && member.role === 'co-lead') {
+        newWA = member.wa || '';
     }
     
     if (newWA) {
+        newWA = sanitizeWA(newWA);
+        if (!isValidWA(newWA)) {
+            window.showToast("❌ Format WA salah! Tidak boleh diawali 0. Gunakan kode negara (contoh: 628xxxxxxxxxx)", true);
+            return;
+        }
+        
         const existing = checkActiveWA(newWA, uid);
         if (existing) {
             window.showToast(`❌ WA "${newWA}" sudah terdaftar sebagai "${existing.ign}"`, true);
@@ -443,6 +613,29 @@ async function submitEditMember(uid) {
         }
     }
     
+    // ========== VALIDASI ROLE (hanya LEADER) ==========
+    let finalRole = member.role;
+    if (isLeader && newRole) {
+        finalRole = newRole;
+    } else if (!isLeader && newRole && newRole !== member.role) {
+        window.showToast("❌ Hanya Leader yang bisa mengubah Role!", true);
+        return;
+    }
+    
+    // ========== VALIDASI STATUS ==========
+    let finalStatus = member.status;
+    if (newStatus) {
+        if (isLeader) {
+            finalStatus = newStatus;
+        } else if (isCoLead && member.role === 'member') {
+            finalStatus = newStatus;
+        } else if (isCoLead && member.role !== 'member') {
+            window.showToast(`❌ Hanya LEADER yang bisa mengubah status ${member.role.toUpperCase()}!`, true);
+            return;
+        }
+    }
+    
+    // ========== KIRIM KE SERVER ==========
     const modalContent = document.querySelector('#modal-overlay .modal-content');
     const btn = modalContent?.querySelector('button:first-of-type');
     const originalHtml = btn?.innerHTML;
@@ -452,7 +645,7 @@ async function submitEditMember(uid) {
     }
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=updateMemberWithMerge&adminId=${currentAdmin.id}&uid=${encodeURIComponent(uid)}&ign=${encodeURIComponent(newIGN)}&wa=${encodeURIComponent(newWA)}&role=${encodeURIComponent(newRole)}&status=${encodeURIComponent(newStatus)}`;
+        const url = `${window.GAS_ADMIN_URL}?action=updateMemberWithMerge&adminId=${currentAdmin.id}&uid=${encodeURIComponent(uid)}&ign=${encodeURIComponent(newIGN)}&wa=${encodeURIComponent(newWA)}&role=${encodeURIComponent(finalRole)}&status=${encodeURIComponent(finalStatus)}`;
         const res = await fetch(url);
         const result = await res.json();
         
@@ -461,7 +654,6 @@ async function submitEditMember(uid) {
             closeModal();
             
             if (result.data) {
-                // ✅ HAPUS JIKA STATUS NONAKTIF
                 if (result.data.status !== 'aktif') {
                     const index = memberList.findIndex(m => m.uid === result.data.uid);
                     if (index >= 0) {
@@ -487,8 +679,6 @@ async function submitEditMember(uid) {
             if (result.action === 'scammer') {
                 closeModal();
                 showAlertModal('SCAMMER DETEKSI', result.message, 'scammer');
-            } else if (result.action === 'active') {
-                window.showToast(result.message, true);
             } else {
                 window.showToast(result.message || "Gagal", true);
             }
@@ -534,7 +724,7 @@ function showAlertModal(title, message, type = 'warning') {
 }
 
 // ==========================================
-// EXPORT
+// EXPORT MEMBER
 // ==========================================
 async function exportMemberList() {
     const membersToExport = memberList.filter(m => m.status === 'aktif' && m.wa && m.wa !== '');
@@ -545,8 +735,6 @@ async function exportMemberList() {
     }
     
     const totalExport = membersToExport.length;
-    
-    // Tentukan lebar maksimal nomor WA (15 digit cukup)
     const maxWALength = 13;
     
     let text = "#editmember\n";
@@ -554,7 +742,6 @@ async function exportMemberList() {
     
     for (const member of membersToExport) {
         let wa = member.wa;
-        // Pad dengan spasi agar lebar tetap
         wa = wa.padEnd(maxWALength, ' ');
         text += `\`\`\`${wa} |\`\`\` ${member.ign}\n`;
     }
@@ -586,8 +773,9 @@ window.loadMemberList = loadMemberList;
 window.refreshMemberList = refreshMemberList;
 window.openAddMemberModal = openAddMemberModal;
 window.editMember = editMember;
+window.submitEditMember = submitEditMember;
 window.filterMissingWA = filterMissingWA;
 window.showAllMembers = showAllMembers;
 window.exportMemberList = exportMemberList;
 
-console.log("✅ [MEMBER] admin-member.js loaded");
+console.log("✅ [MEMBER] admin-member.js loaded (Dengan Perbaikan Hierarki)");

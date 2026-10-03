@@ -76,12 +76,10 @@
                     <h3 style="margin:0;"><i class="fas fa-envelope"></i> Kotak Surat</h3>
                     <select id="mail-filter" onchange="window.setMailFilter(this.value)" 
                             style="background:var(--bg-solid-form); border:1px solid var(--border-line); border-radius:20px; padding:6px 12px; color:white; font-size:0.7rem;">
-                        <option value="ALL">📋 Semua</option>
-                        <option value="UNREAD">📬 Belum Dibaca</option>
-                        <option value="NEED_ACTION">⚠️ Perlu Tindakan</option>
-                        <option value="REQUEST_JOIN">🛡️ Permintaan Bergabung</option>
-                        <option value="SARAN">💡 Saran</option>
-                        <option value="UMUM">📝 Umum</option>
+                        <option value="all">📋 Semua</option>
+                        <option value="unread">📬 Belum Dibaca</option>
+                        <option value="waiting">🕐 Menunggu Balasan</option>
+                        <option value="done">✅ Done</option>
                     </select>
                 </div>
                 <div id="mailbox-list" class="card-list">Memuat...</div>

@@ -1,15 +1,21 @@
 /**
- * admin-content.js - Kelola Konten Web (V6 — Final)
+ * admin-content.js - Kelola Konten Web (V7 — Fix Detection)
  * 
- * Aturan:
- * - Timestamp (kolom E) = ID permanen (waktu pembuatan). Tidak diupdate saat edit.
- * - Semua operasi edit/hapus pakai timestamp, bukan rowId.
- * - addContentItem: tambah item lokal (tanpa refresh), biar tidak hilangkan perubahan belum disimpan.
- * - updateAllContent: batch semua perubahan, baru refresh.
+ * Perubahan dari V6:
+ * - Parse timestamp robust (handle Date object, string ISO, string lokal)
+ * - Deteksi perubahan headline/openmember pakai Body, bukan Caption/ImageUrl
+ * - collectChangedFields pakai data-timestamp dari DOM (bukan re-parse)
+ * - Handle kasus timestamp kosong/invalid di sheet
+ * - Tambah debug log biar gampang trace
  */
 
 let currentContentData = [];
 let hasUnsavedChanges = false;
+
+const DEBUG_CONTENT = localStorage.getItem('umbrella_debug_content') === 'true';
+function clog(...args) {
+    if (DEBUG_CONTENT) console.log('[CONTENT]', ...args);
+}
 
 // ==========================================
 // KONFIG UPLOAD
@@ -18,6 +24,65 @@ const UPLOAD_CONFIG = {
     MAX_SIZE: 10 * 1024 * 1024,
     ALLOWED_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
 };
+
+// ==========================================
+// PARSE TIMESTAMP — ROBUST
+// ==========================================
+// Handle berbagai format dari sheet:
+// - Date object (dari getValues()) → JSON jadi ISO string
+// - String ISO "2024-12-15T10:30:22.000Z"
+// - String lokal "2024-12-15 10:30:22"
+// - String Indonesia "15/12/2024 10:30:22"
+// - Number (epoch ms)
+function parseTimestamp(raw) {
+    if (raw === null || raw === undefined || raw === '') return 0;
+    
+    // Kalau sudah number (epoch ms)
+    if (typeof raw === 'number') {
+        return raw > 0 ? raw : 0;
+    }
+    
+    // Kalau Date object
+    if (raw instanceof Date) {
+        const t = raw.getTime();
+        return isNaN(t) ? 0 : t;
+    }
+    
+    const str = String(raw).trim();
+    if (!str) return 0;
+    
+    // Coba parse langsung (ISO, atau format yang JS mengerti)
+    let t = new Date(str).getTime();
+    if (!isNaN(t) && t > 0) return t;
+    
+    // Coba parse format Indonesia: "15/12/2024 10:30:22"
+    const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) {
+        const day = parseInt(m[1]);
+        const month = parseInt(m[2]) - 1;
+        const year = parseInt(m[3]);
+        const hour = parseInt(m[4] || 0);
+        const min = parseInt(m[5] || 0);
+        const sec = parseInt(m[6] || 0);
+        t = new Date(year, month, day, hour, min, sec).getTime();
+        if (!isNaN(t) && t > 0) return t;
+    }
+    
+    // Coba parse epoch number sebagai string
+    if (/^\d+$/.test(str)) {
+        const num = parseInt(str);
+        if (num > 1000000000000) return num;  // ms
+        if (num > 1000000000) return num * 1000;  // s → ms
+    }
+    
+    clog('⚠️ Gagal parse timestamp:', raw);
+    return 0;
+}
+
+function getItemTs(item) {
+    if (!item) return 0;
+    return parseTimestamp(item.Timestamp);
+}
 
 // ==========================================
 // UPLOAD VIA GAS
@@ -203,12 +268,6 @@ function buildGalleryBody(imageUrl, caption) {
     return html;
 }
 
-// Helper: ambil timestamp (ms) dari item
-function getItemTs(item) {
-    if (!item || !item.Timestamp) return 0;
-    return new Date(item.Timestamp).getTime();
-}
-
 // ==========================================
 // LOAD & RENDER DATA
 // ==========================================
@@ -222,8 +281,13 @@ async function loadContentData() {
         const res = await fetch(`${window.GAS_ADMIN_URL}?action=getAllContent`);
         const data = await res.json();
         
+        clog('getAllContent response:', data);
+        
         if (data.status === 'success' && data.data) {
             currentContentData = data.data;
+            clog('currentContentData:', currentContentData.length, 'items');
+            clog('Sample item:', currentContentData[0]);
+            
             renderContentEditor(currentContentData);
             hasUnsavedChanges = false;
         } else {
@@ -249,12 +313,15 @@ function renderContentEditor(data) {
     const headlineTs = getItemTs(headline);
     const openmemberTs = getItemTs(openmember);
     
+    clog('Timestamps — headline:', headlineTs, 'openmember:', openmemberTs);
+    clog('Profil count:', profilList.length, 'Gallery count:', galeryList.length);
+    
     let html = `
         <div class="content-editor">
             <!-- HEADLINE -->
-            <div class="content-category">
+            <div class="content-category" data-category="headline">
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
-                <div class="content-item" data-timestamp="${headlineTs}" data-status="normal" style="position:relative;">
+                <div class="content-item" data-timestamp="${headlineTs}" data-category="headline" data-status="normal" style="position:relative;">
                     <div class="item-badge" style="display:none;"></div>
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(headline?.Header || '')}" data-timestamp="${headlineTs}" data-field="Header">
                     ${buildImageUrlInput(headlineTs, 'ImageUrl', extractImageUrlFromBody(headline?.Body || ''), 'URL Gambar (opsional)')}
@@ -263,9 +330,9 @@ function renderContentEditor(data) {
             </div>
             
             <!-- OPEN MEMBER -->
-            <div class="content-category">
+            <div class="content-category" data-category="openmember">
                 <h4><i class="fas fa-users"></i> OPEN MEMBER</h4>
-                <div class="content-item" data-timestamp="${openmemberTs}" data-status="normal" style="position:relative;">
+                <div class="content-item" data-timestamp="${openmemberTs}" data-category="openmember" data-status="normal" style="position:relative;">
                     <div class="item-badge" style="display:none;"></div>
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(openmember?.Header || '')}" data-timestamp="${openmemberTs}" data-field="Header">
                     ${buildImageUrlInput(openmemberTs, 'ImageUrl', extractImageUrlFromBody(openmember?.Body || ''), 'URL Gambar (opsional)')}
@@ -274,13 +341,13 @@ function renderContentEditor(data) {
             </div>
             
             <!-- PROFIL -->
-            <div class="content-category">
+            <div class="content-category" data-category="profil">
                 <h4><i class="fas fa-address-card"></i> PROFIL</h4>
                 <div id="profil-list">
                     ${profilList.map(item => {
                         const ts = getItemTs(item);
                         return `
-                        <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
+                        <div class="content-item" data-timestamp="${ts}" data-category="profil" data-status="normal" style="position:relative;">
                             <div class="item-badge" style="display:none;"></div>
                             <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
                                 <button class="btn-undo" onclick="undoDelete('profil', ${ts})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
@@ -295,7 +362,7 @@ function renderContentEditor(data) {
             </div>
             
             <!-- GALLERY -->
-            <div class="content-category">
+            <div class="content-category" data-category="gallery">
                 <h4><i class="fas fa-images"></i> GALLERY</h4>
                 <div id="gallery-list">
                     ${galeryList.map(item => {
@@ -303,7 +370,7 @@ function renderContentEditor(data) {
                         const imageUrl = extractImageUrlFromBody(item.Body || '');
                         const caption = extractCaptionFromBody(item.Body || '');
                         return `
-                            <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
+                            <div class="content-item" data-timestamp="${ts}" data-category="gallery" data-status="normal" style="position:relative;">
                                 <div class="item-badge" style="display:none;"></div>
                                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
                                     <button class="btn-undo" onclick="undoDelete('gallery', ${ts})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
@@ -320,13 +387,13 @@ function renderContentEditor(data) {
             </div>
             
             <!-- RUNNING TEXT -->
-            <div class="content-category">
+            <div class="content-category" data-category="running_text">
                 <h4><i class="fas fa-scroll"></i> RUNNING TEXT</h4>
                 <div id="runningtext-list">
                     ${runningTexts.map(item => {
                         const ts = getItemTs(item);
                         return `
-                        <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
+                        <div class="content-item" data-timestamp="${ts}" data-category="running_text" data-status="normal" style="position:relative;">
                             <div class="item-badge" style="display:none;"></div>
                             <textarea class="content-body" placeholder="Text" data-timestamp="${ts}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
                         </div>
@@ -335,7 +402,7 @@ function renderContentEditor(data) {
             </div>
             
             <!-- SOSMED -->
-            <div class="content-category">
+            <div class="content-category" data-category="sosmed">
                 <h4><i class="fas fa-share-alt"></i> SOSMED</h4>
                 <div id="sosmed-list">
                     ${sosmedList.map(item => {
@@ -350,7 +417,7 @@ function renderContentEditor(data) {
                             label = 'Facebook';
                         }
                         return `
-                            <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
+                            <div class="content-item" data-timestamp="${ts}" data-category="sosmed" data-status="normal" style="position:relative;">
                                 <div class="item-badge" style="display:none;"></div>
                                 <div class="platform-label" style="margin-bottom:8px; color:var(--color-primary); font-weight:bold;">
                                     <i class="${iconClass}"></i> ${label}
@@ -366,37 +433,61 @@ function renderContentEditor(data) {
     
     container.innerHTML = html;
     
-    // Pasang listener untuk change detection
+    // ==========================================
+    // PASANG LISTENER CHANGE DETECTION
+    // ==========================================
     document.querySelectorAll('.content-item').forEach(item => {
         const ts = parseInt(item.dataset.timestamp);
+        const category = item.dataset.category;
         const isNewItem = ts < 0;
         const badge = item.querySelector('.item-badge');
+        
+        // Cari original data berdasarkan timestamp
         const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
         
-        if (isNewItem) {
-            badge.textContent = 'BARU';
-            badge.style.cssText = 'position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px; font-weight:bold; z-index:10;';
-            badge.style.display = 'block';
-            item.style.background = 'rgba(34, 197, 94, 0.1)';
-            item.style.borderLeft = '3px solid #22c55e';
+        // Kalau timestamp invalid / 0, kasih warning
+        if (ts === 0 && !isNewItem) {
+            clog('⚠️ Item dengan timestamp 0:', category, originalData.ID);
         }
         
+        // Pasang listener
         const inputs = item.querySelectorAll('input, textarea, select');
+        
         const checkChanges = () => {
             if (item.dataset.status === 'deleted') return;
             
             let hasChanged = false;
-            inputs.forEach(input => {
-                const field = input.dataset.field;
-                const originalValue = originalData[field] || '';
-                if (input.value !== originalValue) hasChanged = true;
-            });
             
-            const imageUrlInput = item.querySelector('.content-image-url');
-            const captionInput = item.querySelector('.content-caption');
-            if (imageUrlInput && captionInput) {
-                const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
-                if (originalData.Body !== newBody) hasChanged = true;
+            // Untuk HEADLINE/OPENMEMBER: cek Header + Body (gabungan dari ImageUrl + Caption)
+            if (category === 'headline' || category === 'openmember') {
+                const headerInput = item.querySelector('.content-header');
+                const imageUrlInput = item.querySelector('.content-image-url');
+                const captionInput = item.querySelector('.content-caption');
+                
+                // Header berubah?
+                if (headerInput && originalData.Header !== headerInput.value) {
+                    hasChanged = true;
+                }
+                
+                // Body berubah? (gabungan ImageUrl + Caption → banding dengan Body asli)
+                if (imageUrlInput && captionInput) {
+                    const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
+                    if (originalData.Body !== newBody) {
+                        hasChanged = true;
+                    }
+                }
+            } else {
+                // Untuk kategori lain: cek per-field
+                inputs.forEach(input => {
+                    const field = input.dataset.field;
+                    if (!field) return;
+                    
+                    // Skip Caption/ImageUrl untuk kategori non-headline
+                    if (field === 'Caption' || field === 'ImageUrl') return;
+                    
+                    const originalValue = originalData[field] || '';
+                    if (input.value !== originalValue) hasChanged = true;
+                });
             }
             
             if (hasChanged && !isNewItem && item.dataset.status !== 'edited') {
@@ -407,11 +498,13 @@ function renderContentEditor(data) {
                 item.style.borderLeft = '3px solid #f59e0b';
                 item.dataset.status = 'edited';
                 hasUnsavedChanges = true;
+                clog('Item edited:', category, ts);
             } else if (!hasChanged && item.dataset.status === 'edited') {
                 badge.style.display = 'none';
                 item.style.background = '';
                 item.style.borderLeft = '';
                 item.dataset.status = 'normal';
+                clog('Item reverted:', category, ts);
             }
         };
         
@@ -420,6 +513,8 @@ function renderContentEditor(data) {
             if (input.tagName === 'SELECT') input.addEventListener('change', checkChanges);
         });
     });
+    
+    clog('✅ renderContentEditor selesai, listeners terpasang');
 }
 
 // ==========================================
@@ -430,43 +525,50 @@ function collectChangedFields() {
     const newItems = [];
     const deletedTimestamps = [];
     
-    // Cek new items (timestamp < 0 = baru ditambahkan lokal, belum di server)
-    document.querySelectorAll('#profil-list .content-item, #gallery-list .content-item').forEach(item => {
+    // ============ NEW ITEMS ============
+    document.querySelectorAll('.content-item[data-status="normal"]').forEach(item => {
         const ts = parseInt(item.dataset.timestamp);
-        if (ts < 0) {
-            if (item.closest('#profil-list')) {
-                newItems.push({ 
-                    category: 'profil', 
-                    header: item.querySelector('.content-header')?.value || '',
-                    body: item.querySelector('.content-body')?.value || ''
-                });
-            } else if (item.closest('#gallery-list')) {
-                const imgUrl = item.querySelector('.content-image-url')?.value || '';
-                const caption = item.querySelector('.content-caption')?.value || '';
-                newItems.push({ 
-                    category: 'gallery', 
-                    header: item.querySelector('.content-header')?.value || '',
-                    body: buildGalleryBody(imgUrl, caption)
-                });
-            }
+        if (ts >= 0) return;  // bukan item baru
+        
+        const category = item.dataset.category;
+        if (category !== 'profil' && category !== 'gallery') return;
+        
+        if (category === 'profil') {
+            newItems.push({
+                category: 'profil',
+                header: item.querySelector('.content-header')?.value || '',
+                body: item.querySelector('.content-body')?.value || ''
+            });
+        } else if (category === 'gallery') {
+            const imgUrl = item.querySelector('.content-image-url')?.value || '';
+            const caption = item.querySelector('.content-caption')?.value || '';
+            newItems.push({
+                category: 'gallery',
+                header: item.querySelector('.content-header')?.value || '',
+                body: buildGalleryBody(imgUrl, caption)
+            });
         }
     });
     
-    // Cek deleted items
+    // ============ DELETED ITEMS ============
     document.querySelectorAll('.content-item[data-status="deleted"]').forEach(item => {
         const ts = parseInt(item.dataset.timestamp);
         if (ts > 0) deletedTimestamps.push(ts);
     });
     
-    // HEADLINE
-    const headlineItem = document.querySelector('.content-category:nth-child(1) .content-item');
-    if (headlineItem && headlineItem.dataset.status !== 'deleted') {
-        const ts = parseInt(headlineItem.dataset.timestamp);
-        if (ts > 0) {
-            const headerInput = headlineItem.querySelector('.content-header');
-            const imageUrlInput = headlineItem.querySelector('.content-image-url');
-            const captionInput = headlineItem.querySelector('.content-caption');
-            const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
+    // ============ CHANGES (EDIT) ============
+    document.querySelectorAll('.content-item[data-status="edited"]').forEach(item => {
+        const ts = parseInt(item.dataset.timestamp);
+        if (ts <= 0) return;  // skip new items
+        
+        const category = item.dataset.category;
+        const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
+        
+        // HEADLINE / OPENMEMBER: cek Header + Body (gabungan)
+        if (category === 'headline' || category === 'openmember') {
+            const headerInput = item.querySelector('.content-header');
+            const imageUrlInput = item.querySelector('.content-image-url');
+            const captionInput = item.querySelector('.content-caption');
             
             if (headerInput && originalData.Header !== headerInput.value) {
                 changes.push({ timestamp: ts, field: 'Header', value: headerInput.value });
@@ -478,96 +580,48 @@ function collectChangedFields() {
                     changes.push({ timestamp: ts, field: 'Body', value: newBody });
                 }
             }
-        }
-    }
-    
-    // OPEN MEMBER
-    const openmemberItem = document.querySelector('.content-category:nth-child(2) .content-item');
-    if (openmemberItem && openmemberItem.dataset.status !== 'deleted') {
-        const ts = parseInt(openmemberItem.dataset.timestamp);
-        if (ts > 0) {
-            const headerInput = openmemberItem.querySelector('.content-header');
-            const imageUrlInput = openmemberItem.querySelector('.content-image-url');
-            const captionInput = openmemberItem.querySelector('.content-caption');
-            const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
+        } else {
+            // Kategori lain: cek per-field
+            const inputs = item.querySelectorAll('input, textarea, select');
+            inputs.forEach(input => {
+                const field = input.dataset.field;
+                if (!field) return;
+                if (field === 'Caption' || field === 'ImageUrl') return;  // skip, sudah digabung ke Body
+                
+                const originalValue = originalData[field] || '';
+                if (input.value !== originalValue) {
+                    changes.push({ timestamp: ts, field: field, value: input.value });
+                }
+            });
             
-            if (headerInput && originalData.Header !== headerInput.value) {
-                changes.push({ timestamp: ts, field: 'Header', value: headerInput.value });
-            }
-            
-            if (imageUrlInput && captionInput) {
-                const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
-                if (originalData.Body !== newBody) {
-                    changes.push({ timestamp: ts, field: 'Body', value: newBody });
+            // Khusus gallery: gabungkan ImageUrl + Caption jadi Body
+            if (category === 'gallery') {
+                const imageUrlInput = item.querySelector('.content-image-url');
+                const captionInput = item.querySelector('.content-caption');
+                if (imageUrlInput && captionInput) {
+                    const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
+                    if (originalData.Body !== newBody) {
+                        // Hapus perubahan Header/Body yang mungkin sudah tercatat
+                        const idx = changes.findIndex(c => c.timestamp === ts && c.field === 'Body');
+                        if (idx === -1) {
+                            changes.push({ timestamp: ts, field: 'Body', value: newBody });
+                        } else {
+                            changes[idx].value = newBody;
+                        }
+                    }
                 }
             }
         }
-    }
-    
-    // PROFIL
-    document.querySelectorAll('#profil-list .content-item:not([data-status="deleted"])').forEach(item => {
-        const ts = parseInt(item.dataset.timestamp);
-        if (ts <= 0) return;
-        
-        const headerInput = item.querySelector('.content-header');
-        const bodyInput = item.querySelector('.content-body');
-        const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
-        
-        if (headerInput && originalData.Header !== headerInput.value) {
-            changes.push({ timestamp: ts, field: 'Header', value: headerInput.value });
-        }
-        if (bodyInput && originalData.Body !== bodyInput.value) {
-            changes.push({ timestamp: ts, field: 'Body', value: bodyInput.value });
-        }
     });
     
-    // GALLERY
-    document.querySelectorAll('#gallery-list .content-item:not([data-status="deleted"])').forEach(item => {
-        const ts = parseInt(item.dataset.timestamp);
-        if (ts <= 0) return;
-        
-        const headerInput = item.querySelector('.content-header');
-        const imageUrlInput = item.querySelector('.content-image-url');
-        const captionInput = item.querySelector('.content-caption');
-        const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
-        
-        if (headerInput && originalData.Header !== headerInput.value) {
-            changes.push({ timestamp: ts, field: 'Header', value: headerInput.value });
-        }
-        
-        if (imageUrlInput && captionInput) {
-            const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
-            if (originalData.Body !== newBody) {
-                changes.push({ timestamp: ts, field: 'Body', value: newBody });
-            }
-        }
+    clog('collectChangedFields:', {
+        changes: changes.length,
+        newItems: newItems.length,
+        deletedTimestamps: deletedTimestamps.length
     });
-    
-    // RUNNING TEXT
-    document.querySelectorAll('#runningtext-list .content-item:not([data-status="deleted"])').forEach(item => {
-        const ts = parseInt(item.dataset.timestamp);
-        if (ts <= 0) return;
-        
-        const bodyInput = item.querySelector('.content-body');
-        const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
-        
-        if (bodyInput && originalData.Body !== bodyInput.value) {
-            changes.push({ timestamp: ts, field: 'Body', value: bodyInput.value });
-        }
-    });
-    
-    // SOSMED
-    document.querySelectorAll('#sosmed-list .content-item:not([data-status="deleted"])').forEach(item => {
-        const ts = parseInt(item.dataset.timestamp);
-        if (ts <= 0) return;
-        
-        const bodyInput = item.querySelector('.content-body');
-        const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
-        
-        if (bodyInput && originalData.Body !== bodyInput.value) {
-            changes.push({ timestamp: ts, field: 'Body', value: bodyInput.value });
-        }
-    });
+    clog('Detail changes:', changes);
+    clog('Detail newItems:', newItems);
+    clog('Detail deleted:', deletedTimestamps);
     
     return { changes, newItems, deletedTimestamps };
 }
@@ -577,6 +631,8 @@ function collectChangedFields() {
 // ==========================================
 window.updateAllContent = async function() {
     const { changes, newItems, deletedTimestamps } = collectChangedFields();
+    
+    clog('updateAllContent:', { changes: changes.length, newItems: newItems.length, deletedTimestamps: deletedTimestamps.length });
     
     if (changes.length === 0 && newItems.length === 0 && deletedTimestamps.length === 0) {
         window.showToast("Tidak ada perubahan", true);
@@ -645,14 +701,12 @@ window.addContentItem = function(category) {
     const container = document.getElementById(`${category}-list`);
     if (!container) return;
     
-    const tempTs = -Date.now();   // temp timestamp negatif
+    const tempTs = -Date.now();
     const newItemHtml = getNewItemHtml(category, tempTs);
     container.insertAdjacentHTML('beforeend', newItemHtml);
     
-    // Pasang listener untuk item baru
     const newItem = container.querySelector(`.content-item[data-timestamp="${tempTs}"]`);
     if (newItem) {
-        // Mark as new
         const badge = newItem.querySelector('.item-badge');
         badge.textContent = 'BARU';
         badge.style.cssText = 'position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px; font-weight:bold; z-index:10;';
@@ -660,7 +714,6 @@ window.addContentItem = function(category) {
         newItem.style.background = 'rgba(34, 197, 94, 0.1)';
         newItem.style.borderLeft = '3px solid #22c55e';
         
-        // Listener perubahan
         const inputs = newItem.querySelectorAll('input, textarea');
         inputs.forEach(input => {
             input.addEventListener('input', () => {
@@ -676,7 +729,7 @@ window.addContentItem = function(category) {
 function getNewItemHtml(category, ts) {
     if (category === 'profil') {
         return `
-            <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
+            <div class="content-item" data-timestamp="${ts}" data-category="profil" data-status="normal" style="position:relative;">
                 <div class="item-badge" style="display:none;"></div>
                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
                     <button class="btn-delete-item" onclick="deleteContentItem('profil', ${ts})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
@@ -687,7 +740,7 @@ function getNewItemHtml(category, ts) {
         `;
     } else if (category === 'gallery') {
         return `
-            <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
+            <div class="content-item" data-timestamp="${ts}" data-category="gallery" data-status="normal" style="position:relative;">
                 <div class="item-badge" style="display:none;"></div>
                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
                     <button class="btn-delete-item" onclick="deleteContentItem('gallery', ${ts})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
@@ -813,5 +866,8 @@ window.deleteContentItem = deleteContentItem;
 window.undoDelete = undoDelete;
 window.triggerUpload = triggerUpload;
 window.updateImagePreview = updateImagePreview;
+window.collectChangedFields = collectChangedFields;  // expose untuk debug
+window.parseTimestamp = parseTimestamp;  // expose untuk debug
 
-console.log("✅ admin-content.js loaded (V6 — Final: Timestamp ID + Local Add)");
+console.log("✅ admin-content.js loaded (V7 — Fix Detection + Debug)");
+console.log("💡 Debug: ketik 'localStorage.setItem(\"umbrella_debug_content\", \"true\"); location.reload();' untuk enable log");

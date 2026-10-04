@@ -1,30 +1,29 @@
 /**
  * admin-router.js — Router & History State Manager
  * 
- * Tujuan:
- * - Satu view = satu state history
+ * Prinsip:
+ * - Satu view = satu state history (seimbang)
  * - Back button Android → kembali ke view sebelumnya
  * - Base view = 'dashboard' → back = konfirmasi keluar
+ * - Tombol X (PC) → panggil closeCurrentView() → sama seperti back
  * 
  * Cara pakai:
- *   pushView('mail-detail', { mail }) → render view + push history
- *   closeCurrentView() → tutup view manual (tombol X) + history.back()
+ *   pushView('mail-detail', { mail }) → render + push history
+ *   closeCurrentView() → tutup view manual (X / back button)
  */
 
 // ==========================================
 // STATE
 // ==========================================
-let viewStack = [];           // stack view aktif (mirror dari history)
-let isHandlingPopstate = false; // guard biar tidak double-handle
+let viewStack = [];
+let isHandlingPopstate = false;
 
 // ==========================================
 // PUSH VIEW — Buka view baru
 // ==========================================
 function pushView(viewName, data = {}) {
-    // Simpan ke stack
     viewStack.push({ view: viewName, data });
     
-    // Push history
     history.pushState({
         view: viewName,
         data: data,
@@ -48,7 +47,7 @@ function popView() {
 }
 
 // ==========================================
-// CURRENT VIEW — View yang sedang aktif
+// CURRENT VIEW
 // ==========================================
 function getCurrentView() {
     return viewStack.length > 0 
@@ -57,14 +56,12 @@ function getCurrentView() {
 }
 
 // ==========================================
-// CLOSE VIEW — Tutup view manual (tombol X)
+// CLOSE VIEW — Tutup view manual (X / back)
 // ==========================================
 function closeCurrentView() {
     if (viewStack.length > 0) {
-        // Trigger back, akan memicu popstate
         history.back();
     } else {
-        // Tidak ada view → tutup semua modal langsung
         forceCloseAllModals();
     }
 }
@@ -73,83 +70,92 @@ function closeCurrentView() {
 // FORCE CLOSE ALL — Darurat
 // ==========================================
 function forceCloseAllModals() {
-    document.getElementById('modal-overlay').style.display = 'none';
+    const modal = document.getElementById('modal-overlay');
+    if (modal) modal.style.display = 'none';
+    
     const chatWidget = document.getElementById('chat-widget');
     if (chatWidget && chatWidget.classList.contains('show')) {
         chatWidget.classList.remove('show');
         if (typeof stopAllTimers === 'function') stopAllTimers();
     }
+    
     viewStack = [];
+    console.log('🧹 Force close all modals');
 }
 
 // ==========================================
-// POPSTATE HANDLER — Tangkap back button
+// HIDE MODAL (tanpa history)
+// ==========================================
+function hideModalOnly() {
+    const modal = document.getElementById('modal-overlay');
+    if (modal) modal.style.display = 'none';
+}
+
+// ==========================================
+// POPSTATE — Tangkap back button
 // ==========================================
 window.addEventListener('popstate', function(event) {
-    // Guard: hindari double handle
     if (isHandlingPopstate) return;
     isHandlingPopstate = true;
+    setTimeout(() => { isHandlingPopstate = false; }, 150);
     
-    setTimeout(() => { isHandlingPopstate = false; }, 100);
+    console.log('🔙 popstate:', event.state);
     
-    console.log('🔙 popstate, state:', event.state);
-    
-    // Prioritas 1: Ada state dari browser
-    if (event.state && event.state.view) {
-        // Reset stack sampai depth yang cocok
+    // Sinkronisasi stack dengan depth di state
+    if (event.state && typeof event.state.depth === 'number') {
         while (viewStack.length > event.state.depth) {
             viewStack.pop();
         }
-        
-        // Render view yang diminta
-        routeToView(event.state.view, event.state.data || {});
-        return;
+    } else {
+        viewStack = [];
     }
     
-    // Prioritas 2: Tidak ada state (keluar dari history)
-    // → User di base dashboard
-    handleBackFromBase();
+    // Render view target
+    if (event.state && event.state.view) {
+        routeToView(event.state.view, event.state.data || {});
+    } else {
+        // Tidak ada state → base dashboard
+        handleBackFromBase();
+    }
 });
 
 // ==========================================
-// ROUTE TO VIEW — Render view sesuai nama
+// ROUTE TO VIEW
 // ==========================================
 function routeToView(viewName, data) {
     console.log(`🎯 routeToView: ${viewName}`);
     
-    // Default: tutup semua modal dulu
-    const modal = document.getElementById('modal-overlay');
-    if (modal) modal.style.display = 'none';
+    // Tutup modal by default
+    hideModalOnly();
     
-    // Kalau view = chat, jangan tutup chat widget
-    const chatWidget = document.getElementById('chat-widget');
+    // Kecuali kalau view target = chat, jangan tutup chat widget
     const keepChatOpen = (viewName === 'chat' || viewName.startsWith('chat-'));
+    const chatWidget = document.getElementById('chat-widget');
+    
     if (!keepChatOpen && chatWidget && chatWidget.classList.contains('show')) {
         chatWidget.classList.remove('show');
         if (typeof stopAllTimers === 'function') stopAllTimers();
         if (typeof window.sendPresence === 'function') window.sendPresence('standby');
     }
     
-    // Render view target
+    // Render sesuai view
     switch (viewName) {
         case 'dashboard':
-            // Base — tidak ada aksi, sudah bersih
+            // Base, tidak perlu render
             break;
         
         case 'chat':
-            // Chat dibuka langsung oleh toggleChatWidget
-            // Ini cuma base state, tidak perlu render
+            // Chat dibuka oleh toggleChatWidget, state hanya penanda
             break;
         
         case 'mail-list':
-            if (typeof renderMailbox === 'function') {
+            if (typeof renderMailbox === 'function' && typeof currentMailList !== 'undefined') {
                 renderMailbox(currentMailList);
             }
             break;
         
         case 'mail-detail':
-            if (data.mail && typeof openMailDetail === 'function') {
-                // Panggil internal tanpa push
+            if (data.mail && typeof renderMailDetailInternal === 'function') {
                 renderMailDetailInternal(data.mail);
             }
             break;
@@ -161,7 +167,7 @@ function routeToView(viewName, data) {
             break;
         
         case 'mail-history':
-            if (data.uid && typeof openHistory === 'function') {
+            if (data.uid && typeof renderMailHistoryInternal === 'function') {
                 renderMailHistoryInternal(data.uid);
             }
             break;
@@ -179,7 +185,7 @@ function routeToView(viewName, data) {
             break;
         
         case 'kas-notif':
-            // Notif kas — modal sudah ditutup, tidak perlu render ulang
+            // Modal notif sudah ditutup, tidak render ulang
             break;
         
         case 'kas-tarif':
@@ -206,40 +212,64 @@ function routeToView(viewName, data) {
             }
             break;
         
+        case 'admin-edit-name':
+            if (data.adminId && typeof renderAdminEditNameInternal === 'function') {
+                renderAdminEditNameInternal(data.adminId, data.currentName);
+            }
+            break;
+        
+        case 'admin-edit-role':
+            if (data.adminId && typeof renderAdminEditRoleInternal === 'function') {
+                renderAdminEditRoleInternal(data.adminId, data.role1, data.role2);
+            }
+            break;
+        
+        case 'admin-promote':
+            if (data.targetId && typeof renderPromoteLeaderInternal === 'function') {
+                renderPromoteLeaderInternal(data.targetId);
+            }
+            break;
+        
+        case 'confirm':
+            // Confirm modal sudah ditutup, tidak render ulang
+            // (karena confirm = keputusan sudah diambil saat back)
+            break;
+        
         default:
             console.warn(`⚠️ Unknown view: ${viewName}`);
     }
 }
 
 // ==========================================
-// HANDLE BACK FROM BASE
+// BACK FROM BASE
 // ==========================================
 function handleBackFromBase() {
-    console.log('🏠 Back dari base dashboard → konfirmasi keluar');
+    console.log('🏠 Back dari base dashboard');
     
     // Push state lagi biar tetap di dashboard
     history.pushState({ view: 'dashboard', depth: 0 }, "");
     
-    // Tanya user
+    // Konfirmasi keluar
     if (typeof window.showConfirmModal === 'function') {
         window.showConfirmModal(
             'Keluar dari panel admin?',
-            () => { window.logout(); },
-            () => { /* batal — tetap di dashboard */ }
+            () => { 
+                if (typeof window.logout === 'function') window.logout(); 
+            },
+            () => { 
+                // Batal — tetap di dashboard
+                console.log('↩️ Batal keluar');
+            }
         );
     }
 }
 
 // ==========================================
-// SETUP BASE STATE — Dipanggil setelah login
+// SETUP BASE STATE — Setelah login
 // ==========================================
 function setupBaseState() {
-    // Reset stack
     viewStack = [];
-    
-    // Push base state
     history.pushState({ view: 'dashboard', depth: 0 }, "");
-    
     console.log('✅ Base state disiapkan');
 }
 
@@ -252,5 +282,6 @@ window.getCurrentView = getCurrentView;
 window.closeCurrentView = closeCurrentView;
 window.setupBaseState = setupBaseState;
 window.forceCloseAllModals = forceCloseAllModals;
+window.hideModalOnly = hideModalOnly;
 
 console.log('✅ admin-router.js loaded');

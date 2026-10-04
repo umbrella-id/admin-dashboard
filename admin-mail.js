@@ -1,10 +1,11 @@
 /**
- * admin-mail.js — Mailbox Manager V6
+ * admin-mail.js — Mailbox Manager
  * 
- * Update dari V5:
- * - buildSentCardHTML: "Kepada: Nama User" + badge nama admin
- * - openMailDetail: tombol History turun 1 baris (tidak tabrakan dengan X)
- * - Support targetIgn dari GAS
+ * Update dari V6:
+ * - Tombol History sejajar dengan nama client (satu baris)
+ * - Tombol History muncul di semua tipe pesan (termasuk surat keluar)
+ * - History popup: tanpa background, dengan garis pemisah
+ * - History popup: label [ADMIN] Nama Admin untuk surat keluar
  */
 
 let currentMailFilter = "all";
@@ -171,13 +172,11 @@ function buildInboxCardHTML(mail) {
 
 // ==========================================
 // BUILD SENT CARD (Surat Keluar)
-// Kepada: nama user (targetIgn)
-// Badge: nama admin yang balas
 // ==========================================
 function buildSentCardHTML(mail) {
-  const targetIgn = escapeHtml(mail.ign || 'Unknown');       // 🎯 nama user (dari kolom C)
-  const targetUid = escapeHtml(mail.uid || '-');
-  const adminName = escapeHtml(mail.adminName || 'Admin');   // 🎯 nama admin (dari lookup)
+    const targetIgn = escapeHtml(mail.ign || 'Unknown');       // nama user (kolom C)
+    const targetUid = escapeHtml(mail.uid || '-');
+    const adminName = escapeHtml(mail.adminName || 'Admin');   // nama admin (lookup)
     const message = escapeHtml(mail.message || '').trim();
     const timestamp = mail.timestamp ? new Date(mail.timestamp) : new Date();
     const tanggal = timestamp.toLocaleDateString('id-ID');
@@ -221,7 +220,7 @@ function buildSentCardHTML(mail) {
 async function openMailDetail(mail) {
     currentMailDetail = mail;
     
-    // 🎯 OPTIMISTIC: Update lokal DULU
+    // 🎯 OPTIMISTIC: Update lokal DULU (hanya kalau dari user & UNREAD)
     const originalStatus = mail.status;
     
     if (mail.status === 'UNREAD' && !mail.isFromAdmin) {
@@ -266,6 +265,14 @@ async function openMailDetail(mail) {
     const tanggal = timestamp.toLocaleDateString('id-ID');
     const jam = timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const pesan = escapeHtml(mail.message || '').trim();
+    
+    // 🎯 Label pengirim
+    let senderLabel;
+    if (isFromAdmin) {
+        senderLabel = `<span style="color:#c9a55a; font-weight:700;">[ADMIN]</span> ${escapeHtml(mail.ign)}`;
+    } else {
+        senderLabel = `<b>${escapeHtml(mail.ign)}</b>`;
+    }
     
     // Balasan admin (kalau REPLIED atau DONE)
     let adminReplyHTML = '';
@@ -312,19 +319,17 @@ async function openMailDetail(mail) {
             
             <h3 style="margin:0 0 12px 0; padding-right: 40px;">📄 PESAN</h3>
             
-            ${!isFromAdmin ? `
-                <div style="margin-bottom: 12px; text-align: right;">
-                    <button onclick="openHistory('${escapeHtml(mail.uid)}')" 
-                            style="background:transparent; border:1px solid var(--border-line); border-radius:6px; padding:5px 12px; color:#c9a55a; cursor:pointer; font-size:0.7rem;">
-                        📜 HISTORY
-                    </button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:10px;">
+                <div class="modal-sender-row" style="margin:0; flex:1; min-width:0;">
+                    ${senderLabel}
+                    <span class="modal-uid">${escapeHtml(mail.uid)}</span>
                 </div>
-            ` : ''}
-            
-            <div class="modal-sender-row">
-                <b>${escapeHtml(mail.ign)}</b>
-                <span class="modal-uid">${escapeHtml(mail.uid)}</span>
+                <button onclick="openHistory('${escapeHtml(mail.uid)}')" 
+                        style="background:transparent; border:1px solid var(--border-line); border-radius:6px; padding:4px 10px; color:#c9a55a; cursor:pointer; font-size:0.65rem; flex-shrink:0;">
+                    📜 HISTORY
+                </button>
             </div>
+            
             <div class="modal-meta-row">
                 <span><i class="far fa-calendar-alt"></i> ${tanggal} ${jam}</span>
                 <span><i class="fas fa-tag"></i> ${catLabel}</span>
@@ -359,7 +364,7 @@ function findAdminReply(userMessage) {
 }
 
 // ==========================================
-// BUKA HISTORY (Lazy Load)
+// BUKA HISTORY (Lazy Load) — Tampilan Log
 // ==========================================
 async function openHistory(uid) {
     const modal = document.getElementById('modal-overlay');
@@ -367,7 +372,7 @@ async function openHistory(uid) {
         <div class="modal-content" style="max-width: 500px;">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3 style="margin-bottom:15px;">📜 HISTORY — ${escapeHtml(uid)}</h3>
-            <div id="history-content" style="max-height:400px; overflow-y:auto;">
+            <div id="history-content" style="max-height:400px; overflow-y:auto; padding-right:6px;">
                 <div style="text-align:center; padding:20px; color:var(--text-muted);">
                     <i class="fas fa-spinner fa-spin"></i> Memuat...
                 </div>
@@ -390,23 +395,34 @@ async function openHistory(uid) {
             }
             
             let html = '';
-            for (const h of data.history) {
+            for (let i = 0; i < data.history.length; i++) {
+                const h = data.history[i];
                 const ts = new Date(h.timestamp);
                 const tgl = ts.toLocaleDateString('id-ID');
                 const jam = ts.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
                 const fromAdmin = h.isFromAdmin;
-                const icon = fromAdmin ? '📤' : '📩';
-                const bgColor = fromAdmin ? 'rgba(168,85,247,0.1)' : 'rgba(100,116,139,0.1)';
-                const borderColor = fromAdmin ? 'var(--color-primary)' : '#64748b';
+                
+                // 🎯 Label pengirim
+                let senderLabel;
+                if (fromAdmin) {
+                    senderLabel = `<span style="color:#c9a55a; font-weight:700;">[ADMIN]</span> ${escapeHtml(h.ign)}`;
+                } else {
+                    senderLabel = `<b>${escapeHtml(h.ign)}</b>`;
+                }
                 
                 html += `
-                    <div style="background:${bgColor}; border-radius:8px; padding:10px; margin-bottom:8px; border-left:3px solid ${borderColor};">
-                        <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">
-                            ${icon} <b>${escapeHtml(h.ign)}</b> • ${tgl} ${jam}
+                    <div style="padding:10px 0;">
+                        <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">
+                            ${fromAdmin ? '📤' : '📩'} ${senderLabel} • ${tgl} ${jam}
                         </div>
-                        <div style="font-size:0.85rem; white-space:pre-wrap;">${escapeHtml(h.message)}</div>
+                        <div style="font-size:0.85rem; white-space:pre-wrap; color:var(--text-main); line-height:1.5;">${escapeHtml(h.message)}</div>
                     </div>
                 `;
+                
+                // 🎯 Garis pemisah (kecuali pesan terakhir)
+                if (i < data.history.length - 1) {
+                    html += `<div style="border-top:1px solid rgba(255,255,255,0.08); margin: 4px 0;"></div>`;
+                }
             }
             container.innerHTML = html;
             container.scrollTop = container.scrollHeight;
@@ -492,19 +508,15 @@ async function submitMailReply() {
         if (data.status === 'success') {
             window.showToast("✅ Balasan terkirim");
             
-            // 🎯 Pakai feedback
             if (data.feedback) {
                 updateFromFeedback(data.feedback);
             }
             
-            // Update detail lokal
             currentMailDetail.status = 'REPLIED';
             
-            // Re-render list
             updateCache();
             renderMailbox(currentMailList);
             
-            // Balik ke detail
             setTimeout(() => openMailDetail(currentMailDetail), 300);
         } else {
             window.showToast(data.message || "Gagal mengirim", true);
@@ -569,7 +581,7 @@ async function markAsDone(rowId) {
 }
 
 // ==========================================
-// 🎯 PAKAI FEEDBACK DARI GAS
+// PAKAI FEEDBACK DARI GAS
 // ==========================================
 function updateFromFeedback(feedback) {
     if (!feedback) return;
@@ -701,4 +713,4 @@ window.markAsDone = markAsDone;
 window.checkMailboxChanges = checkMailboxChanges;
 window.updateFromFeedback = updateFromFeedback;
 
-console.log("✅ admin-mail.js loaded (Mail 2 Arah V6 — Sent Card Fix)");
+console.log("✅ admin-mail.js loaded (Mail 2 Arah V7 — History Fix)");

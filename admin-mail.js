@@ -1,13 +1,10 @@
 /**
- * admin-mail.js — Mailbox Manager V5 (Mail 2 Arah + Feedback)
+ * admin-mail.js — Mailbox Manager V6
  * 
- * Konsep:
- * - Filter: Semua / Belum Terbaca / Sudah Dibaca / Sudah Dibalas / Selesai / Surat Keluar
- * - Card layout lama + badge warna status
- * - Detail: History (header) + Balas + Selesai (footer)
- * - Surat Keluar: filter terpisah, tanpa status
- * - 1 tembakan GAS = feedback lengkap (status + badge + timestamp)
- * - Optimistic UI + feedback update
+ * Update dari V5:
+ * - buildSentCardHTML: "Kepada: Nama User" + badge nama admin
+ * - openMailDetail: tombol History turun 1 baris (tidak tabrakan dengan X)
+ * - Support targetIgn dari GAS
  */
 
 let currentMailFilter = "all";
@@ -174,16 +171,20 @@ function buildInboxCardHTML(mail) {
 
 // ==========================================
 // BUILD SENT CARD (Surat Keluar)
+// Kepada: nama user (targetIgn)
+// Badge: nama admin yang balas
 // ==========================================
 function buildSentCardHTML(mail) {
-    const ign = escapeHtml(mail.ign || 'Tidak dikenal');
-    const uid = escapeHtml(mail.uid || '-');
+    const targetIgn = escapeHtml(mail.targetIgn || 'Unknown');
+    const targetUid = escapeHtml(mail.uid || '-');
+    const adminName = escapeHtml(mail.ign || 'Admin');
     const message = escapeHtml(mail.message || '').trim();
     const timestamp = mail.timestamp ? new Date(mail.timestamp) : new Date();
     const tanggal = timestamp.toLocaleDateString('id-ID');
     const jam = timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const preview = message.substring(0, 80) + (message.length > 80 ? '...' : '');
     
+    // Icon kategori
     let catIcon = 'fa-comment', catColor = '#64748b', catLabel = 'Umum';
     if (mail.category === 'Request Join') {
         catIcon = 'fa-user-plus'; catColor = '#f59e0b'; catLabel = 'Join';
@@ -196,8 +197,11 @@ function buildSentCardHTML(mail) {
             <div class="mail-content" data-rowid="${mail.rowId}">
                 <div class="mail-header">
                     <div class="mail-sender">
-                        📤 <b>Kepada: ${ign}</b>
-                        <span class="mail-uid">${uid}</span>
+                        📤 <b>Kepada: ${targetIgn}</b>
+                        <span class="mail-uid">${targetUid}</span>
+                    </div>
+                    <div class="mail-status">
+                        <span class="mail-card-badge badge-sent">${adminName}</span>
                     </div>
                 </div>
                 <div class="mail-meta">
@@ -221,25 +225,21 @@ async function openMailDetail(mail) {
     const originalStatus = mail.status;
     
     if (mail.status === 'UNREAD' && !mail.isFromAdmin) {
-        // 1. Update lokal instant
         mail.status = 'READ';
         
         const mailInList = currentMailList.find(m => m.rowId === mail.rowId);
         if (mailInList) mailInList.status = 'READ';
         
-        // 2. Re-render list
         renderMailbox(currentMailList);
         
-        // 3. Fetch GAS (background) — feedback
+        // Fetch GAS (background) — feedback
         fetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&rowId=${mail.rowId}`)
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success' && data.feedback) {
-                    // 🎯 Pakai feedback
                     updateFromFeedback(data.feedback);
                     console.log('✅ Status READ tersimpan di GAS');
                 } else {
-                    // Revert
                     console.warn('⚠️ Gagal update, revert');
                     mail.status = originalStatus;
                     const m = currentMailList.find(x => x.rowId === mail.rowId);
@@ -310,15 +310,16 @@ async function openMailDetail(mail) {
         <div class="modal-content" style="max-width: 500px;">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h3 style="margin:0;">📄 PESAN</h3>
-                ${!isFromAdmin ? `
+            <h3 style="margin:0 0 12px 0; padding-right: 40px;">📄 PESAN</h3>
+            
+            ${!isFromAdmin ? `
+                <div style="margin-bottom: 12px; text-align: right;">
                     <button onclick="openHistory('${escapeHtml(mail.uid)}')" 
-                            style="background:transparent; border:1px solid var(--border-line); border-radius:6px; padding:4px 10px; color:#c9a55a; cursor:pointer; font-size:0.7rem;">
+                            style="background:transparent; border:1px solid var(--border-line); border-radius:6px; padding:5px 12px; color:#c9a55a; cursor:pointer; font-size:0.7rem;">
                         📜 HISTORY
                     </button>
-                ` : ''}
-            </div>
+                </div>
+            ` : ''}
             
             <div class="modal-sender-row">
                 <b>${escapeHtml(mail.ign)}</b>
@@ -529,7 +530,6 @@ async function markAsDone(rowId) {
     if (!rowId) return;
     
     window.showConfirmModal('Tandai pesan ini sebagai SELESAI?', async () => {
-        // 🎯 Optimistic
         const originalStatus = currentMailDetail?.status;
         
         if (currentMailDetail) currentMailDetail.status = 'DONE';
@@ -547,12 +547,10 @@ async function markAsDone(rowId) {
             if (data.status === 'success') {
                 window.showToast("✅ Pesan ditandai selesai");
                 
-                // 🎯 Pakai feedback
                 if (data.feedback) {
                     updateFromFeedback(data.feedback);
                 }
             } else {
-                // Revert
                 if (currentMailDetail) currentMailDetail.status = originalStatus;
                 if (mailInList) mailInList.status = originalStatus;
                 updateCache();
@@ -576,7 +574,6 @@ async function markAsDone(rowId) {
 function updateFromFeedback(feedback) {
     if (!feedback) return;
     
-    // 1. Update status di list
     if (feedback.rowId && feedback.newStatus) {
         const mailInList = currentMailList.find(m => m.rowId === feedback.rowId);
         if (mailInList) mailInList.status = feedback.newStatus;
@@ -586,13 +583,11 @@ function updateFromFeedback(feedback) {
         }
     }
     
-    // 2. Update mailbox status (badge)
     if (feedback.mailboxStatus) {
         lastMailStatus = feedback.mailboxStatus;
         updateMailboxBadge(feedback.mailboxStatus);
     }
     
-    // 3. Update cache
     updateCache();
 }
 
@@ -672,7 +667,6 @@ async function checkMailboxChanges() {
         if (hasChanged) {
             lastMailStatus = current;
             
-            // Clear cache + fetch fresh
             sessionStorage.removeItem('umbrella_mail_all');
             sessionStorage.removeItem('umbrella_mail_unread');
             sessionStorage.removeItem('umbrella_mail_read');
@@ -707,4 +701,4 @@ window.markAsDone = markAsDone;
 window.checkMailboxChanges = checkMailboxChanges;
 window.updateFromFeedback = updateFromFeedback;
 
-console.log("✅ admin-mail.js loaded (Mail 2 Arah V5 — Feedback)");
+console.log("✅ admin-mail.js loaded (Mail 2 Arah V6 — Sent Card Fix)");

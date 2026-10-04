@@ -1,13 +1,15 @@
 /**
- * admin-mail.js — Mailbox Manager V10 (With Router)
+ * admin-mail.js — Mailbox Manager V11 (Timestamp Consistent)
  * 
- * Perubahan dari V9:
- * - Integrasi admin-router.js
- * - Pecah openMailDetail → public + renderMailDetailInternal
- * - Pecah openReplyForm → public + renderMailReplyInternal
- * - Pecah openHistory → public + renderMailHistoryInternal
- * - submitMailReply sukses → history.back() (balik ke detail)
- * - Hapus pushState lama, ganti pushView
+ * Perubahan dari V10:
+ * - mailMarkRead → pakai timestamp (bukan rowId)
+ * - mailReply → pakai timestamp
+ * - mailClose → pakai timestamp
+ * - updateFromFeedback → pakai timestamp
+ * - Konsisten dengan deleteMail (yang sudah timestamp)
+ * 
+ * Aturan: SEMUA operasi mail pakai timestamp sebagai primary key.
+ * Alasan: rowId bergeser kalau ada cleanup manual sheet.
  */
 
 let currentMailFilter = "all";
@@ -238,7 +240,8 @@ async function renderMailDetailInternal(mail) {
         
         renderMailbox(currentMailList);
         
-        fetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&rowId=${mail.rowId}`)
+        // 🎯 Kirim TIMESTAMP, bukan rowId
+        fetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&timestamp=${mail.timestamp}`)
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success' && data.feedback) {
@@ -306,7 +309,7 @@ async function renderMailDetailInternal(mail) {
                 <button onclick="openReplyForm()" style="background:var(--color-primary); color:white;">
                     <i class="fas fa-reply"></i> BALAS
                 </button>
-                <button onclick="markAsDone(${mail.rowId})" style="background:#22c55e; color:white;">
+                <button onclick="markAsDone(${mail.timestamp})" style="background:#22c55e; color:white;">
                     <i class="fas fa-check"></i> SELESAI
                 </button>
             </div>
@@ -500,7 +503,7 @@ function renderMailReplyInternal(mail) {
 }
 
 // ==========================================
-// KIRIM BALASAN
+// KIRIM BALASAN — PAKAI TIMESTAMP
 // ==========================================
 async function submitMailReply() {
     if (!currentMailDetail) return;
@@ -521,10 +524,10 @@ async function submitMailReply() {
     
     const adminUid = currentAdmin?.id || '';
     const adminIgn = currentAdmin?.nama || 'Admin';
-    const rowId = currentMailDetail.rowId;
+    const timestamp = currentMailDetail.timestamp;
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=mailReply&adminId=${currentAdmin.id}&rowId=${rowId}&adminUid=${encodeURIComponent(adminUid)}&adminIgn=${encodeURIComponent(adminIgn)}&adminReply=${encodeURIComponent(reply)}`;
+        const url = `${window.GAS_ADMIN_URL}?action=mailReply&adminId=${currentAdmin.id}&timestamp=${timestamp}&adminUid=${encodeURIComponent(adminUid)}&adminIgn=${encodeURIComponent(adminIgn)}&adminReply=${encodeURIComponent(reply)}`;
         const res = await fetch(url);
         const data = await res.json();
         
@@ -539,8 +542,6 @@ async function submitMailReply() {
             updateCache();
             renderMailbox(currentMailList);
             
-            // Balik ke detail (pop view reply → kembali ke mail-detail)
-            // routeToView('mail-detail') akan otomatis render detail yang fresh
             if (typeof closeCurrentView === 'function') {
                 closeCurrentView();
             }
@@ -562,23 +563,23 @@ async function submitMailReply() {
 }
 
 // ==========================================
-// TANDAI SELESAI
+// TANDAI SELESAI — PAKAI TIMESTAMP
 // ==========================================
-async function markAsDone(rowId) {
-    if (!rowId) return;
+async function markAsDone(timestamp) {
+    if (!timestamp) return;
     
     window.showConfirmModal('Tandai pesan ini sebagai SELESAI?', async () => {
         const originalStatus = currentMailDetail?.status;
         
         if (currentMailDetail) currentMailDetail.status = 'DONE';
-        const mailInList = currentMailList.find(m => m.rowId === rowId);
+        const mailInList = currentMailList.find(m => m.timestamp === timestamp);
         if (mailInList) mailInList.status = 'DONE';
         
         updateCache();
         renderMailbox(currentMailList);
         
         try {
-            const res = await fetch(`${window.GAS_ADMIN_URL}?action=mailClose&adminId=${currentAdmin.id}&rowId=${rowId}`);
+            const res = await fetch(`${window.GAS_ADMIN_URL}?action=mailClose&adminId=${currentAdmin.id}&timestamp=${timestamp}`);
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -606,16 +607,16 @@ async function markAsDone(rowId) {
 }
 
 // ==========================================
-// FEEDBACK DARI GAS
+// FEEDBACK DARI GAS — PAKAI TIMESTAMP
 // ==========================================
 function updateFromFeedback(feedback) {
     if (!feedback) return;
     
-    if (feedback.rowId && feedback.newStatus) {
-        const mailInList = currentMailList.find(m => m.rowId === feedback.rowId);
+    if (feedback.timestamp && feedback.newStatus) {
+        const mailInList = currentMailList.find(m => m.timestamp === feedback.timestamp);
         if (mailInList) mailInList.status = feedback.newStatus;
         
-        if (currentMailDetail && currentMailDetail.rowId === feedback.rowId) {
+        if (currentMailDetail && currentMailDetail.timestamp === feedback.timestamp) {
             currentMailDetail.status = feedback.newStatus;
         }
     }
@@ -654,7 +655,7 @@ function updateCache() {
 }
 
 // ==========================================
-// DELETE MAIL
+// DELETE MAIL — PAKAI TIMESTAMP
 // ==========================================
 window.deleteMail = async function(timestamp) {
     if (!timestamp) return;
@@ -725,7 +726,7 @@ async function checkMailboxChanges() {
 }
 
 // ==========================================
-// RENDER MAILBOX DARI CACHE (untuk focus handler)
+// RENDER MAILBOX DARI CACHE
 // ==========================================
 window.renderMailboxFromCache = function() {
     const cacheKey = `umbrella_mail_${currentMailFilter}`;
@@ -759,4 +760,4 @@ window.renderMailDetailInternal = renderMailDetailInternal;
 window.renderMailReplyInternal = renderMailReplyInternal;
 window.renderMailHistoryInternal = renderMailHistoryInternal;
 
-console.log("✅ admin-mail.js loaded (V10 — With Router)");
+console.log("✅ admin-mail.js loaded (V11 — Timestamp Consistent)");

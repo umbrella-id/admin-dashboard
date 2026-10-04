@@ -1,13 +1,13 @@
 /**
- * admin-mail.js — Mailbox Manager V3 (Mail 2 Arah)
+ * admin-mail.js — Mailbox Manager V5 (Mail 2 Arah + Feedback)
  * 
  * Konsep:
  * - Filter: Semua / Belum Terbaca / Sudah Dibaca / Sudah Dibalas / Selesai / Surat Keluar
  * - Card layout lama + badge warna status
  * - Detail: History (header) + Balas + Selesai (footer)
  * - Surat Keluar: filter terpisah, tanpa status
- * - Auto update: standby timer + window focus
- * - Lazy load history
+ * - 1 tembakan GAS = feedback lengkap (status + badge + timestamp)
+ * - Optimistic UI + feedback update
  */
 
 let currentMailFilter = "all";
@@ -88,10 +88,8 @@ function renderMailbox(mails) {
     let html = '';
     for (const mail of mails) {
         if (currentMailFilter === 'sent') {
-            // Surat Keluar — format khusus
             html += buildSentCardHTML(mail);
         } else {
-            // Surat Masuk — card lama + badge
             html += buildInboxCardHTML(mail);
         }
     }
@@ -186,7 +184,6 @@ function buildSentCardHTML(mail) {
     const jam = timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const preview = message.substring(0, 80) + (message.length > 80 ? '...' : '');
     
-    // Kategori
     let catIcon = 'fa-comment', catColor = '#64748b', catLabel = 'Umum';
     if (mail.category === 'Request Join') {
         catIcon = 'fa-user-plus'; catColor = '#f59e0b'; catLabel = 'Join';
@@ -220,17 +217,49 @@ function buildSentCardHTML(mail) {
 async function openMailDetail(mail) {
     currentMailDetail = mail;
     
-    // Tandai READ (hanya kalau dari user & UNREAD)
+    // 🎯 OPTIMISTIC: Update lokal DULU
+    const originalStatus = mail.status;
+    
     if (mail.status === 'UNREAD' && !mail.isFromAdmin) {
-        try {
-            await fetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&rowId=${mail.rowId}`);
-            mail.status = 'READ';
-        } catch(e) {}
+        // 1. Update lokal instant
+        mail.status = 'READ';
+        
+        const mailInList = currentMailList.find(m => m.rowId === mail.rowId);
+        if (mailInList) mailInList.status = 'READ';
+        
+        // 2. Re-render list
+        renderMailbox(currentMailList);
+        
+        // 3. Fetch GAS (background) — feedback
+        fetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&rowId=${mail.rowId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success' && data.feedback) {
+                    // 🎯 Pakai feedback
+                    updateFromFeedback(data.feedback);
+                    console.log('✅ Status READ tersimpan di GAS');
+                } else {
+                    // Revert
+                    console.warn('⚠️ Gagal update, revert');
+                    mail.status = originalStatus;
+                    const m = currentMailList.find(x => x.rowId === mail.rowId);
+                    if (m) m.status = originalStatus;
+                    updateCache();
+                    renderMailbox(currentMailList);
+                }
+            })
+            .catch(e => {
+                console.error('❌ Error update status:', e);
+                mail.status = originalStatus;
+                const m = currentMailList.find(x => x.rowId === mail.rowId);
+                if (m) m.status = originalStatus;
+                updateCache();
+                renderMailbox(currentMailList);
+            });
     }
     
     const isFromAdmin = mail.isFromAdmin;
     const status = mail.status || 'UNREAD';
-    const showActionButtons = !isFromAdmin && status !== 'DONE';
     
     const catLabel = mail.category || 'Umum';
     const timestamp = mail.timestamp ? new Date(mail.timestamp) : new Date();
@@ -238,7 +267,7 @@ async function openMailDetail(mail) {
     const jam = timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const pesan = escapeHtml(mail.message || '').trim();
     
-    // Cari balasan admin (kalau status REPLIED atau DONE)
+    // Balasan admin (kalau REPLIED atau DONE)
     let adminReplyHTML = '';
     if (status === 'REPLIED' || status === 'DONE') {
         const adminReply = findAdminReply(mail);
@@ -260,13 +289,10 @@ async function openMailDetail(mail) {
     // Footer tombol
     let footerHTML = '';
     if (isFromAdmin) {
-        // Surat Keluar — tanpa tombol
         footerHTML = '';
     } else if (status === 'DONE') {
-        // Selesai — tanpa tombol
         footerHTML = '';
     } else {
-        // UNREAD / READ / REPLIED — tombol Balas + Selesai
         footerHTML = `
             <div class="modal-buttons">
                 <button onclick="openReplyForm()" style="background:var(--color-primary); color:white;">
@@ -315,13 +341,9 @@ async function openMailDetail(mail) {
 }
 
 // ==========================================
-// CARI BALASAN ADMIN UNTUK PESAN USER
+// CARI BALASAN ADMIN
 // ==========================================
 function findAdminReply(userMessage) {
-    // Cari balasan admin setelah pesan user ini
-    // Filter: UID sama, category sama, dari admin, timestamp > userMessage.timestamp
-    // Ambil yang paling awal (balasan pertama setelah pesan ini)
-    
     const adminReplies = currentMailList.filter(m => 
         m.isFromAdmin &&
         m.uid === userMessage.uid &&
@@ -469,16 +491,20 @@ async function submitMailReply() {
         if (data.status === 'success') {
             window.showToast("✅ Balasan terkirim");
             
-            // Update status lokal
+            // 🎯 Pakai feedback
+            if (data.feedback) {
+                updateFromFeedback(data.feedback);
+            }
+            
+            // Update detail lokal
             currentMailDetail.status = 'REPLIED';
             
-            // Refresh list
-            refreshMailbox();
+            // Re-render list
+            updateCache();
+            renderMailbox(currentMailList);
             
-            // Balik ke detail (dengan balasan baru)
-            setTimeout(() => {
-                openMailDetail(currentMailDetail);
-            }, 300);
+            // Balik ke detail
+            setTimeout(() => openMailDetail(currentMailDetail), 300);
         } else {
             window.showToast(data.message || "Gagal mengirim", true);
             if (btn) {
@@ -497,12 +523,23 @@ async function submitMailReply() {
 }
 
 // ==========================================
-// TANDAI SELESAI (DONE)
+// TANDAI SELESAI
 // ==========================================
 async function markAsDone(rowId) {
     if (!rowId) return;
     
     window.showConfirmModal('Tandai pesan ini sebagai SELESAI?', async () => {
+        // 🎯 Optimistic
+        const originalStatus = currentMailDetail?.status;
+        
+        if (currentMailDetail) currentMailDetail.status = 'DONE';
+        const mailInList = currentMailList.find(m => m.rowId === rowId);
+        if (mailInList) mailInList.status = 'DONE';
+        
+        updateCache();
+        renderMailbox(currentMailList);
+        window.closeModal();
+        
         try {
             const res = await fetch(`${window.GAS_ADMIN_URL}?action=mailClose&rowId=${rowId}`);
             const data = await res.json();
@@ -510,21 +547,78 @@ async function markAsDone(rowId) {
             if (data.status === 'success') {
                 window.showToast("✅ Pesan ditandai selesai");
                 
-                // Update status lokal
-                if (currentMailDetail) {
-                    currentMailDetail.status = 'DONE';
+                // 🎯 Pakai feedback
+                if (data.feedback) {
+                    updateFromFeedback(data.feedback);
                 }
-                
-                // Tutup modal + refresh list
-                window.closeModal();
-                refreshMailbox();
             } else {
+                // Revert
+                if (currentMailDetail) currentMailDetail.status = originalStatus;
+                if (mailInList) mailInList.status = originalStatus;
+                updateCache();
+                renderMailbox(currentMailList);
                 window.showToast(data.message || "Gagal", true);
             }
         } catch(e) {
+            console.error('Error:', e);
+            if (currentMailDetail) currentMailDetail.status = originalStatus;
+            if (mailInList) mailInList.status = originalStatus;
+            updateCache();
+            renderMailbox(currentMailList);
             window.showToast("Koneksi gagal", true);
         }
     });
+}
+
+// ==========================================
+// 🎯 PAKAI FEEDBACK DARI GAS
+// ==========================================
+function updateFromFeedback(feedback) {
+    if (!feedback) return;
+    
+    // 1. Update status di list
+    if (feedback.rowId && feedback.newStatus) {
+        const mailInList = currentMailList.find(m => m.rowId === feedback.rowId);
+        if (mailInList) mailInList.status = feedback.newStatus;
+        
+        if (currentMailDetail && currentMailDetail.rowId === feedback.rowId) {
+            currentMailDetail.status = feedback.newStatus;
+        }
+    }
+    
+    // 2. Update mailbox status (badge)
+    if (feedback.mailboxStatus) {
+        lastMailStatus = feedback.mailboxStatus;
+        updateMailboxBadge(feedback.mailboxStatus);
+    }
+    
+    // 3. Update cache
+    updateCache();
+}
+
+// ==========================================
+// UPDATE BADGE
+// ==========================================
+function updateMailboxBadge(mailboxStatus) {
+    if (!mailboxStatus) return;
+    
+    const badge = document.getElementById('mail-badge');
+    if (badge) {
+        if (mailboxStatus.unreadCount > 0) {
+            badge.innerText = mailboxStatus.unreadCount;
+            badge.style.display = 'inline-flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+
+// ==========================================
+// UPDATE CACHE SESSION
+// ==========================================
+function updateCache() {
+    const cacheKey = `umbrella_mail_${currentMailFilter}`;
+    sessionStorage.setItem(cacheKey, JSON.stringify(currentMailList));
 }
 
 // ==========================================
@@ -552,7 +646,7 @@ window.deleteMail = async function(rowId) {
 };
 
 // ==========================================
-// CHECK MAILBOX CHANGES (untuk standby timer)
+// CHECK MAILBOX CHANGES
 // ==========================================
 async function checkMailboxChanges() {
     try {
@@ -577,6 +671,7 @@ async function checkMailboxChanges() {
         
         if (hasChanged) {
             lastMailStatus = current;
+            
             // Clear cache + fetch fresh
             sessionStorage.removeItem('umbrella_mail_all');
             sessionStorage.removeItem('umbrella_mail_unread');
@@ -585,7 +680,6 @@ async function checkMailboxChanges() {
             sessionStorage.removeItem('umbrella_mail_done');
             sessionStorage.removeItem('umbrella_mail_sent');
             
-            // Refresh kalau tab mailbox aktif
             const isMailboxActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
             if (isMailboxActive) {
                 refreshMailbox();
@@ -611,5 +705,6 @@ window.openReplyForm = openReplyForm;
 window.submitMailReply = submitMailReply;
 window.markAsDone = markAsDone;
 window.checkMailboxChanges = checkMailboxChanges;
+window.updateFromFeedback = updateFromFeedback;
 
-console.log("✅ admin-mail.js loaded (Mail 2 Arah V3)");
+console.log("✅ admin-mail.js loaded (Mail 2 Arah V5 — Feedback)");

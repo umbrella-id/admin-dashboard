@@ -1,9 +1,11 @@
 /**
- * admin-content.js - Kelola Konten Web
+ * admin-content.js - Kelola Konten Web (V2 — With Validation)
  * - Profil & Galery: bisa tambah/hapus (dengan badge)
  * - Headline & Openmember: slot tetap, bisa edit + URL gambar
  * - Running Text: slot tetap, hanya edit Body
  * - Sosmed: slot tetap (3 platform), hanya edit URL
+ * 
+ * UPDATE: Tambah adminId di semua fetch (validasi server)
  */
 
 let currentContentData = [];
@@ -35,8 +37,6 @@ function buildGalleryBody(imageUrl, caption) {
     }
     return html;
 }
-
-//function escapeHtml
 
 // ==========================================
 // LOAD & RENDER DATA
@@ -384,7 +384,7 @@ function collectChangedFields() {
 }
 
 // ==========================================
-// UPDATE KE SERVER
+// UPDATE KE SERVER (🔒 WITH VALIDATION)
 // ==========================================
 window.updateAllContent = async function() {
     const { changes, newItems, deletedRows } = collectChangedFields();
@@ -405,7 +405,7 @@ window.updateAllContent = async function() {
     // 1. Tambah item baru (profil/galery)
     for (const newItem of newItems) {
         try {
-            const url = `${window.GAS_ADMIN_URL}?action=addContentItem&category=${newItem.category}`;
+            const url = `${window.GAS_ADMIN_URL}?action=addContentItem&adminId=${currentAdmin.id}&category=${newItem.category}`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.status === 'success') successCount++;
@@ -416,7 +416,7 @@ window.updateAllContent = async function() {
     // 2. Hapus item yang ditandai
     for (const rowId of deletedRows) {
         try {
-            const url = `${window.GAS_ADMIN_URL}?action=deleteContentItem&rowId=${rowId}`;
+            const url = `${window.GAS_ADMIN_URL}?action=deleteContentItem&adminId=${currentAdmin.id}&rowId=${rowId}`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.status === 'success') successCount++;
@@ -427,7 +427,7 @@ window.updateAllContent = async function() {
     // 3. Update perubahan
     for (const change of changes) {
         try {
-            const url = `${window.GAS_ADMIN_URL}?action=updateContent&rowId=${change.rowId}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
+            const url = `${window.GAS_ADMIN_URL}?action=updateContent&adminId=${currentAdmin.id}&rowId=${change.rowId}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.status === 'success') successCount++;
@@ -436,7 +436,7 @@ window.updateAllContent = async function() {
     }
     
     if (successCount > 0) {
-        await fetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache`);
+        await fetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache&adminId=${currentAdmin.id}`);
         window.showToast(`✅ ${successCount} item berhasil diperbarui${failCount > 0 ? `, ${failCount} gagal` : ''}`);
         await loadContentData();
         hasUnsavedChanges = false;
@@ -449,7 +449,7 @@ window.updateAllContent = async function() {
 };
 
 // ==========================================
-// TAMBAH ITEM (hanya untuk profil dan galery)
+// TAMBAH ITEM (🔒 WITH VALIDATION)
 // ==========================================
 window.addContentItem = async function(category) {
     const container = document.getElementById(`${category}-list`);
@@ -467,13 +467,13 @@ window.addContentItem = async function(category) {
     container.insertAdjacentHTML('beforeend', loadingHtml);
     
     try {
-        // Kirim ke server
-        const url = `${window.GAS_ADMIN_URL}?action=addContentItem&category=${category}`;
+        // Kirim ke server (🔒 with adminId)
+        const url = `${window.GAS_ADMIN_URL}?action=addContentItem&adminId=${currentAdmin.id}&category=${category}`;
         const res = await fetch(url);
         const data = await res.json();
         
         if (data.status === 'success' && data.rowId) {
-            // Ganti loading form dengan form aktif (pakai rowId asli dari server)
+            // Ganti loading form dengan form aktif
             const tempItem = container.querySelector(`.content-item[data-rowid="${tempRowId}"]`);
             const newItemHtml = getNewItemHtml(category, data.rowId);
             tempItem.outerHTML = newItemHtml;
@@ -493,10 +493,9 @@ window.addContentItem = async function(category) {
             
             window.showToast(`Item ${category} berhasil ditambahkan`);
         } else {
-            // Gagal: hapus loading form
             const tempItem = container.querySelector(`.content-item[data-rowid="${tempRowId}"]`);
             if (tempItem) tempItem.remove();
-            window.showToast("Gagal menambahkan item", true);
+            window.showToast(data.message || "Gagal menambahkan item", true);
         }
     } catch(e) {
         console.error("Add item error:", e);
@@ -614,7 +613,7 @@ window.deleteContentItem = function(category, rowId) {
 };
 
 // ==========================================
-// BATAL HAPUS (hanya untuk profil dan galery)
+// BATAL HAPUS
 // ==========================================
 window.undoDelete = function(category, rowId) {
     const containerId = `${category}-list`;
@@ -688,4 +687,4 @@ window.addContentItem = addContentItem;
 window.deleteContentItem = deleteContentItem;
 window.undoDelete = undoDelete;
 
-console.log("✅ admin-content.js loaded (final stabil)");
+console.log("✅ admin-content.js loaded (V2 — With Validation)");

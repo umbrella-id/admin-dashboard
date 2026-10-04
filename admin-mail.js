@@ -1,11 +1,8 @@
 /**
- * admin-mail.js — Mailbox Manager
+ * admin-mail.js — Mailbox Manager V8 (With Validation)
  * 
- * Update dari V6:
- * - Tombol History sejajar dengan nama client (satu baris)
- * - Tombol History muncul di semua tipe pesan (termasuk surat keluar)
- * - History popup: tanpa background, dengan garis pemisah
- * - History popup: label [ADMIN] Nama Admin untuk surat keluar
+ * Update dari V7:
+ * - Tambah adminId di deleteMail, submitMailReply, markAsDone
  */
 
 let currentMailFilter = "all";
@@ -34,7 +31,6 @@ async function refreshMailbox() {
     const container = document.getElementById('mailbox-list');
     if (!container) return;
     
-    // Cache
     const cacheKey = `umbrella_mail_${currentMailFilter}`;
     const cached = sessionStorage.getItem(cacheKey);
     
@@ -94,7 +90,6 @@ function renderMailbox(mails) {
     
     container.innerHTML = html;
     
-    // Event klik card
     container.querySelectorAll('.mail-content').forEach(el => {
         el.onclick = () => {
             const rowId = parseInt(el.dataset.rowid);
@@ -103,7 +98,6 @@ function renderMailbox(mails) {
         };
     });
     
-    // Event hapus
     container.querySelectorAll('.delete-mail-btn').forEach(btn => {
         btn.onclick = (e) => {
             e.stopPropagation();
@@ -125,7 +119,6 @@ function buildInboxCardHTML(mail) {
     const jam = timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const preview = message.substring(0, 80) + (message.length > 80 ? '...' : '');
     
-    // Badge status
     let badgeClass = 'badge-unread';
     let badgeText = 'UNREAD';
     if (mail.status === 'READ') {
@@ -139,7 +132,6 @@ function buildInboxCardHTML(mail) {
         badgeText = 'SELESAI';
     }
     
-    // Icon kategori
     let catIcon = 'fa-comment', catColor = '#64748b', catLabel = 'Umum';
     if (mail.category === 'Request Join') {
         catIcon = 'fa-user-plus'; catColor = '#f59e0b'; catLabel = 'Join';
@@ -174,16 +166,15 @@ function buildInboxCardHTML(mail) {
 // BUILD SENT CARD (Surat Keluar)
 // ==========================================
 function buildSentCardHTML(mail) {
-    const targetIgn = escapeHtml(mail.ign || 'Unknown');       // nama user (kolom C)
+    const targetIgn = escapeHtml(mail.ign || 'Unknown');
     const targetUid = escapeHtml(mail.uid || '-');
-    const adminName = escapeHtml(mail.adminName || 'Admin');   // nama admin (lookup)
+    const adminName = escapeHtml(mail.adminName || 'Admin');
     const message = escapeHtml(mail.message || '').trim();
     const timestamp = mail.timestamp ? new Date(mail.timestamp) : new Date();
     const tanggal = timestamp.toLocaleDateString('id-ID');
     const jam = timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const preview = message.substring(0, 80) + (message.length > 80 ? '...' : '');
     
-    // Icon kategori
     let catIcon = 'fa-comment', catColor = '#64748b', catLabel = 'Umum';
     if (mail.category === 'Request Join') {
         catIcon = 'fa-user-plus'; catColor = '#f59e0b'; catLabel = 'Join';
@@ -220,7 +211,6 @@ function buildSentCardHTML(mail) {
 async function openMailDetail(mail) {
     currentMailDetail = mail;
     
-    // 🎯 OPTIMISTIC: Update lokal DULU (hanya kalau dari user & UNREAD)
     const originalStatus = mail.status;
     
     if (mail.status === 'UNREAD' && !mail.isFromAdmin) {
@@ -231,7 +221,7 @@ async function openMailDetail(mail) {
         
         renderMailbox(currentMailList);
         
-        // Fetch GAS (background) — feedback
+        // mailMarkRead tidak perlu validasi (bukan aksi destruktif)
         fetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&rowId=${mail.rowId}`)
             .then(res => res.json())
             .then(data => {
@@ -266,7 +256,6 @@ async function openMailDetail(mail) {
     const jam = timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const pesan = escapeHtml(mail.message || '').trim();
     
-    // 🎯 Label pengirim
     let senderLabel;
     if (isFromAdmin) {
         senderLabel = `<span style="color:#c9a55a; font-weight:700;">[ADMIN]</span> ${escapeHtml(mail.ign)}`;
@@ -274,7 +263,6 @@ async function openMailDetail(mail) {
         senderLabel = `<b>${escapeHtml(mail.ign)}</b>`;
     }
     
-    // Balasan admin (kalau REPLIED atau DONE)
     let adminReplyHTML = '';
     if (status === 'REPLIED' || status === 'DONE') {
         const adminReply = findAdminReply(mail);
@@ -293,7 +281,6 @@ async function openMailDetail(mail) {
         }
     }
     
-    // Footer tombol
     let footerHTML = '';
     if (isFromAdmin) {
         footerHTML = '';
@@ -364,7 +351,7 @@ function findAdminReply(userMessage) {
 }
 
 // ==========================================
-// BUKA HISTORY (Lazy Load) — Tampilan Log
+// BUKA HISTORY (Lazy Load)
 // ==========================================
 async function openHistory(uid) {
     const modal = document.getElementById('modal-overlay');
@@ -402,7 +389,6 @@ async function openHistory(uid) {
                 const jam = ts.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
                 const fromAdmin = h.isFromAdmin;
                 
-                // 🎯 Label pengirim
                 let senderLabel;
                 if (fromAdmin) {
                     senderLabel = `<span style="color:#c9a55a; font-weight:700;">[ADMIN]</span> ${escapeHtml(h.ign)}`;
@@ -419,7 +405,6 @@ async function openHistory(uid) {
                     </div>
                 `;
                 
-                // 🎯 Garis pemisah (kecuali pesan terakhir)
                 if (i < data.history.length - 1) {
                     html += `<div style="border-top:1px solid rgba(255,255,255,0.08); margin: 4px 0;"></div>`;
                 }
@@ -477,7 +462,7 @@ function openReplyForm() {
 }
 
 // ==========================================
-// KIRIM BALASAN
+// KIRIM BALASAN (🔒 VALIDATION)
 // ==========================================
 async function submitMailReply() {
     if (!currentMailDetail) return;
@@ -501,7 +486,7 @@ async function submitMailReply() {
     const rowId = currentMailDetail.rowId;
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=mailReply&rowId=${rowId}&adminUid=${encodeURIComponent(adminUid)}&adminIgn=${encodeURIComponent(adminIgn)}&adminReply=${encodeURIComponent(reply)}`;
+        const url = `${window.GAS_ADMIN_URL}?action=mailReply&adminId=${currentAdmin.id}&rowId=${rowId}&adminUid=${encodeURIComponent(adminUid)}&adminIgn=${encodeURIComponent(adminIgn)}&adminReply=${encodeURIComponent(reply)}`;
         const res = await fetch(url);
         const data = await res.json();
         
@@ -536,7 +521,7 @@ async function submitMailReply() {
 }
 
 // ==========================================
-// TANDAI SELESAI
+// TANDAI SELESAI (🔒 VALIDATION)
 // ==========================================
 async function markAsDone(rowId) {
     if (!rowId) return;
@@ -553,7 +538,7 @@ async function markAsDone(rowId) {
         window.closeModal();
         
         try {
-            const res = await fetch(`${window.GAS_ADMIN_URL}?action=mailClose&rowId=${rowId}`);
+            const res = await fetch(`${window.GAS_ADMIN_URL}?action=mailClose&adminId=${currentAdmin.id}&rowId=${rowId}`);
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -629,7 +614,7 @@ function updateCache() {
 }
 
 // ==========================================
-// DELETE MAIL
+// DELETE MAIL (🔒 VALIDATION)
 // ==========================================
 window.deleteMail = async function(rowId) {
     if (!rowId) return;
@@ -637,7 +622,7 @@ window.deleteMail = async function(rowId) {
     window.showConfirmModal('Hapus surat ini?', async () => {
         try {
             window.showToast("⏳ Menghapus...");
-            const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteMail&rowId=${rowId}`);
+            const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteMail&adminId=${currentAdmin.id}&rowId=${rowId}`);
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -713,4 +698,4 @@ window.markAsDone = markAsDone;
 window.checkMailboxChanges = checkMailboxChanges;
 window.updateFromFeedback = updateFromFeedback;
 
-console.log("✅ admin-mail.js loaded (Mail 2 Arah V7 — History Fix)");
+console.log("✅ admin-mail.js loaded (V8 — With Validation)");

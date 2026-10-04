@@ -6,6 +6,7 @@
     <title>Umbrella Admin Panel</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="admin-mail.css">
     <link rel="stylesheet" href="admin-kas.css">
     <link rel="stylesheet" href="admin-member.css">
 </head>
@@ -77,9 +78,11 @@
                     <select id="mail-filter" onchange="window.setMailFilter(this.value)" 
                             style="background:var(--bg-solid-form); border:1px solid var(--border-line); border-radius:20px; padding:6px 12px; color:white; font-size:0.7rem;">
                         <option value="all">📋 Semua</option>
-                        <option value="unread">📬 Belum Dibaca</option>
-                        <option value="waiting">🕐 Menunggu Balasan</option>
-                        <option value="done">✅ Done</option>
+                        <option value="unread">📩 Belum Terbaca</option>
+                        <option value="read">📖 Sudah Dibaca</option>
+                        <option value="replied">💬 Sudah Dibalas</option>
+                        <option value="done">✅ Selesai</option>
+                        <option value="sent">📤 Surat Keluar</option>
                     </select>
                 </div>
                 <div id="mailbox-list" class="card-list">Memuat...</div>

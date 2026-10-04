@@ -1,73 +1,44 @@
 /**
- * admin-content.js - Kelola Konten Web (V3 — With GitHub Upload)
+ * admin-content.js - Kelola Konten Web (V4)
  * 
- * Update dari V2:
- * - Tombol upload gambar ke GitHub
- * - Auto-generate URL dari GitHub raw
- * - Modal setup GitHub di Pengaturan
- * 
- * Fitur:
- * - Profil & Galery: bisa tambah/hapus (dengan badge)
- * - Headline & Openmember: slot tetap, bisa edit + URL gambar
- * - Running Text: slot tetap, hanya edit Body
- * - Sosmed: slot tetap (3 platform), hanya edit URL
- * - Upload gambar langsung ke GitHub
+ * Update dari V3:
+ * - ID "galery" → "gallery" (sync dengan client)
+ * - Preview gambar setelah upload
+ * - Tombol upload pakai Font Awesome
+ * - Token di GAS (tidak di client)
  */
 
 let currentContentData = [];
 let hasUnsavedChanges = false;
 
 // ==========================================
-// KONFIG GITHUB
+// KONFIG UPLOAD
 // ==========================================
-const GH_CONFIG = {
+const UPLOAD_CONFIG = {
     MAX_SIZE: 10 * 1024 * 1024, // 10MB
-    ALLOWED_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'],
-    ALLOWED_EXTS: ['jpg', 'jpeg', 'png', 'webp', 'gif']
+    ALLOWED_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
 };
 
-function getGitHubConfig() {
-    return {
-        user: localStorage.getItem('gh_user') || '',
-        repo: localStorage.getItem('gh_repo') || '',
-        branch: localStorage.getItem('gh_branch') || 'main',
-        token: localStorage.getItem('gh_token') || ''
-    };
-}
-
-function isGitHubConfigured() {
-    const cfg = getGitHubConfig();
-    return cfg.user && cfg.repo && cfg.token;
-}
-
 // ==========================================
-// GITHUB UPLOAD
+// UPLOAD VIA GAS (PROXY)
 // ==========================================
 async function uploadToGitHub(file) {
-    const cfg = getGitHubConfig();
-    
-    if (!isGitHubConfigured()) {
-        window.showToast('⚠️ Setup GitHub dulu di Pengaturan', true);
-        return null;
-    }
-    
-    // Validasi tipe file
-    if (!GH_CONFIG.ALLOWED_TYPES.includes(file.type)) {
+    // Validasi tipe
+    if (!UPLOAD_CONFIG.ALLOWED_TYPES.includes(file.type)) {
         throw new Error('Format tidak didukung. Gunakan JPG, PNG, WEBP, atau GIF.');
     }
     
     // Validasi size
-    if (file.size > GH_CONFIG.MAX_SIZE) {
-        const sizeMB = (GH_CONFIG.MAX_SIZE / 1024 / 1024).toFixed(0);
+    if (file.size > UPLOAD_CONFIG.MAX_SIZE) {
+        const sizeMB = (UPLOAD_CONFIG.MAX_SIZE / 1024 / 1024).toFixed(0);
         throw new Error(`File terlalu besar. Maksimal ${sizeMB}MB.`);
     }
     
     // Generate filename
     const ext = file.name.split('.').pop().toLowerCase();
     const filename = `img-${Date.now()}.${ext}`;
-    const path = `upload/${filename}`;
     
-    // Convert file to base64 (remove data URL prefix)
+    // Convert to base64
     const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -75,49 +46,36 @@ async function uploadToGitHub(file) {
         reader.readAsDataURL(file);
     });
     
-    // Upload via GitHub API
-    const url = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/contents/${path}`;
-    const res = await fetch(url, {
-        method: 'PUT',
-        headers: {
-            'Authorization': `token ${cfg.token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/vnd.github.v3+json'
-        },
-        body: JSON.stringify({
-            message: `Upload ${filename}`,
-            content: base64,
-            branch: cfg.branch
-        })
+    // Kirim ke GAS (POST)
+    const payload = {
+        action: 'uploadImage',
+        adminId: currentAdmin.id,
+        base64: base64,
+        filename: filename,
+        mimeType: file.type
+    };
+    
+    const res = await fetch(window.GAS_ADMIN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
     });
     
-    if (!res.ok) {
-        const err = await res.json();
-        if (res.status === 401) {
-            throw new Error('Token tidak valid. Setup ulang di Pengaturan.');
-        } else if (res.status === 404) {
-            throw new Error('Repo tidak ditemukan. Cek username & repo name.');
-        } else if (res.status === 403) {
-            throw new Error('Akses ditolak. Cek scope token (harus "repo").');
-        }
-        throw new Error(err.message || 'Upload gagal');
+    const data = await res.json();
+    
+    if (data.status !== 'success') {
+        throw new Error(data.message || 'Upload gagal');
     }
     
-    // Return raw URL
-    return `https://raw.githubusercontent.com/${cfg.user}/${cfg.repo}/${cfg.branch}/${path}`;
+    return data.url;
 }
 
 // ==========================================
-// TRIGGER UPLOAD (dipanggil dari tombol 📤)
+// TRIGGER UPLOAD (dipanggil dari tombol)
 // ==========================================
 window.triggerUpload = function(btn) {
     const input = btn.previousElementSibling;
     if (!input) return;
-    
-    if (!isGitHubConfigured()) {
-        window.showToast('⚠️ Setup GitHub dulu di Pengaturan', true);
-        return;
-    }
     
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -127,15 +85,19 @@ window.triggerUpload = function(btn) {
         const file = e.target.files[0];
         if (!file) return;
         
+        const originalHtml = btn.innerHTML;
         btn.disabled = true;
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '⏳';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         
         try {
             const url = await uploadToGitHub(file);
             if (url) {
                 input.value = url;
                 input.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // 🎯 Update preview
+                updateImagePreview(input);
+                
                 window.showToast('✅ Upload berhasil');
             }
         } catch(e) {
@@ -143,7 +105,7 @@ window.triggerUpload = function(btn) {
             window.showToast('❌ ' + e.message, true);
         } finally {
             btn.disabled = false;
-            btn.innerHTML = originalText;
+            btn.innerHTML = originalHtml;
         }
     };
     
@@ -151,127 +113,66 @@ window.triggerUpload = function(btn) {
 };
 
 // ==========================================
-// MODAL SETUP GITHUB
+// PREVIEW GAMBAR
 // ==========================================
-window.openGitHubSetup = function() {
-    const cfg = getGitHubConfig();
+function updateImagePreview(input) {
+    // Cari container preview (di bawah input)
+    const wrapper = input.closest('div[style*="display:flex"]');
+    if (!wrapper) return;
     
-    const modal = document.getElementById('modal-overlay');
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 420px;">
-            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
-            <h3><i class="fa-brands fa-github"></i> Setup GitHub Upload</h3>
-            
-            <div style="background:rgba(34,197,94,0.1); border-left:3px solid #22c55e; border-radius:6px; padding:10px; margin-bottom:15px; font-size:0.7rem; color:#4ade80;">
-                💡 Token disimpan di browser kamu. Jangan share HP/browser ke orang lain.
-            </div>
-            
-            <div class="form-group">
-                <label>GitHub Username</label>
-                <input type="text" id="gh-user" value="${escapeHtml(cfg.user)}" placeholder="contoh: umbrella-id">
-            </div>
-            
-            <div class="form-group">
-                <label>Repository Name</label>
-                <input type="text" id="gh-repo" value="${escapeHtml(cfg.repo)}" placeholder="contoh: umbrella-id.github.io">
-            </div>
-            
-            <div class="form-group">
-                <label>Branch</label>
-                <input type="text" id="gh-branch" value="${escapeHtml(cfg.branch)}" placeholder="main">
-            </div>
-            
-            <div class="form-group">
-                <label>Personal Access Token</label>
-                <input type="password" id="gh-token" value="${escapeHtml(cfg.token)}" placeholder="ghp_xxxxxxxxxxxx">
-                <small>Buat di: github.com/settings/tokens (scope: repo)</small>
-            </div>
-            
-            <div class="modal-buttons" style="margin-top:20px;">
-                <button onclick="saveGitHubSetup()" style="background:var(--color-primary); flex:2;">
-                    <i class="fas fa-save"></i> SIMPAN
+    let previewEl = wrapper.parentElement.querySelector('.img-preview');
+    
+    if (!previewEl) {
+        previewEl = document.createElement('div');
+        previewEl.className = 'img-preview';
+        previewEl.style.cssText = 'margin-top: 8px; margin-bottom: 8px;';
+        wrapper.insertAdjacentElement('afterend', previewEl);
+    }
+    
+    const url = input.value.trim();
+    
+    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+        previewEl.innerHTML = `
+            <img src="${escapeHtml(url)}" 
+                 style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 1px solid var(--border-line); object-fit: cover;"
+                 onerror="this.parentElement.innerHTML='<div style=\\'color:#ff8888;font-size:0.7rem;\\'>⚠️ Gambar tidak bisa dimuat</div>'">
+        `;
+    } else {
+        previewEl.innerHTML = '';
+    }
+}
+
+// ==========================================
+// BUILD INPUT URL + TOMBOL UPLOAD
+// ==========================================
+function buildImageUrlInput(rowId, field, value, placeholder) {
+    const id = `img-input-${rowId}-${field}-${Math.random().toString(36).substring(2, 8)}`;
+    return `
+        <div style="margin-bottom:8px;">
+            <div style="display:flex; gap:8px; align-items:center;">
+                <input type="text" 
+                       class="content-image-url" 
+                       id="${id}"
+                       placeholder="${placeholder || 'URL Gambar'}" 
+                       value="${escapeHtml(value || '')}" 
+                       data-rowid="${rowId}" 
+                       data-field="${field || 'ImageUrl'}"
+                       oninput="updateImagePreview(this)"
+                       style="flex:1;">
+                <button class="btn-upload-img" 
+                        onclick="window.triggerUpload(this)" 
+                        title="Upload gambar ke GitHub"
+                        style="background:var(--color-primary); color:white; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; font-size:1rem; flex-shrink:0;">
+                    <i class="fas fa-cloud-upload-alt"></i>
                 </button>
-                <button onclick="testGitHubConnection()" style="background:#64748b; flex:2;">
-                    <i class="fas fa-plug"></i> TEST
-                </button>
-                <button onclick="closeModal()" style="background:#333; flex:1;">Batal</button>
             </div>
-            
-            <p id="gh-setup-msg" style="text-align:center; font-size:0.7rem; margin-top:10px; min-height:16px;"></p>
+            ${value ? `<div class="img-preview" style="margin-top:8px;">
+                <img src="${escapeHtml(value)}" 
+                     style="max-width:200px; max-height:150px; border-radius:8px; border:1px solid var(--border-line); object-fit:cover;"
+                     onerror="this.parentElement.innerHTML='<div style=\\'color:#ff8888;font-size:0.7rem;\\'>⚠️ Gambar tidak bisa dimuat</div>'">
+            </div>` : '<div class="img-preview" style="margin-top:8px;"></div>'}
         </div>
     `;
-    modal.style.display = 'flex';
-    history.pushState({ modal: true }, "");
-};
-
-window.saveGitHubSetup = function() {
-    const user = document.getElementById('gh-user').value.trim();
-    const repo = document.getElementById('gh-repo').value.trim();
-    const branch = document.getElementById('gh-branch').value.trim() || 'main';
-    const token = document.getElementById('gh-token').value.trim();
-    
-    if (!user || !repo || !token) {
-        showGhSetupMsg('⚠️ Semua field wajib diisi', '#ff8888');
-        return;
-    }
-    
-    if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
-        showGhSetupMsg('⚠️ Token tidak valid (harus diawali ghp_ atau github_pat_)', '#ff8888');
-        return;
-    }
-    
-    localStorage.setItem('gh_user', user);
-    localStorage.setItem('gh_repo', repo);
-    localStorage.setItem('gh_branch', branch);
-    localStorage.setItem('gh_token', token);
-    
-    showGhSetupMsg('✅ Tersimpan! Klik TEST untuk verifikasi.', '#4ade80');
-    window.showToast('✅ Setup GitHub tersimpan');
-};
-
-window.testGitHubConnection = async function() {
-    // Save dulu sebelum test
-    const user = document.getElementById('gh-user').value.trim();
-    const repo = document.getElementById('gh-repo').value.trim();
-    const branch = document.getElementById('gh-branch').value.trim() || 'main';
-    const token = document.getElementById('gh-token').value.trim();
-    
-    if (!user || !repo || !token) {
-        showGhSetupMsg('⚠️ Isi semua field dulu', '#ff8888');
-        return;
-    }
-    
-    showGhSetupMsg('⏳ Testing...', '#c9a55a');
-    
-    try {
-        const res = await fetch(`https://api.github.com/repos/${user}/${repo}`, {
-            headers: {
-                'Authorization': `token ${token}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
-        
-        if (res.ok) {
-            const data = await res.json();
-            showGhSetupMsg(`✅ Terhubung! Repo: ${data.full_name}`, '#4ade80');
-        } else if (res.status === 401) {
-            showGhSetupMsg('❌ Token tidak valid', '#ff8888');
-        } else if (res.status === 404) {
-            showGhSetupMsg('❌ Repo tidak ditemukan', '#ff8888');
-        } else {
-            showGhSetupMsg('❌ Error ' + res.status, '#ff8888');
-        }
-    } catch(e) {
-        showGhSetupMsg('❌ Koneksi gagal: ' + e.message, '#ff8888');
-    }
-};
-
-function showGhSetupMsg(msg, color) {
-    const el = document.getElementById('gh-setup-msg');
-    if (el) {
-        el.innerText = msg;
-        el.style.color = color || '#fff';
-    }
 }
 
 // ==========================================
@@ -299,28 +200,6 @@ function buildGalleryBody(imageUrl, caption) {
         html += `<p>${escapeHtml(caption.trim())}</p>`;
     }
     return html;
-}
-
-// ==========================================
-// TEMPLATE INPUT URL + TOMBOL UPLOAD
-// ==========================================
-function buildImageUrlInput(rowId, field, value, placeholder) {
-    return `
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-            <input type="text" class="content-image-url" 
-                   placeholder="${placeholder || 'URL Gambar'}" 
-                   value="${escapeHtml(value || '')}" 
-                   data-rowid="${rowId}" 
-                   data-field="${field || 'ImageUrl'}"
-                   style="flex:1;">
-            <button class="btn-upload-img" 
-                    onclick="window.triggerUpload(this)" 
-                    title="Upload gambar ke GitHub"
-                    style="background:var(--color-primary); color:white; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; font-size:1rem; flex-shrink:0;">
-                📤
-            </button>
-        </div>
-    `;
 }
 
 // ==========================================
@@ -356,24 +235,12 @@ function renderContentEditor(data) {
     const headline = data.find(item => item.ID?.toLowerCase() === 'headline');
     const openmember = data.find(item => item.ID?.toLowerCase() === 'openmember');
     const profilList = data.filter(item => item.ID?.toLowerCase() === 'profil');
-    const galeryList = data.filter(item => item.ID?.toLowerCase() === 'galery');
+    const galeryList = data.filter(item => item.ID?.toLowerCase() === 'gallery'); // 🎯 gallery
     const runningTexts = data.filter(item => item.ID?.toLowerCase() === 'running_text');
     const sosmedList = data.filter(item => item.ID?.toLowerCase() === 'sosmed');
     
-    // Info status GitHub
-    const ghReady = isGitHubConfigured();
-    const ghInfo = ghReady 
-        ? `<div style="background:rgba(34,197,94,0.1); border-left:3px solid #22c55e; padding:8px 12px; border-radius:6px; margin-bottom:15px; font-size:0.7rem; color:#4ade80;">
-            ✅ GitHub siap upload (${escapeHtml(getGitHubConfig().user)}/${escapeHtml(getGitHubConfig().repo)})
-           </div>`
-        : `<div style="background:rgba(245,158,11,0.1); border-left:3px solid #f59e0b; padding:8px 12px; border-radius:6px; margin-bottom:15px; font-size:0.7rem; color:#fbbf24;">
-            ⚠️ Setup GitHub dulu → <a href="#" onclick="openGitHubSetup(); return false;" style="color:#f0d78c;">Buka Pengaturan</a>
-           </div>`;
-    
     let html = `
         <div class="content-editor">
-            ${ghInfo}
-            
             <!-- HEADLINE -->
             <div class="content-category">
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
@@ -415,10 +282,10 @@ function renderContentEditor(data) {
                 <button class="btn-add-item" onclick="addContentItem('profil')"><i class="fas fa-plus"></i> Tambah Profil</button>
             </div>
             
-            <!-- GALERY -->
+            <!-- GALLERY 🎯 -->
             <div class="content-category">
-                <h4><i class="fas fa-images"></i> GALERY</h4>
-                <div id="galery-list">
+                <h4><i class="fas fa-images"></i> GALLERY</h4>
+                <div id="gallery-list">
                     ${galeryList.map(item => {
                         const imageUrl = extractImageUrlFromBody(item.Body || '');
                         const caption = extractCaptionFromBody(item.Body || '');
@@ -426,8 +293,8 @@ function renderContentEditor(data) {
                             <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
                                 <div class="item-badge" style="display:none;"></div>
                                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                                    <button class="btn-undo" onclick="undoDelete('galery', ${item.rowId})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
-                                    <button class="btn-delete-item" onclick="deleteContentItem('galery', ${item.rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
+                                    <button class="btn-undo" onclick="undoDelete('gallery', ${item.rowId})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
+                                    <button class="btn-delete-item" onclick="deleteContentItem('gallery', ${item.rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                                 </div>
                                 <input type="text" class="content-header" placeholder="Judul Event" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
                                 ${buildImageUrlInput(item.rowId, 'ImageUrl', imageUrl, 'URL Gambar')}
@@ -436,7 +303,7 @@ function renderContentEditor(data) {
                         `;
                     }).join('')}
                 </div>
-                <button class="btn-add-item" onclick="addContentItem('galery')"><i class="fas fa-plus"></i> Tambah Galery</button>
+                <button class="btn-add-item" onclick="addContentItem('gallery')"><i class="fas fa-plus"></i> Tambah Gallery</button>
             </div>
             
             <!-- RUNNING TEXT -->
@@ -548,13 +415,13 @@ function collectChangedFields() {
     const newItems = [];
     const deletedRows = [];
     
-    document.querySelectorAll('#profil-list .content-item, #galery-list .content-item').forEach(item => {
+    document.querySelectorAll('#profil-list .content-item, #gallery-list .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId < 0) {
             if (item.closest('#profil-list')) {
                 newItems.push({ category: 'profil', rowId });
-            } else if (item.closest('#galery-list')) {
-                newItems.push({ category: 'galery', rowId });
+            } else if (item.closest('#gallery-list')) {
+                newItems.push({ category: 'gallery', rowId });
             }
         }
     });
@@ -564,7 +431,8 @@ function collectChangedFields() {
         if (rowId > 0) deletedRows.push(rowId);
     });
     
-    const headlineItem = document.querySelector('.content-category:nth-child(2) .content-item');
+    // HEADLINE (index 0)
+    const headlineItem = document.querySelector('.content-category:nth-child(1) .content-item');
     if (headlineItem) {
         const rowId = parseInt(headlineItem.dataset.rowid);
         if (rowId > 0) {
@@ -586,7 +454,8 @@ function collectChangedFields() {
         }
     }
     
-    const openmemberItem = document.querySelector('.content-category:nth-child(3) .content-item');
+    // OPEN MEMBER (index 1)
+    const openmemberItem = document.querySelector('.content-category:nth-child(2) .content-item');
     if (openmemberItem) {
         const rowId = parseInt(openmemberItem.dataset.rowid);
         if (rowId > 0) {
@@ -608,6 +477,7 @@ function collectChangedFields() {
         }
     }
     
+    // PROFIL
     document.querySelectorAll('#profil-list .content-item:not([data-status="deleted"])').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
@@ -624,7 +494,8 @@ function collectChangedFields() {
         }
     });
     
-    document.querySelectorAll('#galery-list .content-item:not([data-status="deleted"])').forEach(item => {
+    // GALLERY 🎯
+    document.querySelectorAll('#gallery-list .content-item:not([data-status="deleted"])').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
         
@@ -645,6 +516,7 @@ function collectChangedFields() {
         }
     });
     
+    // RUNNING TEXT
     document.querySelectorAll('#runningtext-list .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
@@ -657,6 +529,7 @@ function collectChangedFields() {
         }
     });
     
+    // SOSMED
     document.querySelectorAll('#sosmed-list .content-item').forEach(item => {
         const rowId = parseInt(item.dataset.rowid);
         if (rowId <= 0) return;
@@ -800,12 +673,12 @@ function getNewItemHtml(category, rowId) {
                 <textarea class="content-body" placeholder="Body" data-rowid="${rowId}" data-field="Body"></textarea>
             </div>
         `;
-    } else if (category === 'galery') {
+    } else if (category === 'gallery') {
         return `
             <div class="content-item" data-rowid="${rowId}" data-status="normal" style="position:relative;">
                 <div class="item-badge" style="display:none;"></div>
                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                    <button class="btn-delete-item" onclick="deleteContentItem('galery', ${rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
+                    <button class="btn-delete-item" onclick="deleteContentItem('gallery', ${rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
                 <input type="text" class="content-header" placeholder="Judul Event" data-rowid="${rowId}" data-field="Header">
                 ${buildImageUrlInput(rowId, 'ImageUrl', '', 'URL Gambar')}
@@ -964,9 +837,7 @@ window.updateAllContent = updateAllContent;
 window.addContentItem = addContentItem;
 window.deleteContentItem = deleteContentItem;
 window.undoDelete = undoDelete;
-window.openGitHubSetup = openGitHubSetup;
-window.saveGitHubSetup = saveGitHubSetup;
-window.testGitHubConnection = testGitHubConnection;
 window.triggerUpload = triggerUpload;
+window.updateImagePreview = updateImagePreview;
 
-console.log("✅ admin-content.js loaded (V3 — With GitHub Upload)");
+console.log("✅ admin-content.js loaded (V4 — GAS Proxy Upload)");

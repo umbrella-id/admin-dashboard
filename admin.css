@@ -201,6 +201,7 @@ body {
     backdrop-filter: blur(12px);
     border-top: 1px solid var(--border-line);
     padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);  /* 🎯 safe area */
     gap: 0;
 }
 

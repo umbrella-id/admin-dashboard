@@ -46,7 +46,13 @@ function escapeHtml(str) {
 }
 
 function closeModal() { 
-    document.getElementById('modal-overlay').style.display = 'none'; 
+    document.getElementById('modal-overlay').style.display = 'none';
+    
+    // 🎯 Re-render list mail (kalau di tab mailbox)
+    const isMailboxActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
+    if (isMailboxActive && typeof renderMailbox === 'function' && currentMailList && currentMailList.length > 0) {
+        renderMailbox(currentMailList);
+    }
 }
 
 window.showConfirmModal = function(pesan, onConfirm, onCancel) {

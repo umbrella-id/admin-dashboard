@@ -175,9 +175,9 @@ function buildInboxCardHTML(mail) {
 // Badge: nama admin yang balas
 // ==========================================
 function buildSentCardHTML(mail) {
-    const targetIgn = escapeHtml(mail.targetIgn || 'Unknown');
-    const targetUid = escapeHtml(mail.uid || '-');
-    const adminName = escapeHtml(mail.ign || 'Admin');
+  const targetIgn = escapeHtml(mail.ign || 'Unknown');       // 🎯 nama user (dari kolom C)
+  const targetUid = escapeHtml(mail.uid || '-');
+  const adminName = escapeHtml(mail.adminName || 'Admin');   // 🎯 nama admin (dari lookup)
     const message = escapeHtml(mail.message || '').trim();
     const timestamp = mail.timestamp ? new Date(mail.timestamp) : new Date();
     const tanggal = timestamp.toLocaleDateString('id-ID');

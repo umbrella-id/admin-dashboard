@@ -1,10 +1,12 @@
 /**
- * admin-chat.js - Chat Widget
+ * admin-chat.js - Chat Widget (V2 — Timestamp Delete)
  * 
  * STRUKTUR WIDGET:
  * - Dua tab: "Obrolan" (chat logs) dan "Online" (daftar user online)
- * - dua container terpisah (online-users-list dan admin-chat-logs) yang di-switch via CSS display
+ * - Dua container terpisah yang di-switch via CSS display
  * - Input area hanya muncul di tab Obrolan
+ * 
+ * UPDATE: Delete chat pakai TIMESTAMP (bukan rowIndex)
  */
 
 let activeInterval = null;
@@ -62,7 +64,6 @@ window.toggleChatWidget = async function() {
         const input = document.getElementById('admin-chat-input');
         if (input) input.focus();
         
-        // Push state untuk back button
         history.pushState({ chatOpen: true }, "");
     } else {
         widget.classList.remove('show');
@@ -197,6 +198,9 @@ async function loadChatMessages() {
     }
 }
 
+// ==========================================
+// RENDER CHAT LOGS (dengan TIMESTAMP untuk delete)
+// ==========================================
 function renderChatLogs(logs, container) {
     if (!container) return;
     
@@ -233,7 +237,7 @@ function renderChatLogs(logs, container) {
         if (msgType !== 'msg' && !isSystem) continue;
         
         const isDeleted = (msgType === 'msg' && msgText === '[deleted by admin]');
-        const isMe = msg.uid === adminData.id;  // ← PENTING: untuk pesan admin
+        const isMe = msg.uid === adminData.id;
         
         if (isSystem) {
             html += `<div class="chat-row system-message"><div class="system-text">${displayText}</div></div>`;
@@ -248,7 +252,7 @@ function renderChatLogs(logs, container) {
         // Pesan biasa (dari user atau admin)
         const username = escapeHtml(msg.username || 'Anonim');
         const message = escapeHtml(msg.message || '');
-        const rowIndex = msg.rowIndex;
+        const timestamp = msg.timestamp;  // 🎯 pakai timestamp (bukan rowIndex)
         const uid = msg.uid;
         
         html += `
@@ -256,7 +260,7 @@ function renderChatLogs(logs, container) {
                 <b>${username}</b>
                 <div class="chat-message-wrapper">
                     <div class="msg-text">${message}</div>
-                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${rowIndex}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${timestamp}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
                 </div>
             </div>
         `;
@@ -352,19 +356,24 @@ window.adminSendMessage = async function() {
 };
 
 // ==========================================
-// DELETE CHAT
+// DELETE CHAT (pakai TIMESTAMP)
 // ==========================================
-window.deleteChatMessage = async function(rowIndex, uid) {
+window.deleteChatMessage = async function(timestamp, uid) {
     if (!adminData) return;
+    if (!timestamp) {
+        window.showToast("❌ Error: timestamp tidak valid", true);
+        return;
+    }
+    
     window.showConfirmModal('Hapus pesan ini?', async () => {
         try {
-            const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteChat&adminId=${adminData.id}&rowIndex=${rowIndex}`);
+            const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteChat&adminId=${adminData.id}&timestamp=${timestamp}`);
             const data = await res.json();
             if (data.status === 'success') {
                 window.showToast('✅ Pesan dihapus');
                 await loadChatMessages();
             } else {
-                window.showToast('❌ Gagal', true);
+                window.showToast('❌ ' + (data.message || 'Gagal'), true);
             }
         } catch(e) { 
             console.error("Delete chat error:", e);
@@ -452,4 +461,4 @@ window.initChat = initChat;
 window.loadChatMessages = loadChatMessages;
 window.fetchOnlineUsers = fetchOnlineUsers;
 
-console.log("✅ admin-chat.js loaded (Final - Fix Load)");
+console.log("✅ admin-chat.js loaded (V2 — Timestamp Delete)");

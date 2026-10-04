@@ -32,7 +32,7 @@ function showToast(msg, isError = false) {
 
 function escapeHtml(str) {
     if (str === undefined || str === null) return '';
-    if (typeof str !== 'string') str = String(str);  // ← konversi ke string
+    if (typeof str !== 'string') str = String(str);
     if (!str) return '';
     
     return str.replace(/[&<>"']/g, function(m) {
@@ -48,7 +48,6 @@ function escapeHtml(str) {
 function closeModal() { 
     document.getElementById('modal-overlay').style.display = 'none';
     
-    // 🎯 Re-render list mail (kalau di tab mailbox)
     const isMailboxActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
     if (isMailboxActive && typeof renderMailbox === 'function' && currentMailList && currentMailList.length > 0) {
         renderMailbox(currentMailList);
@@ -442,7 +441,6 @@ async function doLogin() {
             const hasChat = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
             if (hasChat) {
                 document.getElementById('floating-chat').style.display = 'block';
-                // Inisialisasi chat dengan delay untuk memastikan admin-chat.js sudah load
                 setTimeout(() => { 
                     if (typeof window.initChat === 'function') {
                         window.initChat(currentAdmin);
@@ -458,7 +456,6 @@ async function doLogin() {
             }
             
             renderBottomNav();
-            // load tab awal
             if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD') {
                 setTimeout(() => {
                     if (typeof window.loadMemberList === 'function') window.loadMemberList();
@@ -522,7 +519,6 @@ async function checkSession() {
         
         renderBottomNav();
         
-        // ========== INISIALISASI CHAT ==========
         const hasChat = (currentAdmin.role1 === 'LEADER' || 
                          currentAdmin.role1 === 'CO-LEAD' || 
                          currentAdmin.role2 === 'CO-LEAD');
@@ -530,7 +526,6 @@ async function checkSession() {
             const floatingChat = document.getElementById('floating-chat');
             if (floatingChat) floatingChat.style.display = 'block';
             
-            // Delay untuk memastikan admin-chat.js sudah load
             setTimeout(() => {
                 if (typeof window.initChat === 'function') {
                     window.initChat(currentAdmin);
@@ -545,7 +540,6 @@ async function checkSession() {
                 }
             }, 300);
         }
-        // load tab awal
         if (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD') {
             setTimeout(() => {
                 if (typeof window.loadMemberList === 'function') window.loadMemberList();
@@ -819,7 +813,7 @@ async function refreshAdminList() {
         return;
     }
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=getAdminList`;
+        const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
         const res = await fetch(url);
         const data = await res.json();
         if (data.status === 'success' && data.data) {
@@ -878,7 +872,7 @@ async function saveAdminName(adminId) {
     const newName = document.getElementById('edit-name').value.trim();
     if (!newName) { showToast("Nama tidak boleh kosong", true); return; }
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${adminId}&field=nama&value=${encodeURIComponent(newName)}`;
+        const url = `${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminId}&field=nama&value=${encodeURIComponent(newName)}`;
         const res = await fetch(url);
         const data = await res.json();
         if (data.status === 'success') {
@@ -923,9 +917,9 @@ async function saveAdminRole(adminId) {
     const role2 = document.getElementById('edit-role2').value;
     try {
         if (role1) {
-            await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${adminId}&field=role1&value=${role1}`);
+            await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminId}&field=role1&value=${role1}`);
         }
-        await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${adminId}&field=role2&value=${role2}`);
+        await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminId}&field=role2&value=${role2}`);
         showToast("Role berhasil diubah");
         closeModal();
         refreshAdminList();
@@ -935,7 +929,7 @@ async function saveAdminRole(adminId) {
 async function resetPasskey(adminId) {
     const defaultKey = `Passkey_${adminId.split('_')[1] || '1'}`;
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=resetPasskey&adminId=${adminId}&newKey=${defaultKey}`;
+        const url = `${window.GAS_ADMIN_URL}?action=resetPasskey&adminId=${currentAdmin.id}&targetAdminId=${adminId}&newKey=${defaultKey}`;
         const res = await fetch(url);
         const data = await res.json();
         if (data.status === 'success') {
@@ -1017,4 +1011,4 @@ window.promoteToLeader = promoteToLeader;
 window.executePromoteLeader = executePromoteLeader;
 
 checkSession();
-console.log("✅ admin.js loaded");
+console.log("✅ admin.js loaded (V2 — With Validation)");

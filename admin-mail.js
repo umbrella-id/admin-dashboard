@@ -1,8 +1,9 @@
 /**
- * admin-mail.js — Mailbox Manager V8 (With Validation)
+ * admin-mail.js — Mailbox Manager V9 (Timestamp Delete)
  * 
- * Update dari V7:
- * - Tambah adminId di deleteMail, submitMailReply, markAsDone
+ * Update dari V8:
+ * - Delete mail pakai timestamp (bukan rowId) — konsisten dengan delete chat
+ * - Lebih aman: timestamp unik, tidak bergeser setelah hapus/sort
  */
 
 let currentMailFilter = "all";
@@ -90,19 +91,21 @@ function renderMailbox(mails) {
     
     container.innerHTML = html;
     
+    // Event klik card
     container.querySelectorAll('.mail-content').forEach(el => {
         el.onclick = () => {
-            const rowId = parseInt(el.dataset.rowid);
-            const mail = currentMailList.find(m => m.rowId === rowId);
+            const timestamp = parseInt(el.dataset.timestamp);
+            const mail = currentMailList.find(m => m.timestamp === timestamp);
             if (mail) openMailDetail(mail);
         };
     });
     
+    // Event hapus (🎯 pakai timestamp)
     container.querySelectorAll('.delete-mail-btn').forEach(btn => {
         btn.onclick = (e) => {
             e.stopPropagation();
-            const rowId = parseInt(btn.dataset.rowid);
-            if (rowId) window.deleteMail(rowId);
+            const timestamp = parseInt(btn.dataset.timestamp);
+            if (timestamp) window.deleteMail(timestamp);
         };
     });
 }
@@ -140,8 +143,8 @@ function buildInboxCardHTML(mail) {
     }
     
     return `
-        <div class="list-item" data-rowid="${mail.rowId}">
-            <div class="mail-content" data-rowid="${mail.rowId}">
+        <div class="list-item" data-timestamp="${mail.timestamp}">
+            <div class="mail-content" data-timestamp="${mail.timestamp}">
                 <div class="mail-header">
                     <div class="mail-sender">
                         <b>${ign}</b> 
@@ -157,7 +160,7 @@ function buildInboxCardHTML(mail) {
                 </div>
                 <div class="mail-message-preview">${preview}</div>
             </div>
-            <button class="delete-mail-btn" data-rowid="${mail.rowId}"><i class="fas fa-trash-alt"></i></button>
+            <button class="delete-mail-btn" data-timestamp="${mail.timestamp}"><i class="fas fa-trash-alt"></i></button>
         </div>
     `;
 }
@@ -183,8 +186,8 @@ function buildSentCardHTML(mail) {
     }
     
     return `
-        <div class="list-item" data-rowid="${mail.rowId}">
-            <div class="mail-content" data-rowid="${mail.rowId}">
+        <div class="list-item" data-timestamp="${mail.timestamp}">
+            <div class="mail-content" data-timestamp="${mail.timestamp}">
                 <div class="mail-header">
                     <div class="mail-sender">
                         📤 <b>Kepada: ${targetIgn}</b>
@@ -200,7 +203,7 @@ function buildSentCardHTML(mail) {
                 </div>
                 <div class="mail-message-preview">${preview}</div>
             </div>
-            <button class="delete-mail-btn" data-rowid="${mail.rowId}"><i class="fas fa-trash-alt"></i></button>
+            <button class="delete-mail-btn" data-timestamp="${mail.timestamp}"><i class="fas fa-trash-alt"></i></button>
         </div>
     `;
 }
@@ -216,12 +219,11 @@ async function openMailDetail(mail) {
     if (mail.status === 'UNREAD' && !mail.isFromAdmin) {
         mail.status = 'READ';
         
-        const mailInList = currentMailList.find(m => m.rowId === mail.rowId);
+        const mailInList = currentMailList.find(m => m.timestamp === mail.timestamp);
         if (mailInList) mailInList.status = 'READ';
         
         renderMailbox(currentMailList);
         
-        // mailMarkRead tidak perlu validasi (bukan aksi destruktif)
         fetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&rowId=${mail.rowId}`)
             .then(res => res.json())
             .then(data => {
@@ -231,7 +233,7 @@ async function openMailDetail(mail) {
                 } else {
                     console.warn('⚠️ Gagal update, revert');
                     mail.status = originalStatus;
-                    const m = currentMailList.find(x => x.rowId === mail.rowId);
+                    const m = currentMailList.find(x => x.timestamp === mail.timestamp);
                     if (m) m.status = originalStatus;
                     updateCache();
                     renderMailbox(currentMailList);
@@ -240,7 +242,7 @@ async function openMailDetail(mail) {
             .catch(e => {
                 console.error('❌ Error update status:', e);
                 mail.status = originalStatus;
-                const m = currentMailList.find(x => x.rowId === mail.rowId);
+                const m = currentMailList.find(x => x.timestamp === mail.timestamp);
                 if (m) m.status = originalStatus;
                 updateCache();
                 renderMailbox(currentMailList);
@@ -462,7 +464,7 @@ function openReplyForm() {
 }
 
 // ==========================================
-// KIRIM BALASAN (🔒 VALIDATION)
+// KIRIM BALASAN
 // ==========================================
 async function submitMailReply() {
     if (!currentMailDetail) return;
@@ -521,7 +523,7 @@ async function submitMailReply() {
 }
 
 // ==========================================
-// TANDAI SELESAI (🔒 VALIDATION)
+// TANDAI SELESAI
 // ==========================================
 async function markAsDone(rowId) {
     if (!rowId) return;
@@ -614,15 +616,15 @@ function updateCache() {
 }
 
 // ==========================================
-// DELETE MAIL (🔒 VALIDATION)
+// DELETE MAIL (🎯 pakai TIMESTAMP)
 // ==========================================
-window.deleteMail = async function(rowId) {
-    if (!rowId) return;
+window.deleteMail = async function(timestamp) {
+    if (!timestamp) return;
     
     window.showConfirmModal('Hapus surat ini?', async () => {
         try {
             window.showToast("⏳ Menghapus...");
-            const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteMail&adminId=${currentAdmin.id}&rowId=${rowId}`);
+            const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteMail&adminId=${currentAdmin.id}&timestamp=${timestamp}`);
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -698,4 +700,4 @@ window.markAsDone = markAsDone;
 window.checkMailboxChanges = checkMailboxChanges;
 window.updateFromFeedback = updateFromFeedback;
 
-console.log("✅ admin-mail.js loaded (V8 — With Validation)");
+console.log("✅ admin-mail.js loaded (V9 — Timestamp Delete)");

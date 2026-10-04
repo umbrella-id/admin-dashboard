@@ -1,6 +1,8 @@
 /**
- * admin-kas.js - Modul Kas Lengkap
+ * admin-kas.js - Modul Kas Lengkap (V2 — With Validation)
  * Semua operasi AJAX, update cache, tanpa reload halaman
+ * 
+ * UPDATE: Tambah adminId di semua fetch (validasi server)
  */
 
 let kasData = {
@@ -66,7 +68,6 @@ function updateKasDataFromResponse(responseData) {
     kasData.totalSaldo = kasData.bendahara.reduce((sum, nama) => sum + (kasData.saldo[nama] || 0), 0);
     kasData.unreadNotifCount = responseData.pendingCount?.notifications || 0;
     
-    // Data tarif dari response (1 request)
     kasData.currentTarif = responseData.currentTarif || null;
     kasData.currentTarifDate = responseData.currentTarifDate || null;
     kasData.tarifLogs = responseData.tarifLogs || [];
@@ -96,7 +97,6 @@ async function loadKasDashboard(forceRefresh = false) {
     const container = document.getElementById('kas-container');
     if (!container) return;
     
-    // 🔄 BACA DARI CACHE DULU (selalu, agar UI tetap ada)
     const cached = sessionStorage.getItem('umbrella_cached_kas');
     if (cached && !forceRefresh) {
         try {
@@ -108,9 +108,6 @@ async function loadKasDashboard(forceRefresh = false) {
     
     kasLoading = true;
     
-    // ✅ HANYA TAMPILKAN LOADING JIKA:
-    // 1. BUKAN forceRefresh (refresh manual)
-    // 2. DAN tidak ada cache (pertama kali load)
     const showLoading = !forceRefresh && !cached;
     if (showLoading) {
         container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data kas...</div>';
@@ -139,7 +136,7 @@ async function loadKasDashboard(forceRefresh = false) {
 }
 
 // ==========================================
-// REFRESH DENGAN ANIMASI (AJAX, TIDAK RELOAD)
+// REFRESH DENGAN ANIMASI
 // ==========================================
 window.refreshKas = async function() {
     const btn = document.querySelector('.tab-page[data-tab="kas"] .refresh-btn');
@@ -150,7 +147,7 @@ window.refreshKas = async function() {
     btn.disabled = true;
     
     try {
-        await loadKasDashboard(true);  // forceRefresh = true
+        await loadKasDashboard(true);
         window.showToast("✅ Data kas diperbarui");
     } catch(e) {
         console.error("Refresh kas error:", e);
@@ -205,7 +202,6 @@ function renderKasDashboard() {
         </div>
     `;
     
-    // Section Tarif (hanya untuk LEADER)
     if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
         html += `
             <div id="kas-tarif-section" class="kas-tarif-section">
@@ -272,7 +268,6 @@ function renderKasDashboard() {
         `;
     }
     
-    // ========== FORM KAS (3 TABS) ==========
     html += `
         <div class="kas-forms-section">
             <div class="kas-form-tabs">
@@ -280,7 +275,6 @@ function renderKasDashboard() {
                 <button class="kas-form-tab ${kasCurrentForm === 'transfer' ? 'active' : ''}" data-form="transfer">🔄 TRANSFER BENDAHARA</button>
     `;
     
-    // Tambah tab Kas Keluar (hanya untuk LEADER)
     if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
         html += `<button class="kas-form-tab ${kasCurrentForm === 'pengeluaran' ? 'active' : ''}" data-form="pengeluaran">📤 KAS KELUAR</button>`;
     }
@@ -288,7 +282,6 @@ function renderKasDashboard() {
     html += `
             </div>
             
-            <!-- Panel INPUT KAS -->
             <div id="kas-form-setoran" class="kas-form-panel ${kasCurrentForm === 'setoran' ? 'active' : ''}">
                 <div class="kas-mode-selector">
                     <label class="kas-radio-label"><input type="radio" name="member-mode" value="list" checked> <i class="fas fa-list"></i> List Member</label>
@@ -310,7 +303,6 @@ function renderKasDashboard() {
                 <button class="kas-submit-btn" onclick="submitSetoran()"><i class="fas fa-save"></i> INPUT</button>
             </div>
             
-            <!-- Panel TRANSFER -->
             <div id="kas-form-transfer" class="kas-form-panel ${kasCurrentForm === 'transfer' ? 'active' : ''}">
                 <div class="kas-form-group">
                     <label>Penerima Dana</label>
@@ -333,7 +325,6 @@ function renderKasDashboard() {
             </div>
     `;
     
-    // Panel KAS KELUAR (hanya untuk LEADER)
     if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
         html += `
             <div id="kas-form-pengeluaran" class="kas-form-panel ${kasCurrentForm === 'pengeluaran' ? 'active' : ''}">
@@ -383,7 +374,6 @@ function renderKasDashboard() {
     
     container.innerHTML = html;
     
-    // Event listeners
     document.querySelectorAll('.kas-form-tab').forEach(btn => {
         btn.addEventListener('click', () => {
             kasCurrentForm = btn.dataset.form;
@@ -465,7 +455,7 @@ function showNotificationModal(notifications) {
 }
 
 // ==========================================
-// OPERASI KAS
+// OPERASI KAS — SUBMIT SETORAN (🔒 VALIDATION)
 // ==========================================
 async function submitSetoran() {
     console.log("🔵 submitSetoran DIPANGGIL");
@@ -487,7 +477,7 @@ async function submitSetoran() {
     const isNewMember = !isListMode;
     
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=addSetoran&ign=${encodeURIComponent(memberName)}&spina=${spina}&notes=${encodeURIComponent(notes)}&adm=${encodeURIComponent(currentAdmin.nama)}&isNewMember=${isNewMember}`);
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=addSetoran&adminId=${currentAdmin.id}&ign=${encodeURIComponent(memberName)}&spina=${spina}&notes=${encodeURIComponent(notes)}&adm=${encodeURIComponent(currentAdmin.nama)}&isNewMember=${isNewMember}`);
         const data = await response.json();
         console.log("📡 submitSetoran response:", data);
         
@@ -497,7 +487,6 @@ async function submitSetoran() {
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                 updateKasDataFromResponse(data.data);
             } else {
-                console.log("⚠️ Tidak ada data.data, refresh manual...");
                 await loadKasDashboard(true);
             }
             document.getElementById('kas-member-name').value = '';
@@ -515,6 +504,9 @@ async function submitSetoran() {
     }
 }
 
+// ==========================================
+// SUBMIT TRANSFER (🔒 VALIDATION)
+// ==========================================
 async function submitTransferRequest() {
     console.log("🔵 submitTransferRequest DIPANGGIL");
     const to = document.getElementById('kas-transfer-to')?.value;
@@ -530,7 +522,7 @@ async function submitTransferRequest() {
     btn.disabled = true;
     
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=requestTransfer&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toName=${encodeURIComponent(to)}&amount=${amount}&notes=${encodeURIComponent(notes)}`);
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=requestTransfer&adminId=${currentAdmin.id}&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toName=${encodeURIComponent(to)}&amount=${amount}&notes=${encodeURIComponent(notes)}`);
         const data = await response.json();
         console.log("📡 submitTransferRequest response:", data);
         
@@ -540,7 +532,6 @@ async function submitTransferRequest() {
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                 updateKasDataFromResponse(data.data);
             } else {
-                console.log("⚠️ Tidak ada data.data, refresh manual...");
                 await loadKasDashboard(true);
             }
             document.getElementById('kas-transfer-to').value = '';
@@ -559,7 +550,7 @@ async function submitTransferRequest() {
 }
 
 // ==========================================
-// KAS KELUAR (PENGELUARAN)
+// SUBMIT PENGELUARAN (🔒 VALIDATION)
 // ==========================================
 async function submitPengeluaran() {
     if (currentAdmin.role1 !== 'LEADER' && currentAdmin.role2 !== 'LEADER') {
@@ -586,7 +577,7 @@ async function submitPengeluaran() {
     btn.disabled = true;
     
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=addPengeluaran&adm=${encodeURIComponent(currentAdmin.nama)}&spina=${spina}&notes=${encodeURIComponent(notes)}&keterangan=${encodeURIComponent(keterangan)}`);
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=addPengeluaran&adminId=${currentAdmin.id}&adm=${encodeURIComponent(currentAdmin.nama)}&spina=${spina}&notes=${encodeURIComponent(notes)}&keterangan=${encodeURIComponent(keterangan)}`);
         const data = await response.json();
         
         if (data.status === 'success') {
@@ -612,11 +603,14 @@ async function submitPengeluaran() {
     }
 }
 
+// ==========================================
+// APPROVE TRANSFER (🔒 VALIDATION)
+// ==========================================
 async function approveTransferRequest(requestId) {
     console.log("🔵 approveTransferRequest DIPANGGIL", requestId);
     window.showConfirmModal('Setujui transfer ini?', async () => {
         try {
-            const response = await fetch(`${window.GAS_ADMIN_URL}?action=approveTransfer&requestId=${requestId}&approvedBy=${currentAdmin.id}&approvedByName=${encodeURIComponent(currentAdmin.nama)}`);
+            const response = await fetch(`${window.GAS_ADMIN_URL}?action=approveTransfer&adminId=${currentAdmin.id}&requestId=${requestId}&approvedBy=${currentAdmin.id}&approvedByName=${encodeURIComponent(currentAdmin.nama)}`);
             const data = await response.json();
             console.log("📡 approveTransferRequest response:", data);
             
@@ -626,7 +620,6 @@ async function approveTransferRequest(requestId) {
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                     updateKasDataFromResponse(data.data);
                 } else {
-                    console.log("⚠️ Tidak ada data.data, refresh manual...");
                     await loadKasDashboard(true);
                 }
             } else {
@@ -639,11 +632,14 @@ async function approveTransferRequest(requestId) {
     });
 }
 
+// ==========================================
+// REJECT TRANSFER (🔒 VALIDATION)
+// ==========================================
 async function rejectTransferRequest(requestId) {
     console.log("🔵 rejectTransferRequest DIPANGGIL", requestId);
     window.showConfirmModal('Tolak transfer ini?', async () => {
         try {
-            const response = await fetch(`${window.GAS_ADMIN_URL}?action=rejectTransfer&requestId=${requestId}&rejectedBy=${currentAdmin.id}&rejectedByName=${encodeURIComponent(currentAdmin.nama)}`);
+            const response = await fetch(`${window.GAS_ADMIN_URL}?action=rejectTransfer&adminId=${currentAdmin.id}&requestId=${requestId}&rejectedBy=${currentAdmin.id}&rejectedByName=${encodeURIComponent(currentAdmin.nama)}`);
             const data = await response.json();
             console.log("📡 rejectTransferRequest response:", data);
             
@@ -653,7 +649,6 @@ async function rejectTransferRequest(requestId) {
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                     updateKasDataFromResponse(data.data);
                 } else {
-                    console.log("⚠️ Tidak ada data.data, refresh manual...");
                     await loadKasDashboard(true);
                 }
             } else {
@@ -666,11 +661,14 @@ async function rejectTransferRequest(requestId) {
     });
 }
 
+// ==========================================
+// CANCEL TRANSFER (🔒 VALIDATION)
+// ==========================================
 async function cancelTransferRequest(requestId) {
     console.log("🔵 cancelTransferRequest DIPANGGIL", requestId);
     window.showConfirmModal('Batalkan request transfer ini?', async () => {
         try {
-            const response = await fetch(`${window.GAS_ADMIN_URL}?action=cancelTransfer&requestId=${requestId}&cancelledBy=${currentAdmin.id}`);
+            const response = await fetch(`${window.GAS_ADMIN_URL}?action=cancelTransfer&adminId=${currentAdmin.id}&requestId=${requestId}&cancelledBy=${currentAdmin.id}`);
             const data = await response.json();
             console.log("📡 cancelTransferRequest response:", data);
             
@@ -680,7 +678,6 @@ async function cancelTransferRequest(requestId) {
                     sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                     updateKasDataFromResponse(data.data);
                 } else {
-                    console.log("⚠️ Tidak ada data.data, refresh manual...");
                     await loadKasDashboard(true);
                 }
             } else {
@@ -697,7 +694,6 @@ async function cancelTransferRequest(requestId) {
 // EDIT TRANSACTION
 // ==========================================
 async function editTransaction(rowId, oldNotes, oldAmount) {
-    // Deteksi apakah ini pengeluaran (oldAmount negatif ATAU oldNotes mengandung "[PENGELUARAN]")
     const isPengeluaran = oldAmount < 0 || (oldNotes && oldNotes.includes('[PENGELUARAN]'));
     
     const modal = document.getElementById('modal-overlay');
@@ -732,6 +728,9 @@ async function editTransaction(rowId, oldNotes, oldAmount) {
     document.getElementById('save-transaction-btn').onclick = () => saveEditTransaction(rowId);
 }
 
+// ==========================================
+// SAVE EDIT TRANSACTION (🔒 VALIDATION)
+// ==========================================
 async function saveEditTransaction(rowId) {
     console.log("🔵 saveEditTransaction DIPANGGIL", rowId);
     
@@ -745,7 +744,6 @@ async function saveEditTransaction(rowId) {
         let newAmount = parseInt(document.getElementById('edit-amount')?.value);
         if (isNaN(newAmount)) newAmount = 0;
         
-        // ✅ Ambil notes jika ada (untuk pengeluaran)
         const notesTextarea = document.getElementById('edit-notes');
         let newNotes = '';
         if (notesTextarea) {
@@ -759,8 +757,7 @@ async function saveEditTransaction(rowId) {
         
         closeModal();
         
-        // ✅ Kirim notes jika ada
-        let url = `${window.GAS_ADMIN_URL}?action=updateTransaction&rowId=${parsedRowId}&amount=${newAmount}&adminName=${encodeURIComponent(currentAdmin.nama)}`;
+        let url = `${window.GAS_ADMIN_URL}?action=updateTransaction&adminId=${currentAdmin.id}&rowId=${parsedRowId}&amount=${newAmount}&adminName=${encodeURIComponent(currentAdmin.nama)}`;
         if (newNotes) {
             url += `&notes=${encodeURIComponent(newNotes)}`;
         }
@@ -834,7 +831,7 @@ async function submitUpdateTarif() {
         if (result.status === 'success') {
             window.showToast(result.message);
             closeModal();
-            await loadKasDashboard(true); // refresh data kas (termasuk tarif)
+            await loadKasDashboard(true);
         } else {
             window.showToast(result.message || "Gagal", true);
         }
@@ -866,4 +863,4 @@ window.saveEditTransaction = saveEditTransaction;
 window.openTarifModal = openTarifModal;
 window.submitUpdateTarif = submitUpdateTarif;
 
-console.log("✅ admin-kas.js loaded");
+console.log("✅ admin-kas.js loaded (V2 — With Validation)");

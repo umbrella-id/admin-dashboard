@@ -1,11 +1,11 @@
 /**
- * admin-content.js - Kelola Konten Web (V4)
+ * admin-content.js - Kelola Konten Web (V6 — Final)
  * 
- * Update dari V3:
- * - ID "galery" → "gallery" (sync dengan client)
- * - Preview gambar setelah upload
- * - Tombol upload pakai Font Awesome
- * - Token di GAS (tidak di client)
+ * Aturan:
+ * - Timestamp (kolom E) = ID permanen (waktu pembuatan). Tidak diupdate saat edit.
+ * - Semua operasi edit/hapus pakai timestamp, bukan rowId.
+ * - addContentItem: tambah item lokal (tanpa refresh), biar tidak hilangkan perubahan belum disimpan.
+ * - updateAllContent: batch semua perubahan, baru refresh.
  */
 
 let currentContentData = [];
@@ -15,30 +15,26 @@ let hasUnsavedChanges = false;
 // KONFIG UPLOAD
 // ==========================================
 const UPLOAD_CONFIG = {
-    MAX_SIZE: 10 * 1024 * 1024, // 10MB
+    MAX_SIZE: 10 * 1024 * 1024,
     ALLOWED_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
 };
 
 // ==========================================
-// UPLOAD VIA GAS (PROXY)
+// UPLOAD VIA GAS
 // ==========================================
 async function uploadToGitHub(file) {
-    // Validasi tipe
     if (!UPLOAD_CONFIG.ALLOWED_TYPES.includes(file.type)) {
         throw new Error('Format tidak didukung. Gunakan JPG, PNG, WEBP, atau GIF.');
     }
     
-    // Validasi size
     if (file.size > UPLOAD_CONFIG.MAX_SIZE) {
         const sizeMB = (UPLOAD_CONFIG.MAX_SIZE / 1024 / 1024).toFixed(0);
         throw new Error(`File terlalu besar. Maksimal ${sizeMB}MB.`);
     }
     
-    // Generate filename
     const ext = file.name.split('.').pop().toLowerCase();
     const filename = `img-${Date.now()}.${ext}`;
     
-    // Convert to base64
     const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -46,7 +42,6 @@ async function uploadToGitHub(file) {
         reader.readAsDataURL(file);
     });
     
-    // Kirim ke GAS (POST)
     const payload = {
         action: 'uploadImage',
         adminId: currentAdmin.id,
@@ -61,6 +56,13 @@ async function uploadToGitHub(file) {
         body: JSON.stringify(payload)
     });
     
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('❌ Response bukan JSON:', text.substring(0, 500));
+        throw new Error('Server return bukan JSON. Cek deployment GAS.');
+    }
+    
     const data = await res.json();
     
     if (data.status !== 'success') {
@@ -71,7 +73,7 @@ async function uploadToGitHub(file) {
 }
 
 // ==========================================
-// TRIGGER UPLOAD (dipanggil dari tombol)
+// TRIGGER UPLOAD
 // ==========================================
 window.triggerUpload = function(btn) {
     const input = btn.previousElementSibling;
@@ -80,9 +82,12 @@ window.triggerUpload = function(btn) {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/*';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
     
     fileInput.onchange = async (e) => {
         const file = e.target.files[0];
+        document.body.removeChild(fileInput);
         if (!file) return;
         
         const originalHtml = btn.innerHTML;
@@ -94,10 +99,7 @@ window.triggerUpload = function(btn) {
             if (url) {
                 input.value = url;
                 input.dispatchEvent(new Event('input', { bubbles: true }));
-                
-                // 🎯 Update preview
                 updateImagePreview(input);
-                
                 window.showToast('✅ Upload berhasil');
             }
         } catch(e) {
@@ -116,7 +118,6 @@ window.triggerUpload = function(btn) {
 // PREVIEW GAMBAR
 // ==========================================
 function updateImagePreview(input) {
-    // Cari container preview (di bawah input)
     const wrapper = input.closest('div[style*="display:flex"]');
     if (!wrapper) return;
     
@@ -145,8 +146,8 @@ function updateImagePreview(input) {
 // ==========================================
 // BUILD INPUT URL + TOMBOL UPLOAD
 // ==========================================
-function buildImageUrlInput(rowId, field, value, placeholder) {
-    const id = `img-input-${rowId}-${field}-${Math.random().toString(36).substring(2, 8)}`;
+function buildImageUrlInput(timestamp, field, value, placeholder) {
+    const id = `img-input-${timestamp}-${field}-${Math.random().toString(36).substring(2, 8)}`;
     return `
         <div style="margin-bottom:8px;">
             <div style="display:flex; gap:8px; align-items:center;">
@@ -155,7 +156,7 @@ function buildImageUrlInput(rowId, field, value, placeholder) {
                        id="${id}"
                        placeholder="${placeholder || 'URL Gambar'}" 
                        value="${escapeHtml(value || '')}" 
-                       data-rowid="${rowId}" 
+                       data-timestamp="${timestamp}" 
                        data-field="${field || 'ImageUrl'}"
                        oninput="updateImagePreview(this)"
                        style="flex:1;">
@@ -202,6 +203,12 @@ function buildGalleryBody(imageUrl, caption) {
     return html;
 }
 
+// Helper: ambil timestamp (ms) dari item
+function getItemTs(item) {
+    if (!item || !item.Timestamp) return 0;
+    return new Date(item.Timestamp).getTime();
+}
+
 // ==========================================
 // LOAD & RENDER DATA
 // ==========================================
@@ -235,31 +242,34 @@ function renderContentEditor(data) {
     const headline = data.find(item => item.ID?.toLowerCase() === 'headline');
     const openmember = data.find(item => item.ID?.toLowerCase() === 'openmember');
     const profilList = data.filter(item => item.ID?.toLowerCase() === 'profil');
-    const galeryList = data.filter(item => item.ID?.toLowerCase() === 'gallery'); // 🎯 gallery
+    const galeryList = data.filter(item => item.ID?.toLowerCase() === 'gallery');
     const runningTexts = data.filter(item => item.ID?.toLowerCase() === 'running_text');
     const sosmedList = data.filter(item => item.ID?.toLowerCase() === 'sosmed');
+    
+    const headlineTs = getItemTs(headline);
+    const openmemberTs = getItemTs(openmember);
     
     let html = `
         <div class="content-editor">
             <!-- HEADLINE -->
             <div class="content-category">
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
-                <div class="content-item" data-rowid="${headline?.rowId || 2}" data-status="normal" style="position:relative;">
+                <div class="content-item" data-timestamp="${headlineTs}" data-status="normal" style="position:relative;">
                     <div class="item-badge" style="display:none;"></div>
-                    <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(headline?.Header || '')}" data-rowid="${headline?.rowId || 2}" data-field="Header">
-                    ${buildImageUrlInput(headline?.rowId || 2, 'ImageUrl', extractImageUrlFromBody(headline?.Body || ''), 'URL Gambar (opsional)')}
-                    <textarea class="content-caption" placeholder="Caption / Teks" data-rowid="${headline?.rowId || 2}" data-field="Caption">${escapeHtml(extractCaptionFromBody(headline?.Body || ''))}</textarea>
+                    <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(headline?.Header || '')}" data-timestamp="${headlineTs}" data-field="Header">
+                    ${buildImageUrlInput(headlineTs, 'ImageUrl', extractImageUrlFromBody(headline?.Body || ''), 'URL Gambar (opsional)')}
+                    <textarea class="content-caption" placeholder="Caption / Teks" data-timestamp="${headlineTs}" data-field="Caption">${escapeHtml(extractCaptionFromBody(headline?.Body || ''))}</textarea>
                 </div>
             </div>
             
             <!-- OPEN MEMBER -->
             <div class="content-category">
                 <h4><i class="fas fa-users"></i> OPEN MEMBER</h4>
-                <div class="content-item" data-rowid="${openmember?.rowId || 3}" data-status="normal" style="position:relative;">
+                <div class="content-item" data-timestamp="${openmemberTs}" data-status="normal" style="position:relative;">
                     <div class="item-badge" style="display:none;"></div>
-                    <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(openmember?.Header || '')}" data-rowid="${openmember?.rowId || 3}" data-field="Header">
-                    ${buildImageUrlInput(openmember?.rowId || 3, 'ImageUrl', extractImageUrlFromBody(openmember?.Body || ''), 'URL Gambar (opsional)')}
-                    <textarea class="content-caption" placeholder="Caption / Teks" data-rowid="${openmember?.rowId || 3}" data-field="Caption">${escapeHtml(extractCaptionFromBody(openmember?.Body || ''))}</textarea>
+                    <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(openmember?.Header || '')}" data-timestamp="${openmemberTs}" data-field="Header">
+                    ${buildImageUrlInput(openmemberTs, 'ImageUrl', extractImageUrlFromBody(openmember?.Body || ''), 'URL Gambar (opsional)')}
+                    <textarea class="content-caption" placeholder="Caption / Teks" data-timestamp="${openmemberTs}" data-field="Caption">${escapeHtml(extractCaptionFromBody(openmember?.Body || ''))}</textarea>
                 </div>
             </div>
             
@@ -267,38 +277,41 @@ function renderContentEditor(data) {
             <div class="content-category">
                 <h4><i class="fas fa-address-card"></i> PROFIL</h4>
                 <div id="profil-list">
-                    ${profilList.map(item => `
-                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
+                    ${profilList.map(item => {
+                        const ts = getItemTs(item);
+                        return `
+                        <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
                             <div class="item-badge" style="display:none;"></div>
                             <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                                <button class="btn-undo" onclick="undoDelete('profil', ${item.rowId})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
-                                <button class="btn-delete-item" onclick="deleteContentItem('profil', ${item.rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
+                                <button class="btn-undo" onclick="undoDelete('profil', ${ts})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
+                                <button class="btn-delete-item" onclick="deleteContentItem('profil', ${ts})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                             </div>
-                            <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
-                            <textarea class="content-body" placeholder="Body" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
+                            <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(item.Header || '')}" data-timestamp="${ts}" data-field="Header">
+                            <textarea class="content-body" placeholder="Body" data-timestamp="${ts}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
                         </div>
-                    `).join('')}
+                    `}).join('')}
                 </div>
                 <button class="btn-add-item" onclick="addContentItem('profil')"><i class="fas fa-plus"></i> Tambah Profil</button>
             </div>
             
-            <!-- GALLERY 🎯 -->
+            <!-- GALLERY -->
             <div class="content-category">
                 <h4><i class="fas fa-images"></i> GALLERY</h4>
                 <div id="gallery-list">
                     ${galeryList.map(item => {
+                        const ts = getItemTs(item);
                         const imageUrl = extractImageUrlFromBody(item.Body || '');
                         const caption = extractCaptionFromBody(item.Body || '');
                         return `
-                            <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
+                            <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
                                 <div class="item-badge" style="display:none;"></div>
                                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                                    <button class="btn-undo" onclick="undoDelete('gallery', ${item.rowId})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
-                                    <button class="btn-delete-item" onclick="deleteContentItem('gallery', ${item.rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
+                                    <button class="btn-undo" onclick="undoDelete('gallery', ${ts})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
+                                    <button class="btn-delete-item" onclick="deleteContentItem('gallery', ${ts})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                                 </div>
-                                <input type="text" class="content-header" placeholder="Judul Event" value="${escapeHtml(item.Header || '')}" data-rowid="${item.rowId}" data-field="Header">
-                                ${buildImageUrlInput(item.rowId, 'ImageUrl', imageUrl, 'URL Gambar')}
-                                <textarea class="content-caption" placeholder="Deskripsi / Caption" data-rowid="${item.rowId}" data-field="Caption">${escapeHtml(caption)}</textarea>
+                                <input type="text" class="content-header" placeholder="Judul Event" value="${escapeHtml(item.Header || '')}" data-timestamp="${ts}" data-field="Header">
+                                ${buildImageUrlInput(ts, 'ImageUrl', imageUrl, 'URL Gambar')}
+                                <textarea class="content-caption" placeholder="Deskripsi / Caption" data-timestamp="${ts}" data-field="Caption">${escapeHtml(caption)}</textarea>
                             </div>
                         `;
                     }).join('')}
@@ -310,12 +323,14 @@ function renderContentEditor(data) {
             <div class="content-category">
                 <h4><i class="fas fa-scroll"></i> RUNNING TEXT</h4>
                 <div id="runningtext-list">
-                    ${runningTexts.map(item => `
-                        <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
+                    ${runningTexts.map(item => {
+                        const ts = getItemTs(item);
+                        return `
+                        <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
                             <div class="item-badge" style="display:none;"></div>
-                            <textarea class="content-body" placeholder="Text" data-rowid="${item.rowId}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
+                            <textarea class="content-body" placeholder="Text" data-timestamp="${ts}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
                         </div>
-                    `).join('')}
+                    `}).join('')}
                 </div>
             </div>
             
@@ -324,6 +339,7 @@ function renderContentEditor(data) {
                 <h4><i class="fas fa-share-alt"></i> SOSMED</h4>
                 <div id="sosmed-list">
                     ${sosmedList.map(item => {
+                        const ts = getItemTs(item);
                         let iconClass = 'fa-brands fa-discord';
                         let label = 'Discord';
                         if (item.Header === 'whatsapp') {
@@ -334,12 +350,12 @@ function renderContentEditor(data) {
                             label = 'Facebook';
                         }
                         return `
-                            <div class="content-item" data-rowid="${item.rowId}" data-status="normal" style="position:relative;">
+                            <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
                                 <div class="item-badge" style="display:none;"></div>
                                 <div class="platform-label" style="margin-bottom:8px; color:var(--color-primary); font-weight:bold;">
                                     <i class="${iconClass}"></i> ${label}
                                 </div>
-                                <input type="text" class="content-body" placeholder="URL" value="${escapeHtml(item.Body || '')}" data-rowid="${item.rowId}" data-field="Body">
+                                <input type="text" class="content-body" placeholder="URL" value="${escapeHtml(item.Body || '')}" data-timestamp="${ts}" data-field="Body">
                             </div>
                         `;
                     }).join('')}
@@ -350,20 +366,19 @@ function renderContentEditor(data) {
     
     container.innerHTML = html;
     
-    // Pasang listener untuk badge & change detection
+    // Pasang listener untuk change detection
     document.querySelectorAll('.content-item').forEach(item => {
-        const rowId = parseInt(item.dataset.rowid);
-        const isNewItem = rowId < 0;
+        const ts = parseInt(item.dataset.timestamp);
+        const isNewItem = ts < 0;
         const badge = item.querySelector('.item-badge');
-        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+        const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
         
-        if (isNewItem && !item.hasAttribute('data-processed')) {
+        if (isNewItem) {
             badge.textContent = 'BARU';
             badge.style.cssText = 'position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px; font-weight:bold; z-index:10;';
             badge.style.display = 'block';
             item.style.background = 'rgba(34, 197, 94, 0.1)';
             item.style.borderLeft = '3px solid #22c55e';
-            item.setAttribute('data-processed', 'true');
         }
         
         const inputs = item.querySelectorAll('input, textarea, select');
@@ -413,65 +428,77 @@ function renderContentEditor(data) {
 function collectChangedFields() {
     const changes = [];
     const newItems = [];
-    const deletedRows = [];
+    const deletedTimestamps = [];
     
+    // Cek new items (timestamp < 0 = baru ditambahkan lokal, belum di server)
     document.querySelectorAll('#profil-list .content-item, #gallery-list .content-item').forEach(item => {
-        const rowId = parseInt(item.dataset.rowid);
-        if (rowId < 0) {
+        const ts = parseInt(item.dataset.timestamp);
+        if (ts < 0) {
             if (item.closest('#profil-list')) {
-                newItems.push({ category: 'profil', rowId });
+                newItems.push({ 
+                    category: 'profil', 
+                    header: item.querySelector('.content-header')?.value || '',
+                    body: item.querySelector('.content-body')?.value || ''
+                });
             } else if (item.closest('#gallery-list')) {
-                newItems.push({ category: 'gallery', rowId });
+                const imgUrl = item.querySelector('.content-image-url')?.value || '';
+                const caption = item.querySelector('.content-caption')?.value || '';
+                newItems.push({ 
+                    category: 'gallery', 
+                    header: item.querySelector('.content-header')?.value || '',
+                    body: buildGalleryBody(imgUrl, caption)
+                });
             }
         }
     });
     
+    // Cek deleted items
     document.querySelectorAll('.content-item[data-status="deleted"]').forEach(item => {
-        const rowId = parseInt(item.dataset.rowid);
-        if (rowId > 0) deletedRows.push(rowId);
+        const ts = parseInt(item.dataset.timestamp);
+        if (ts > 0) deletedTimestamps.push(ts);
     });
     
-    // HEADLINE (index 0)
+    // HEADLINE
     const headlineItem = document.querySelector('.content-category:nth-child(1) .content-item');
-    if (headlineItem) {
-        const rowId = parseInt(headlineItem.dataset.rowid);
-        if (rowId > 0) {
+    if (headlineItem && headlineItem.dataset.status !== 'deleted') {
+        const ts = parseInt(headlineItem.dataset.timestamp);
+        if (ts > 0) {
             const headerInput = headlineItem.querySelector('.content-header');
             const imageUrlInput = headlineItem.querySelector('.content-image-url');
             const captionInput = headlineItem.querySelector('.content-caption');
-            const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+            const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
             
             if (headerInput && originalData.Header !== headerInput.value) {
-                changes.push({ rowId, field: 'Header', value: headerInput.value });
+                changes.push({ timestamp: ts, field: 'Header', value: headerInput.value });
             }
             
             if (imageUrlInput && captionInput) {
                 const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
                 if (originalData.Body !== newBody) {
-                    changes.push({ rowId, field: 'Body', value: newBody });
+                    changes.push({ timestamp: ts, field: 'Body', value: newBody });
                 }
             }
         }
     }
     
-    // OPEN MEMBER (index 1)
+    // OPEN MEMBER
     const openmemberItem = document.querySelector('.content-category:nth-child(2) .content-item');
-    if (openmemberItem) {
-        const rowId = parseInt(openmemberItem.dataset.rowid);
-        if (rowId > 0) {
+    if (openmemberItem && openmemberItem.dataset.status !== 'deleted') {
+        const ts = parseInt(openmemberItem.dataset.timestamp);
+        if (ts > 0) {
             const headerInput = openmemberItem.querySelector('.content-header');
             const imageUrlInput = openmemberItem.querySelector('.content-image-url');
             const captionInput = openmemberItem.querySelector('.content-caption');
-            const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+            const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
             
             if (headerInput && originalData.Header !== headerInput.value) {
-                changes.push({ rowId, field: 'Header', value: headerInput.value });
+                changes.push({ timestamp: ts, field: 'Header', value: headerInput.value });
             }
             
             if (imageUrlInput && captionInput) {
                 const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
                 if (originalData.Body !== newBody) {
-                    changes.push({ rowId, field: 'Body', value: newBody });
+                    changes.push({ timestamp: ts, field: 'Body', value: newBody });
                 }
             }
         }
@@ -479,79 +506,79 @@ function collectChangedFields() {
     
     // PROFIL
     document.querySelectorAll('#profil-list .content-item:not([data-status="deleted"])').forEach(item => {
-        const rowId = parseInt(item.dataset.rowid);
-        if (rowId <= 0) return;
+        const ts = parseInt(item.dataset.timestamp);
+        if (ts <= 0) return;
         
         const headerInput = item.querySelector('.content-header');
         const bodyInput = item.querySelector('.content-body');
-        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+        const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
         
         if (headerInput && originalData.Header !== headerInput.value) {
-            changes.push({ rowId, field: 'Header', value: headerInput.value });
+            changes.push({ timestamp: ts, field: 'Header', value: headerInput.value });
         }
         if (bodyInput && originalData.Body !== bodyInput.value) {
-            changes.push({ rowId, field: 'Body', value: bodyInput.value });
+            changes.push({ timestamp: ts, field: 'Body', value: bodyInput.value });
         }
     });
     
-    // GALLERY 🎯
+    // GALLERY
     document.querySelectorAll('#gallery-list .content-item:not([data-status="deleted"])').forEach(item => {
-        const rowId = parseInt(item.dataset.rowid);
-        if (rowId <= 0) return;
+        const ts = parseInt(item.dataset.timestamp);
+        if (ts <= 0) return;
         
         const headerInput = item.querySelector('.content-header');
         const imageUrlInput = item.querySelector('.content-image-url');
         const captionInput = item.querySelector('.content-caption');
-        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+        const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
         
         if (headerInput && originalData.Header !== headerInput.value) {
-            changes.push({ rowId, field: 'Header', value: headerInput.value });
+            changes.push({ timestamp: ts, field: 'Header', value: headerInput.value });
         }
         
         if (imageUrlInput && captionInput) {
             const newBody = buildGalleryBody(imageUrlInput.value, captionInput.value);
             if (originalData.Body !== newBody) {
-                changes.push({ rowId, field: 'Body', value: newBody });
+                changes.push({ timestamp: ts, field: 'Body', value: newBody });
             }
         }
     });
     
     // RUNNING TEXT
-    document.querySelectorAll('#runningtext-list .content-item').forEach(item => {
-        const rowId = parseInt(item.dataset.rowid);
-        if (rowId <= 0) return;
+    document.querySelectorAll('#runningtext-list .content-item:not([data-status="deleted"])').forEach(item => {
+        const ts = parseInt(item.dataset.timestamp);
+        if (ts <= 0) return;
         
         const bodyInput = item.querySelector('.content-body');
-        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+        const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
         
         if (bodyInput && originalData.Body !== bodyInput.value) {
-            changes.push({ rowId, field: 'Body', value: bodyInput.value });
+            changes.push({ timestamp: ts, field: 'Body', value: bodyInput.value });
         }
     });
     
     // SOSMED
-    document.querySelectorAll('#sosmed-list .content-item').forEach(item => {
-        const rowId = parseInt(item.dataset.rowid);
-        if (rowId <= 0) return;
+    document.querySelectorAll('#sosmed-list .content-item:not([data-status="deleted"])').forEach(item => {
+        const ts = parseInt(item.dataset.timestamp);
+        if (ts <= 0) return;
         
         const bodyInput = item.querySelector('.content-body');
-        const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+        const originalData = currentContentData.find(d => getItemTs(d) === ts) || {};
         
         if (bodyInput && originalData.Body !== bodyInput.value) {
-            changes.push({ rowId, field: 'Body', value: bodyInput.value });
+            changes.push({ timestamp: ts, field: 'Body', value: bodyInput.value });
         }
     });
     
-    return { changes, newItems, deletedRows };
+    return { changes, newItems, deletedTimestamps };
 }
 
 // ==========================================
 // UPDATE KE SERVER
 // ==========================================
 window.updateAllContent = async function() {
-    const { changes, newItems, deletedRows } = collectChangedFields();
+    const { changes, newItems, deletedTimestamps } = collectChangedFields();
     
-    if (changes.length === 0 && newItems.length === 0 && deletedRows.length === 0) {
+    if (changes.length === 0 && newItems.length === 0 && deletedTimestamps.length === 0) {
         window.showToast("Tidak ada perubahan", true);
         return;
     }
@@ -564,9 +591,21 @@ window.updateAllContent = async function() {
     let successCount = 0;
     let failCount = 0;
     
+    // 1. Hapus item
+    for (const ts of deletedTimestamps) {
+        try {
+            const url = `${window.GAS_ADMIN_URL}?action=deleteContentItem&adminId=${currentAdmin.id}&timestamp=${ts}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.status === 'success') successCount++;
+            else failCount++;
+        } catch(e) { failCount++; }
+    }
+    
+    // 2. Tambah item baru
     for (const newItem of newItems) {
         try {
-            const url = `${window.GAS_ADMIN_URL}?action=addContentItem&adminId=${currentAdmin.id}&category=${newItem.category}`;
+            const url = `${window.GAS_ADMIN_URL}?action=addContentItem&adminId=${currentAdmin.id}&category=${newItem.category}&header=${encodeURIComponent(newItem.header)}&body=${encodeURIComponent(newItem.body)}`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.status === 'success') successCount++;
@@ -574,19 +613,10 @@ window.updateAllContent = async function() {
         } catch(e) { failCount++; }
     }
     
-    for (const rowId of deletedRows) {
-        try {
-            const url = `${window.GAS_ADMIN_URL}?action=deleteContentItem&adminId=${currentAdmin.id}&rowId=${rowId}`;
-            const res = await fetch(url);
-            const data = await res.json();
-            if (data.status === 'success') successCount++;
-            else failCount++;
-        } catch(e) { failCount++; }
-    }
-    
+    // 3. Update fields
     for (const change of changes) {
         try {
-            const url = `${window.GAS_ADMIN_URL}?action=updateContent&adminId=${currentAdmin.id}&rowId=${change.rowId}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
+            const url = `${window.GAS_ADMIN_URL}?action=updateContent&adminId=${currentAdmin.id}&timestamp=${change.timestamp}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.status === 'success') successCount++;
@@ -594,6 +624,7 @@ window.updateAllContent = async function() {
         } catch(e) { failCount++; }
     }
     
+    // 4. Refresh cache + reload data
     if (successCount > 0) {
         await fetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache&adminId=${currentAdmin.id}`);
         window.showToast(`✅ ${successCount} item berhasil diperbarui${failCount > 0 ? `, ${failCount} gagal` : ''}`);
@@ -608,136 +639,82 @@ window.updateAllContent = async function() {
 };
 
 // ==========================================
-// TAMBAH ITEM
+// TAMBAH ITEM (LOKAL, TANPA REFRESH)
 // ==========================================
-window.addContentItem = async function(category) {
+window.addContentItem = function(category) {
     const container = document.getElementById(`${category}-list`);
     if (!container) return;
     
-    const tempRowId = -Date.now();
-    const loadingHtml = `
-        <div class="content-item" data-rowid="${tempRowId}" style="opacity:0.5;">
-            <div class="item-actions"><button disabled>⏳ Menyimpan...</button></div>
-            <input type="text" class="content-header" placeholder="Header" disabled>
-            <textarea class="content-body" placeholder="Body" disabled></textarea>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', loadingHtml);
+    const tempTs = -Date.now();   // temp timestamp negatif
+    const newItemHtml = getNewItemHtml(category, tempTs);
+    container.insertAdjacentHTML('beforeend', newItemHtml);
     
-    try {
-        const url = `${window.GAS_ADMIN_URL}?action=addContentItem&adminId=${currentAdmin.id}&category=${category}`;
-        const res = await fetch(url);
-        const data = await res.json();
+    // Pasang listener untuk item baru
+    const newItem = container.querySelector(`.content-item[data-timestamp="${tempTs}"]`);
+    if (newItem) {
+        // Mark as new
+        const badge = newItem.querySelector('.item-badge');
+        badge.textContent = 'BARU';
+        badge.style.cssText = 'position:absolute; top:-8px; right:10px; background:#22c55e; color:white; font-size:0.65rem; padding:2px 8px; border-radius:20px; font-weight:bold; z-index:10;';
+        badge.style.display = 'block';
+        newItem.style.background = 'rgba(34, 197, 94, 0.1)';
+        newItem.style.borderLeft = '3px solid #22c55e';
         
-        if (data.status === 'success' && data.rowId) {
-            const tempItem = container.querySelector(`.content-item[data-rowid="${tempRowId}"]`);
-            const newItemHtml = getNewItemHtml(category, data.rowId);
-            tempItem.outerHTML = newItemHtml;
-            
-            currentContentData.push({
-                rowId: data.rowId,
-                ID: category,
-                Header: "",
-                Body: "",
-                _status: "new"
+        // Listener perubahan
+        const inputs = newItem.querySelectorAll('input, textarea');
+        inputs.forEach(input => {
+            input.addEventListener('input', () => {
+                hasUnsavedChanges = true;
             });
-            
-            const newItem = container.querySelector(`.content-item[data-rowid="${data.rowId}"]`);
-            attachItemListeners(newItem, data.rowId);
-            
-            window.showToast(`Item ${category} berhasil ditambahkan`);
-        } else {
-            const tempItem = container.querySelector(`.content-item[data-rowid="${tempRowId}"]`);
-            if (tempItem) tempItem.remove();
-            window.showToast(data.message || "Gagal menambahkan item", true);
-        }
-    } catch(e) {
-        console.error("Add item error:", e);
-        const tempItem = container.querySelector(`.content-item[data-rowid="${tempRowId}"]`);
-        if (tempItem) tempItem.remove();
-        window.showToast("Gagal koneksi", true);
+        });
     }
     
     hasUnsavedChanges = true;
+    window.showToast(`Item ${category} baru ditambahkan (klik PERBARUI untuk simpan)`);
 };
 
-function getNewItemHtml(category, rowId) {
+function getNewItemHtml(category, ts) {
     if (category === 'profil') {
         return `
-            <div class="content-item" data-rowid="${rowId}" data-status="normal" style="position:relative;">
+            <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
                 <div class="item-badge" style="display:none;"></div>
                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                    <button class="btn-delete-item" onclick="deleteContentItem('profil', ${rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
+                    <button class="btn-delete-item" onclick="deleteContentItem('profil', ${ts})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
-                <input type="text" class="content-header" placeholder="Header" data-rowid="${rowId}" data-field="Header">
-                <textarea class="content-body" placeholder="Body" data-rowid="${rowId}" data-field="Body"></textarea>
+                <input type="text" class="content-header" placeholder="Header" data-timestamp="${ts}" data-field="Header">
+                <textarea class="content-body" placeholder="Body" data-timestamp="${ts}" data-field="Body"></textarea>
             </div>
         `;
     } else if (category === 'gallery') {
         return `
-            <div class="content-item" data-rowid="${rowId}" data-status="normal" style="position:relative;">
+            <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
                 <div class="item-badge" style="display:none;"></div>
                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
-                    <button class="btn-delete-item" onclick="deleteContentItem('gallery', ${rowId})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
+                    <button class="btn-delete-item" onclick="deleteContentItem('gallery', ${ts})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
-                <input type="text" class="content-header" placeholder="Judul Event" data-rowid="${rowId}" data-field="Header">
-                ${buildImageUrlInput(rowId, 'ImageUrl', '', 'URL Gambar')}
-                <textarea class="content-caption" placeholder="Deskripsi / Caption" data-rowid="${rowId}" data-field="Caption"></textarea>
+                <input type="text" class="content-header" placeholder="Judul Event" data-timestamp="${ts}" data-field="Header">
+                ${buildImageUrlInput(ts, 'ImageUrl', '', 'URL Gambar')}
+                <textarea class="content-caption" placeholder="Deskripsi / Caption" data-timestamp="${ts}" data-field="Caption"></textarea>
             </div>
         `;
     }
     return '';
 }
 
-function attachItemListeners(item, rowId) {
-    const badge = item.querySelector('.item-badge');
-    const originalData = { Header: "", Body: "", ImageUrl: "", Caption: "" };
-    const inputs = item.querySelectorAll('input, textarea, select');
-    
-    const checkChanges = () => {
-        let hasChanged = false;
-        inputs.forEach(input => {
-            const field = input.dataset.field;
-            const originalValue = originalData[field] || '';
-            if (input.value !== originalValue) hasChanged = true;
-        });
-        
-        if (hasChanged) {
-            badge.textContent = 'DIEDIT';
-            badge.style.background = '#f59e0b';
-            badge.style.display = 'block';
-            item.style.background = 'rgba(245, 158, 11, 0.1)';
-            item.style.borderLeft = '3px solid #f59e0b';
-            item.dataset.status = 'edited';
-            hasUnsavedChanges = true;
-        } else {
-            badge.style.display = 'none';
-            item.style.background = '';
-            item.style.borderLeft = '';
-            item.dataset.status = 'normal';
-        }
-    };
-    
-    inputs.forEach(input => {
-        input.addEventListener('input', checkChanges);
-        if (input.tagName === 'SELECT') input.addEventListener('change', checkChanges);
-    });
-}
-
 // ==========================================
 // HAPUS ITEM
 // ==========================================
-window.deleteContentItem = function(category, rowId) {
+window.deleteContentItem = function(category, timestamp) {
     if (!confirm(`Hapus item ${category} ini?`)) return;
     
     const containerId = `${category}-list`;
     const container = document.getElementById(containerId);
     if (!container) return;
     
-    const item = container.querySelector(`.content-item[data-rowid="${rowId}"]`);
+    const item = container.querySelector(`.content-item[data-timestamp="${timestamp}"]`);
     if (!item) return;
     
-    const isNewItem = rowId < 0;
+    const isNewItem = timestamp < 0;
     
     if (isNewItem) {
         item.remove();
@@ -766,16 +743,16 @@ window.deleteContentItem = function(category, rowId) {
 // ==========================================
 // BATAL HAPUS
 // ==========================================
-window.undoDelete = function(category, rowId) {
+window.undoDelete = function(category, timestamp) {
     const containerId = `${category}-list`;
     const container = document.getElementById(containerId);
     if (!container) return;
     
-    const item = container.querySelector(`.content-item[data-rowid="${rowId}"]`);
+    const item = container.querySelector(`.content-item[data-timestamp="${timestamp}"]`);
     if (!item) return;
     
     const badge = item.querySelector('.item-badge');
-    const originalData = currentContentData.find(d => d.rowId === rowId) || {};
+    const originalData = currentContentData.find(d => getItemTs(d) === timestamp) || {};
     
     let hasChanges = false;
     const headerInput = item.querySelector('.content-header');
@@ -811,9 +788,6 @@ window.undoDelete = function(category, rowId) {
     if (deleteBtn) deleteBtn.style.display = 'inline-block';
     if (undoBtn) undoBtn.style.display = 'none';
     
-    const index = currentContentData.findIndex(d => d.rowId === rowId);
-    if (index !== -1) delete currentContentData[index]._deleted;
-    
     window.showToast(`Hapus dibatalkan untuk item ${category}`);
     hasUnsavedChanges = true;
 };
@@ -840,4 +814,4 @@ window.undoDelete = undoDelete;
 window.triggerUpload = triggerUpload;
 window.updateImagePreview = updateImagePreview;
 
-console.log("✅ admin-content.js loaded (V4 — GAS Proxy Upload)");
+console.log("✅ admin-content.js loaded (V6 — Final: Timestamp ID + Local Add)");

@@ -74,3 +74,12 @@
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+/* SENT — untuk nama admin di surat keluar */
+.mail-card-badge.badge-sent {
+    background: rgba(168, 85, 247, 0.25);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.5);
+    text-transform: none;
+    font-size: 0.65rem;
+}

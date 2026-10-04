@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Umbrella Admin Panel</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="admin.css">
-    <link rel="stylesheet" href="admin-mail.css">
-    <link rel="stylesheet" href="admin-kas.css">
-    <link rel="stylesheet" href="admin-member.css">
+    
+    <!-- CSS (dari folder css/) -->
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/admin-mail.css">
+    <link rel="stylesheet" href="css/admin-kas.css">
+    <link rel="stylesheet" href="css/admin-member.css">
 </head>
 <body>
 
@@ -74,7 +76,7 @@
             <!-- MAILBOX TAB -->
             <div class="tab-page" data-tab="mailbox">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-                    <h3 style="margin:0;"><i class="fas fa-envelope"></i> Kotak Surat</h3>
+                    <h3 style="margin:0;"><i class="fas fa-envelope"></i> Kotak Surat <span id="mail-badge" style="display:none; background:var(--color-primary); color:white; font-size:0.65rem; padding:2px 8px; border-radius:10px; margin-left:6px;">0</span></h3>
                     <select id="mail-filter" onchange="window.setMailFilter(this.value)" 
                             style="background:var(--bg-solid-form); border:1px solid var(--border-line); border-radius:20px; padding:6px 12px; color:white; font-size:0.7rem;">
                         <option value="all">📋 Semua</option>
@@ -149,12 +151,13 @@
 <div id="modal-overlay" class="modal-overlay"></div>
 <div id="toast" class="toast"></div>
 
-<script src="js/admin-router.js"></script>
-<script src="admin.js"></script>
-<script src="admin-member.js"></script>
-<script src="admin-chat.js"></script>
-<script src="admin-mail.js"></script>
-<script src="admin-kas.js"></script>
-<script src="admin-content.js"></script>
+<!-- SCRIPTS (dari folder js/) — urutan penting! -->
+<script src="js/admin-router.js"></script>   <!-- WAJIB DULUAN -->
+<script src="js/admin.js"></script>
+<script src="js/admin-member.js"></script>
+<script src="js/admin-chat.js"></script>
+<script src="js/admin-mail.js"></script>
+<script src="js/admin-kas.js"></script>
+<script src="js/admin-content.js"></script>
 </body>
 </html>

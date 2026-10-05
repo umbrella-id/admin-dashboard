@@ -1,13 +1,10 @@
 /**
- * admin-kas.js - Modul Kas Lengkap (V3 — With Router)
+ * admin-kas.js - Modul Kas Lengkap (V4 — XSS Fix + Polish)
  * 
- * Perubahan dari V2:
- * - Integrasi admin-router.js
- * - Pecah openKasNotification → public + renderKasNotificationInternal
- * - Pecah editTransaction → public + renderEditTransactionInternal
- * - Pecah openTarifModal → public + renderTarifModalInternal
- * - Hapus pushState lama, ganti pushView
- * - Submit form sukses → tutup modal, balik view sebelumnya
+ * Perubahan dari V3:
+ * - 🛡️ FIX XSS: Hapus onclick inline dengan data user, ganti data-attribute + event delegation
+ * - Rapikan render tombol edit transaksi
+ * - Konsisten dengan pola V3 (router, tanpa hardcoded)
  */
 
 let kasData = {
@@ -223,7 +220,7 @@ function renderKasDashboard() {
                             const isUpcoming = log.tanggal > today;
                             return `
                                 <div class="tarif-history-row ${isUpcoming ? 'upcoming' : ''}">
-                                    <span class="tarif-history-date">${log.tanggal}</span>
+                                    <span class="tarif-history-date">${escapeHtml(log.tanggal)}</span>
                                     <span class="tarif-history-value">${formatSpina(log.tarif)}</span>
                                     ${isUpcoming ? '<span class="tarif-history-badge">akan datang</span>' : ''}
                                 </div>
@@ -244,7 +241,7 @@ function renderKasDashboard() {
                 </div>
                 <div class="kas-pending-list">
                     ${allPending.map(req => `
-                        <div class="kas-pending-item ${req.type}">
+                        <div class="kas-pending-item ${req.type}" data-req-id="${escapeHtml(req.id)}" data-req-type="${req.type}">
                             <div class="kas-pending-info">
                                 <span class="kas-pending-icon">${req.type === 'incoming' ? '📥' : '📤'}</span>
                                 <span class="kas-pending-desc">
@@ -254,10 +251,10 @@ function renderKasDashboard() {
                             </div>
                             <div class="kas-pending-actions">
                                 ${req.type === 'incoming' ? `
-                                    <button class="kas-btn-approve" onclick="approveTransferRequest('${req.id}')">✅ Setujui</button>
-                                    <button class="kas-btn-reject" onclick="rejectTransferRequest('${req.id}')">❌ Tolak</button>
+                                    <button class="kas-btn-approve" data-action="approve">✅ Setujui</button>
+                                    <button class="kas-btn-reject" data-action="reject">❌ Tolak</button>
                                 ` : `
-                                    <button class="kas-btn-cancel" onclick="cancelTransferRequest('${req.id}')">🗑️ Batalkan</button>
+                                    <button class="kas-btn-cancel" data-action="cancel">🗑️ Batalkan</button>
                                 `}
                             </div>
                         </div>
@@ -362,7 +359,11 @@ function renderKasDashboard() {
                         <div class="kas-history-adm">${escapeHtml(log.adm || '?')}</div>
                         ${log.adm === currentAdmin.nama ? `
                             <div class="kas-history-actions">
-                                <button class="kas-edit-btn" onclick="editTransaction(${log.rowId}, '${escapeHtml(log.notes).replace(/'/g, "\\'")}', ${log.spina})" title="Edit">✏️</button>
+                                <button class="kas-edit-btn" 
+                                        data-rowid="${log.rowId}" 
+                                        data-notes="${escapeHtml(log.notes || '')}" 
+                                        data-spina="${log.spina}"
+                                        title="Edit">✏️</button>
                             </div>
                         ` : '<div class="kas-history-actions"></div>'}
                     </div>
@@ -373,7 +374,9 @@ function renderKasDashboard() {
     
     container.innerHTML = html;
     
-    // Event delegation untuk tabs (fix listener menumpuk)
+    // ==========================================
+    // EVENT DELEGATION — Kas Form Tabs
+    // ==========================================
     const formsSection = container.querySelector('.kas-forms-section');
     if (formsSection) {
         formsSection.addEventListener('click', (e) => {
@@ -389,7 +392,43 @@ function renderKasDashboard() {
         });
     }
     
+    // ==========================================
+    // EVENT DELEGATION — Kas Edit Button (XSS FIX)
+    // ==========================================
+    container.querySelectorAll('.kas-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const rowId = parseInt(btn.dataset.rowid);
+            const notes = btn.dataset.notes;  // Sudah di-decode otomatis oleh browser
+            const spina = parseInt(btn.dataset.spina);
+            editTransaction(rowId, notes, spina);
+        });
+    });
+    
+    // ==========================================
+    // EVENT DELEGATION — Transfer Request Buttons
+    // ==========================================
+    container.querySelectorAll('.kas-pending-item').forEach(item => {
+        const reqId = item.dataset.reqId;
+        const reqType = item.dataset.reqType;
+        
+        const approveBtn = item.querySelector('[data-action="approve"]');
+        const rejectBtn = item.querySelector('[data-action="reject"]');
+        const cancelBtn = item.querySelector('[data-action="cancel"]');
+        
+        if (approveBtn) {
+            approveBtn.addEventListener('click', () => approveTransferRequest(reqId));
+        }
+        if (rejectBtn) {
+            rejectBtn.addEventListener('click', () => rejectTransferRequest(reqId));
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => cancelTransferRequest(reqId));
+        }
+    });
+    
+    // ==========================================
     // Radio mode listener
+    // ==========================================
     const radioList = document.querySelector('input[name="member-mode"][value="list"]');
     const radioNew = document.querySelector('input[name="member-mode"][value="new"]');
     const memberInput = document.getElementById('kas-member-name');
@@ -413,7 +452,7 @@ function renderKasDashboard() {
 }
 
 // ==========================================
-// NOTIFIKASI — PUBLIC (dengan pushView)
+// NOTIFIKASI — PUBLIC
 // ==========================================
 async function openKasNotification() {
     try {
@@ -440,7 +479,7 @@ async function openKasNotification() {
 }
 
 // ==========================================
-// NOTIFIKASI — INTERNAL (render saja)
+// NOTIFIKASI — INTERNAL
 // ==========================================
 function renderKasNotificationInternal(notifications) {
     const modal = document.getElementById('modal-overlay');
@@ -702,7 +741,7 @@ async function cancelTransferRequest(requestId) {
 }
 
 // ==========================================
-// EDIT TRANSACTION — PUBLIC (dengan pushView)
+// EDIT TRANSACTION — PUBLIC
 // ==========================================
 function editTransaction(rowId, oldNotes, oldAmount) {
     const log = { rowId, oldNotes, oldAmount };
@@ -713,7 +752,7 @@ function editTransaction(rowId, oldNotes, oldAmount) {
 }
 
 // ==========================================
-// EDIT TRANSACTION — INTERNAL (render saja)
+// EDIT TRANSACTION — INTERNAL
 // ==========================================
 function renderEditTransactionInternal(log) {
     const { rowId, oldNotes, oldAmount } = log;
@@ -803,7 +842,7 @@ async function saveEditTransaction(rowId) {
 }
 
 // ==========================================
-// TARIF MODAL — PUBLIC (dengan pushView)
+// TARIF MODAL — PUBLIC
 // ==========================================
 function openTarifModal() {
     renderTarifModalInternal();
@@ -813,7 +852,7 @@ function openTarifModal() {
 }
 
 // ==========================================
-// TARIF MODAL — INTERNAL (render saja)
+// TARIF MODAL — INTERNAL
 // ==========================================
 function renderTarifModalInternal() {
     const modal = document.getElementById('modal-overlay');
@@ -896,4 +935,4 @@ window.renderKasNotificationInternal = renderKasNotificationInternal;
 window.renderEditTransactionInternal = renderEditTransactionInternal;
 window.renderTarifModalInternal = renderTarifModalInternal;
 
-console.log("✅ admin-kas.js loaded (V3 — With Router)");
+console.log("✅ admin-kas.js loaded (V4 — XSS Fix + Polish)");

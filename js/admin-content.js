@@ -318,6 +318,32 @@ function renderContentEditor(data) {
     
     let html = `
         <div class="content-editor">
+            <!-- BACKGROUND -->
+            <div class="content-category">
+                <h4><i class="fas fa-image"></i> BACKGROUND STAGE</h4>
+                <div class="content-item" data-timestamp="0" data-category="background" style="position:relative;">
+                    <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+                        <button class="btn-upload-bg" onclick="uploadBackground(this)" style="background:var(--color-primary); color:white; border:none; border-radius:8px; padding:8px 14px; cursor:pointer; font-size:0.75rem;">
+                            <i class="fas fa-cloud-upload-alt"></i> Upload
+                        </button>
+                        <button class="btn-reset-bg" onclick="resetBackground()" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:8px 14px; color:#ff8888; cursor:pointer; font-size:0.75rem;">
+                            <i class="fas fa-undo"></i> Reset Default
+                        </button>
+                    </div>
+                    <div style="margin-bottom:8px; font-size:0.75rem; color:var(--text-muted);">
+                        Status: <span id="bgStatusLabel">Memuat...</span>
+                    </div>
+                    <div id="bgPreview" style="border-radius:8px; overflow:hidden; margin-bottom:8px; max-height:200px; background:#0f0a06;">
+                        <div style="padding:40px; text-align:center; color:var(--text-muted); font-size:0.75rem;">
+                            <i class="fas fa-spinner fa-spin"></i> Memuat preview...
+                        </div>
+                    </div>
+                    <small style="color:var(--text-muted); font-size:0.65rem; display:block;">
+                        Upload gambar (max 3MB). Klik "Reset Default" untuk kembali.
+                    </small>
+                </div>
+            </div>
+            
             <!-- HEADLINE -->
             <div class="content-category" data-category="headline">
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
@@ -846,6 +872,171 @@ window.undoDelete = function(category, timestamp) {
 };
 
 // ==========================================
+// BACKGROUND MANAGEMENT
+// ==========================================
+
+const BG_JSON_URL = 'https://raw.githubusercontent.com/umbrella-id/web/main/upload/bg.json';
+
+async function loadBackgroundPreview() {
+    const statusEl = document.getElementById('bgStatusLabel');
+    const previewEl = document.getElementById('bgPreview');
+    
+    if (!statusEl || !previewEl) return;
+    
+    try {
+        const res = await fetch(BG_JSON_URL + '?t=' + Date.now());
+        
+        if (!res.ok) {
+            statusEl.textContent = 'Default (belum ada bg.json)';
+            statusEl.style.color = 'var(--text-muted)';
+            previewEl.innerHTML = '<img src="Assets/Background.png" style="width:100%; opacity:0.5; max-height:200px; object-fit:cover;">';
+            return;
+        }
+        
+        const config = await res.json();
+        
+        if (config.status === 'aktif' && config.data) {
+            const sizeKB = Math.round((config.size || 0) / 1024);
+            statusEl.textContent = `Aktif — ${config.format || '?'}, ${sizeKB} KB`;
+            statusEl.style.color = '#4ade80';
+            previewEl.innerHTML = `<img src="${config.data}" style="width:100%; max-height:200px; object-fit:cover;">`;
+        } else {
+            statusEl.textContent = 'Default (nonaktif)';
+            statusEl.style.color = 'var(--text-muted)';
+            previewEl.innerHTML = '<img src="Assets/Background.png" style="width:100%; opacity:0.7; max-height:200px; object-fit:cover;">';
+        }
+    } catch(e) {
+        console.error('Load bg preview error:', e);
+        statusEl.textContent = 'Error load';
+        statusEl.style.color = '#ff8888';
+    }
+}
+
+window.uploadBackground = async function(btn) {
+    if (currentAdmin?.role1 !== 'LEADER') {
+        window.showToast('❌ Hanya LEADER yang bisa upload', true);
+        return;
+    }
+    
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+    
+    fileInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        document.body.removeChild(fileInput);
+        if (!file) return;
+        
+        if (file.size > 3 * 1024 * 1024) {
+            window.showToast('❌ Maksimal 3MB', true);
+            return;
+        }
+        
+        const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+        if (!ALLOWED.includes(file.type)) {
+            window.showToast('❌ Format: JPG, PNG, WEBP, GIF', true);
+            return;
+        }
+        
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Upload...';
+        
+        try {
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            
+            const payload = {
+                action: 'uploadBgJson',
+                adminId: currentAdmin.id,
+                base64: base64,
+                format: file.type,
+                size: file.size
+            };
+            
+            console.log('📤 Upload bg payload:', { ...payload, base64: '(hidden ' + base64.length + ' chars)' });
+            
+            const res = await fetch(window.GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+            
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                window.showToast('✅ Background diupdate!');
+                await loadBackgroundPreview();
+            } else {
+                window.showToast('❌ ' + (data.message || 'Gagal'), true);
+            }
+        } catch(e) {
+            console.error('Upload bg error:', e);
+            window.showToast('❌ ' + e.message, true);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    };
+    
+    fileInput.click();
+};
+
+window.resetBackground = async function() {
+    if (currentAdmin?.role1 !== 'LEADER') {
+        window.showToast('❌ Hanya LEADER yang bisa reset', true);
+        return;
+    }
+    
+    if (!confirm('Reset background ke default?')) return;
+    
+    try {
+        window.showToast('⏳ Reset...');
+        
+        const payload = {
+            action: 'uploadBgJson',
+            adminId: currentAdmin.id,
+            base64: '',
+            format: '',
+            size: 0
+        };
+        
+        const res = await fetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            window.showToast('✅ Background direset');
+            await loadBackgroundPreview();
+        } else {
+            window.showToast('❌ ' + (data.message || 'Gagal'), true);
+        }
+    } catch(e) {
+        console.error('Reset bg error:', e);
+        window.showToast('❌ ' + e.message, true);
+    }
+};
+
+// Load preview setelah render konten
+const _origRenderContentEditor = renderContentEditor;
+renderContentEditor = function(data) {
+    _origRenderContentEditor(data);
+    setTimeout(loadBackgroundPreview, 150);
+};
+
+window.loadBackgroundPreview = loadBackgroundPreview;
+
+// ==========================================
 // WARNING SEBELUM REFRESH
 // ==========================================
 window.addEventListener('beforeunload', function(e) {
@@ -868,6 +1059,7 @@ window.triggerUpload = triggerUpload;
 window.updateImagePreview = updateImagePreview;
 window.collectChangedFields = collectChangedFields;  // expose untuk debug
 window.parseTimestamp = parseTimestamp;  // expose untuk debug
+window.loadBackgroundPreview = loadBackgroundPreview;
 
 console.log("✅ admin-content.js loaded (V7 — Fix Detection + Debug)");
 console.log("💡 Debug: ketik 'localStorage.setItem(\"umbrella_debug_content\", \"true\"); location.reload();' untuk enable log");

@@ -875,7 +875,7 @@ window.undoDelete = function(category, timestamp) {
 // BACKGROUND MANAGEMENT
 // ==========================================
 
-const BG_JSON_URL = 'https://raw.githubusercontent.com/umbrella-id/web/main/upload/bg.json';
+const BG_JSON_URL = 'https://raw.githubusercontent.com/umbrella-id/umbrella-id.github.io/main/upload/bg.json';
 
 async function loadBackgroundPreview() {
     const statusEl = document.getElementById('bgStatusLabel');

@@ -1,11 +1,15 @@
 /**
- * admin-content.js - Kelola Konten Web (V8)
+ * admin-content.js - Kelola Konten Web (V9)
  * 
- * Fitur:
- * - CRUD konten (headline, openmember, profil, gallery, running_text, sosmed)
- * - Upload gambar ke GitHub (via GAS 4)
- * - Background dynamic (dual file: bg.json + bg-img)
- * - Support multi-format: JPEG, PNG, WebP, GIF, AVIF, SVG
+ * Fitur baru V9:
+ * - AUTO-CONVERT semua upload gambar ke WebP (kecuali SVG)
+ * - Auto-compress dengan setting per konteks:
+ *   - Background: 1280px, quality 0.7
+ *   - Gallery: 1600px, quality 0.8
+ *   - Headline: 1280px, quality 0.75
+ *   - Profil: 1280px, quality 0.8
+ * - SVG di-skip (vector, tidak perlu kompres)
+ * - Hemat bandwidth ~80-95%
  */
 
 let currentContentData = [];
@@ -15,7 +19,7 @@ let hasUnsavedChanges = false;
 // KONFIG UPLOAD
 // ==========================================
 const UPLOAD_CONFIG = {
-    MAX_SIZE: 5 * 1024 * 1024,   // 5MB
+    MAX_SIZE: 5 * 1024 * 1024,   // 5MB max asli
     ALLOWED_TYPES: [
         'image/jpeg',
         'image/jpg',
@@ -28,13 +32,69 @@ const UPLOAD_CONFIG = {
     ALLOWED_EXTS: ['jpg', 'jpeg', 'jfif', 'jpe', 'png', 'webp', 'gif', 'avif', 'svg']
 };
 
+// 🎯 Setting kompresi per konteks
+const COMPRESS_SETTINGS = {
+    background: { maxWidth: 1280, maxHeight: 1280, quality: 0.70 },
+    gallery:    { maxWidth: 1600, maxHeight: 1600, quality: 0.80 },
+    headline:   { maxWidth: 1280, maxHeight: 720,  quality: 0.75 },
+    openmember: { maxWidth: 1280, maxHeight: 720,  quality: 0.75 },
+    profil:     { maxWidth: 1280, maxHeight: 1280, quality: 0.80 }
+};
+
 const BG_JSON_URL = 'https://raw.githubusercontent.com/umbrella-id/umbrella-id.github.io/main/upload/bg.json';
 const BG_IMG_URL  = 'https://raw.githubusercontent.com/umbrella-id/umbrella-id.github.io/main/upload/bg-img';
 
 // ==========================================
-// UPLOAD GAMBAR KE GITHUB (untuk gallery/konten)
+// KOMPRES KE WEBP
 // ==========================================
-async function uploadToGitHub(file) {
+async function compressToWebP(file, options = {}) {
+    const {
+        maxWidth = 1280,
+        maxHeight = 1280,
+        quality = 0.7
+    } = options;
+    
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                let w = img.width;
+                let h = img.height;
+                const ratio = Math.min(maxWidth / w, maxHeight / h, 1);
+                
+                if (ratio < 1) {
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) resolve(blob);
+                        else reject(new Error('Canvas toBlob gagal'));
+                    },
+                    'image/webp',
+                    quality
+                );
+            };
+            img.onerror = () => reject(new Error('Gagal load gambar'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('Gagal baca file'));
+        reader.readAsDataURL(file);
+    });
+}
+
+// ==========================================
+// UPLOAD GAMBAR KE GITHUB (dengan auto-compress)
+// ==========================================
+async function uploadToGitHub(file, context = 'gallery') {
     if (!isValidImageFile(file)) {
         const allowed = UPLOAD_CONFIG.ALLOWED_EXTS.map(x => x.toUpperCase()).join(', ');
         throw new Error(`Format tidak didukung. Gunakan: ${allowed}`);
@@ -45,14 +105,47 @@ async function uploadToGitHub(file) {
         throw new Error(`File terlalu besar. Maksimal ${maxMB}MB.`);
     }
     
-    const ext = file.name.split('.').pop().toLowerCase();
+    // Normalisasi MIME
+    let actualMime = file.type;
+    if (!actualMime || actualMime === 'application/octet-stream') {
+        actualMime = detectMimeFromExt(file.name);
+    }
+    
+    console.log('📁 Original:', file.name, actualMime, (file.size / 1024).toFixed(0) + 'KB');
+    
+    // 🔥 AUTO-COMPRESS KE WEBP (kecuali SVG)
+    let uploadBlob = file;
+    let ext;
+    
+    if (actualMime === 'image/svg+xml') {
+        // SVG: skip kompres (vector)
+        ext = 'svg';
+        console.log('ℹ️ SVG: skip kompres');
+    } else {
+        try {
+            const settings = COMPRESS_SETTINGS[context] || COMPRESS_SETTINGS.gallery;
+            uploadBlob = await compressToWebP(file, settings);
+            ext = 'webp';
+            
+            const reduction = ((1 - uploadBlob.size / file.size) * 100).toFixed(0);
+            console.log('🗜️ Compressed:', (uploadBlob.size / 1024).toFixed(0) + 'KB', `(${reduction}% reduction)`);
+        } catch(err) {
+            console.error('Compress error:', err);
+            // Fallback: pakai asli
+            uploadBlob = file;
+            ext = actualMime.split('/')[1] || 'jpeg';
+            console.log('⚠️ Compress gagal, pakai asli');
+        }
+    }
+    
     const filename = `img-${Date.now()}.${ext}`;
     
+    // Convert ke base64
     const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result.split(',')[1]);
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(uploadBlob);
     });
     
     const payload = {
@@ -60,7 +153,7 @@ async function uploadToGitHub(file) {
         adminId: currentAdmin.id,
         base64: base64,
         filename: filename,
-        mimeType: file.type
+        mimeType: ext === 'svg' ? 'image/svg+xml' : 'image/webp'
     };
     
     const res = await fetch(window.GAS_ADMIN_URL, {
@@ -92,6 +185,16 @@ window.triggerUpload = function(btn) {
     const input = btn.previousElementSibling;
     if (!input) return;
     
+    // Cari context dari parent content-item
+    const contentItem = input.closest('.content-item');
+    let context = 'gallery';
+    if (contentItem) {
+        const category = contentItem.dataset.category || contentItem.closest('[data-category]')?.dataset.category;
+        if (category === 'headline' || category === 'openmember' || category === 'profil' || category === 'gallery') {
+            context = category;
+        }
+    }
+    
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/*,.jfif,.jpe,.svg';
@@ -108,12 +211,12 @@ window.triggerUpload = function(btn) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         
         try {
-            const url = await uploadToGitHub(file);
+            const url = await uploadToGitHub(file, context);
             if (url) {
                 input.value = url;
                 input.dispatchEvent(new Event('input', { bubbles: true }));
                 updateImagePreview(input);
-                window.showToast('✅ Upload berhasil');
+                window.showToast('✅ Upload berhasil (WebP)');
             }
         } catch(e) {
             console.error('Upload error:', e);
@@ -159,10 +262,11 @@ function updateImagePreview(input) {
 // ==========================================
 // BUILD INPUT URL + TOMBOL UPLOAD
 // ==========================================
-function buildImageUrlInput(timestamp, field, value, placeholder) {
+function buildImageUrlInput(timestamp, field, value, placeholder, context) {
     const id = `img-input-${timestamp}-${field}-${Math.random().toString(36).substring(2, 8)}`;
+    const ctx = context || 'gallery';
     return `
-        <div style="margin-bottom:8px;">
+        <div style="margin-bottom:8px;" data-upload-context="${ctx}">
             <div style="display:flex; gap:8px; align-items:center;">
                 <input type="text" 
                        class="content-image-url" 
@@ -175,7 +279,7 @@ function buildImageUrlInput(timestamp, field, value, placeholder) {
                        style="flex:1;">
                 <button class="btn-upload-img" 
                         onclick="window.triggerUpload(this)" 
-                        title="Upload gambar ke GitHub"
+                        title="Upload gambar ke GitHub (auto WebP)"
                         style="background:var(--color-primary); color:white; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; font-size:1rem; flex-shrink:0;">
                     <i class="fas fa-cloud-upload-alt"></i>
                 </button>
@@ -332,7 +436,7 @@ function renderContentEditor(data) {
                         </div>
                     </div>
                     <small style="color:var(--text-muted); font-size:0.65rem; display:block;">
-                        Format: JPG, PNG, WEBP, GIF, AVIF, SVG. Max 5MB.
+                        Semua upload auto-convert ke <strong>WebP</strong> (kecuali SVG). Max 5MB asli.
                     </small>
                 </div>
             </div>
@@ -340,10 +444,10 @@ function renderContentEditor(data) {
             <!-- HEADLINE -->
             <div class="content-category">
                 <h4><i class="fas fa-heading"></i> HEADLINE</h4>
-                <div class="content-item" data-timestamp="${headlineTs}" data-status="normal" style="position:relative;">
+                <div class="content-item" data-timestamp="${headlineTs}" data-category="headline" data-status="normal" style="position:relative;">
                     <div class="item-badge" style="display:none;"></div>
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(headline?.Header || '')}" data-timestamp="${headlineTs}" data-field="Header">
-                    ${buildImageUrlInput(headlineTs, 'ImageUrl', extractImageUrlFromBody(headline?.Body || ''), 'URL Gambar (opsional)')}
+                    ${buildImageUrlInput(headlineTs, 'ImageUrl', extractImageUrlFromBody(headline?.Body || ''), 'URL Gambar (opsional)', 'headline')}
                     <textarea class="content-caption" placeholder="Caption / Teks" data-timestamp="${headlineTs}" data-field="Caption">${escapeHtml(extractCaptionFromBody(headline?.Body || ''))}</textarea>
                 </div>
             </div>
@@ -351,10 +455,10 @@ function renderContentEditor(data) {
             <!-- OPEN MEMBER -->
             <div class="content-category">
                 <h4><i class="fas fa-users"></i> OPEN MEMBER</h4>
-                <div class="content-item" data-timestamp="${openmemberTs}" data-status="normal" style="position:relative;">
+                <div class="content-item" data-timestamp="${openmemberTs}" data-category="openmember" data-status="normal" style="position:relative;">
                     <div class="item-badge" style="display:none;"></div>
                     <input type="text" class="content-header" placeholder="Header" value="${escapeHtml(openmember?.Header || '')}" data-timestamp="${openmemberTs}" data-field="Header">
-                    ${buildImageUrlInput(openmemberTs, 'ImageUrl', extractImageUrlFromBody(openmember?.Body || ''), 'URL Gambar (opsional)')}
+                    ${buildImageUrlInput(openmemberTs, 'ImageUrl', extractImageUrlFromBody(openmember?.Body || ''), 'URL Gambar (opsional)', 'openmember')}
                     <textarea class="content-caption" placeholder="Caption / Teks" data-timestamp="${openmemberTs}" data-field="Caption">${escapeHtml(extractCaptionFromBody(openmember?.Body || ''))}</textarea>
                 </div>
             </div>
@@ -366,7 +470,7 @@ function renderContentEditor(data) {
                     ${profilList.map(item => {
                         const ts = getItemTs(item);
                         return `
-                        <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
+                        <div class="content-item" data-timestamp="${ts}" data-category="profil" data-status="normal" style="position:relative;">
                             <div class="item-badge" style="display:none;"></div>
                             <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
                                 <button class="btn-undo" onclick="undoDelete('profil', ${ts})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
@@ -389,14 +493,14 @@ function renderContentEditor(data) {
                         const imageUrl = extractImageUrlFromBody(item.Body || '');
                         const caption = extractCaptionFromBody(item.Body || '');
                         return `
-                            <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
+                            <div class="content-item" data-timestamp="${ts}" data-category="gallery" data-status="normal" style="position:relative;">
                                 <div class="item-badge" style="display:none;"></div>
                                 <div class="item-actions" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
                                     <button class="btn-undo" onclick="undoDelete('gallery', ${ts})" style="display:none; background:rgba(34,197,94,0.2); border:1px solid #22c55e; border-radius:8px; padding:6px 12px; color:#4ade80; cursor:pointer; font-size:0.7rem;">↩️ Batal</button>
                                     <button class="btn-delete-item" onclick="deleteContentItem('gallery', ${ts})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                                 </div>
                                 <input type="text" class="content-header" placeholder="Judul Event" value="${escapeHtml(item.Header || '')}" data-timestamp="${ts}" data-field="Header">
-                                ${buildImageUrlInput(ts, 'ImageUrl', imageUrl, 'URL Gambar')}
+                                ${buildImageUrlInput(ts, 'ImageUrl', imageUrl, 'URL Gambar', 'gallery')}
                                 <textarea class="content-caption" placeholder="Deskripsi / Caption" data-timestamp="${ts}" data-field="Caption">${escapeHtml(caption)}</textarea>
                             </div>
                         `;
@@ -412,7 +516,7 @@ function renderContentEditor(data) {
                     ${runningTexts.map(item => {
                         const ts = getItemTs(item);
                         return `
-                        <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
+                        <div class="content-item" data-timestamp="${ts}" data-category="running_text" data-status="normal" style="position:relative;">
                             <div class="item-badge" style="display:none;"></div>
                             <textarea class="content-body" placeholder="Text" data-timestamp="${ts}" data-field="Body">${escapeHtml(item.Body || '')}</textarea>
                         </div>
@@ -436,7 +540,7 @@ function renderContentEditor(data) {
                             label = 'Facebook';
                         }
                         return `
-                            <div class="content-item" data-timestamp="${ts}" data-status="normal" style="position:relative;">
+                            <div class="content-item" data-timestamp="${ts}" data-category="sosmed" data-status="normal" style="position:relative;">
                                 <div class="item-badge" style="display:none;"></div>
                                 <div class="platform-label" style="margin-bottom:8px; color:var(--color-primary); font-weight:bold;">
                                     <i class="${iconClass}"></i> ${label}
@@ -507,7 +611,6 @@ function renderContentEditor(data) {
         });
     });
     
-    // Load preview background
     setTimeout(loadBackgroundPreview, 100);
 }
 
@@ -527,7 +630,7 @@ async function loadBackgroundPreview() {
         if (!res.ok) {
             statusEl.textContent = 'Default (belum ada bg.json)';
             statusEl.style.color = 'var(--text-muted)';
-            previewEl.innerHTML = '<img src="/Assets/Background.png" style="width:100%; opacity:0.5; max-height:200px; object-fit:cover;">';
+            previewEl.innerHTML = '<img src="/Assets/Background.webp" style="width:100%; opacity:0.5; max-height:200px; object-fit:cover;" onerror="this.src=\'/Assets/Background.png\';this.style.opacity=0.5;">';
             return;
         }
         
@@ -541,7 +644,7 @@ async function loadBackgroundPreview() {
         } else {
             statusEl.textContent = 'Default (nonaktif)';
             statusEl.style.color = 'var(--text-muted)';
-            previewEl.innerHTML = '<img src="/Assets/Background.png" style="width:100%; opacity:0.7; max-height:200px; object-fit:cover;">';
+            previewEl.innerHTML = '<img src="/Assets/Background.webp" style="width:100%; opacity:0.7; max-height:200px; object-fit:cover;" onerror="this.src=\'/Assets/Background.png\';this.style.opacity=0.7;">';
         }
     } catch(e) {
         console.error('Load bg preview error:', e);
@@ -569,70 +672,110 @@ window.uploadBackground = async function(btn) {
         
         console.log('📁 Original:', file.name, file.type, (file.size / 1024).toFixed(0) + 'KB');
         
-        // Validasi format
         if (!isValidImageFile(file)) {
-            // ... error ...
+            const allowed = UPLOAD_CONFIG.ALLOWED_EXTS.map(x => x.toUpperCase()).join(', ');
+            window.showToast(`❌ Format tidak didukung. Gunakan: ${allowed}`, true);
             return;
         }
         
-        // Validasi ukuran asli
         if (file.size > UPLOAD_CONFIG.MAX_SIZE) {
-            // ... error ...
+            const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+            const maxMB = (UPLOAD_CONFIG.MAX_SIZE / 1024 / 1024).toFixed(0);
+            window.showToast(`❌ File ${sizeMB}MB terlalu besar (max ${maxMB}MB)`, true);
             return;
         }
         
-        // Normalisasi MIME
         let actualMime = file.type;
         if (!actualMime || actualMime === 'application/octet-stream') {
             actualMime = detectMimeFromExt(file.name);
         }
         
-        // 🔥 KOMPRES KE WEBP (kecuali SVG — SVG jangan dikompres)
-        let compressedBlob = null;
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Upload...';
+        
+        // 🔥 AUTO-COMPRESS KE WEBP (kecuali SVG)
+        let uploadBlob = file;
         let formatStr = 'webp';
         
         if (actualMime === 'image/svg+xml') {
-            // SVG: biarkan asli (vector, tidak perlu kompres)
-            compressedBlob = file;
+            uploadBlob = file;
             formatStr = 'svg';
             console.log('ℹ️ SVG: skip kompres');
         } else {
             try {
                 window.showToast('⏳ Mengkompres gambar...', false);
                 
-                compressedBlob = await compressToWebP(file, {
-                    maxWidth: 1280,
-                    maxHeight: 1280,
-                    quality: 0.7
-                });
+                const settings = COMPRESS_SETTINGS.background;
+                uploadBlob = await compressToWebP(file, settings);
+                formatStr = 'webp';
                 
-                console.log('🗜️ Compressed:', (compressedBlob.size / 1024).toFixed(0) + 'KB', '(' + 
-                    ((1 - compressedBlob.size / file.size) * 100).toFixed(0) + '% reduction)');
+                const reduction = ((1 - uploadBlob.size / file.size) * 100).toFixed(0);
+                console.log('🗜️ Compressed:', (uploadBlob.size / 1024).toFixed(0) + 'KB', `(${reduction}% reduction)`);
                 
             } catch(err) {
                 console.error('Compress error:', err);
-                // Fallback: pakai file asli
-                compressedBlob = file;
+                uploadBlob = file;
                 formatStr = actualMime.split('/')[1] || 'jpeg';
                 console.log('⚠️ Compress gagal, pakai asli');
             }
         }
         
-        // Convert ke base64
-        const base64 = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result.split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(compressedBlob);
-        });
-        
-        const version = Date.now();
-        
-        // ... kirim ke GAS 4 (uploadBgImg + uploadBgJson) ...
-        // (sama seperti versi sebelumnya)
-        
-        // Update ukuran yang dikirim ke bg.json — pakai ukuran compressed
-        // size: compressedBlob.size
+        try {
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(uploadBlob);
+            });
+            
+            const version = Date.now();
+            
+            // 1. Upload binary ke bg-img
+            const imgRes = await fetch(window.GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'uploadBgImg',
+                    adminId: currentAdmin.id,
+                    base64: base64
+                })
+            });
+            
+            const imgData = await imgRes.json();
+            if (imgData.status !== 'success') {
+                throw new Error('Upload gambar: ' + (imgData.message || 'gagal'));
+            }
+            
+            // 2. Update bg.json
+            const jsonRes = await fetch(window.GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'uploadBgJson',
+                    adminId: currentAdmin.id,
+                    status: 'aktif',
+                    format: formatStr,
+                    size: uploadBlob.size,    // ← pakai ukuran compressed
+                    version: version
+                })
+            });
+            
+            const jsonData = await jsonRes.json();
+            if (jsonData.status !== 'success') {
+                throw new Error('Update info: ' + (jsonData.message || 'gagal'));
+            }
+            
+            window.showToast('✅ Background diupdate!');
+            await loadBackgroundPreview();
+            
+        } catch(e) {
+            console.error('Upload error:', e);
+            window.showToast('❌ ' + e.message, true);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
     };
     
     fileInput.click();
@@ -869,7 +1012,7 @@ function getNewItemHtml(category, ts) {
                     <button class="btn-delete-item" onclick="deleteContentItem('gallery', ${ts})" style="background:rgba(255,68,68,0.2); border:1px solid #ff4444; border-radius:8px; padding:6px 12px; color:#ff8888; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
                 <input type="text" class="content-header" placeholder="Judul Event" data-timestamp="${ts}" data-field="Header">
-                ${buildImageUrlInput(ts, 'ImageUrl', '', 'URL Gambar')}
+                ${buildImageUrlInput(ts, 'ImageUrl', '', 'URL Gambar', 'gallery')}
                 <textarea class="content-caption" placeholder="Deskripsi / Caption" data-timestamp="${ts}" data-field="Caption"></textarea>
             </div>
         `;
@@ -957,50 +1100,6 @@ window.undoDelete = function(category, timestamp) {
     hasUnsavedChanges = true;
 };
 
-async function compressToWebP(file, options = {}) {
-    const {
-        maxWidth = 1280,
-        maxHeight = 1280,
-        quality = 0.7
-    } = options;
-    
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => {
-                // Hitung dimensi baru
-                let w = img.width;
-                let h = img.height;
-                const ratio = Math.min(maxWidth / w, maxHeight / h, 1);
-                
-                if (ratio < 1) {
-                    w = Math.round(w * ratio);
-                    h = Math.round(h * ratio);
-                }
-                
-                // Canvas + draw
-                const canvas = document.createElement('canvas');
-                canvas.width = w;
-                canvas.height = h;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, w, h);
-                
-                // Convert ke WebP
-                canvas.toBlob(
-                    (blob) => resolve(blob),
-                    'image/webp',
-                    quality
-                );
-            };
-            img.onerror = () => reject(new Error('Gagal load gambar'));
-            img.src = e.target.result;
-        };
-        reader.onerror = () => reject(new Error('Gagal baca file'));
-        reader.readAsDataURL(file);
-    });
-}
-
 // ==========================================
 // BEFORE UNLOAD
 // ==========================================
@@ -1027,4 +1126,4 @@ window.loadBackgroundPreview = loadBackgroundPreview;
 window.uploadBackground = uploadBackground;
 window.resetBackground = resetBackground;
 
-console.log("✅ admin-content.js loaded (V8 — Dual File Background + SVG)");
+console.log("✅ admin-content.js loaded (V9 — Auto WebP Compress)");

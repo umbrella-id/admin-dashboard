@@ -477,6 +477,14 @@ async function doLogin() {
                 loggedInAt: Date.now()
             }));
             
+            // 🎯 Simpan WebUID admin sebagai "member" di web publik
+            if (currentAdmin.webUid) {
+                localStorage.setItem('u_uid', currentAdmin.webUid);
+                localStorage.setItem('u_class', 'member');
+                localStorage.setItem('u_ign', currentAdmin.nama);
+                console.log('✅ Admin juga member:', currentAdmin.webUid);
+            }
+            
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('dashboard').style.display = 'flex';
             
@@ -559,6 +567,13 @@ async function validateSessionInBackground(admin) {
                 adminPasskey: oldPasskey,
                 loggedInAt: Date.now()
             }));
+            
+            // 🎯 Sync WebUID ke localStorage (kalau berubah)
+            if (currentAdmin.webUid) {
+                localStorage.setItem('u_uid', currentAdmin.webUid);
+                localStorage.setItem('u_class', 'member');
+                localStorage.setItem('u_ign', currentAdmin.nama);
+            }
             
             document.getElementById('admin-name-display').innerText = currentAdmin.nama;
             const roleText = currentAdmin.role2 ? `${currentAdmin.role1} + ${currentAdmin.role2}` : currentAdmin.role1;
@@ -780,8 +795,11 @@ function logout() {
         }
     });
     
+    // 🎯 Hapus session admin SAJA
     localStorage.removeItem('umbrella_admin_session');
     currentAdmin = null;
+    
+    // 🎯 u_uid, u_class, u_ign TETAP (akun web tidak logout)
     
     if (typeof forceCloseAllModals === 'function') {
         forceCloseAllModals();

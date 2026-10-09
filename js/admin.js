@@ -996,10 +996,7 @@ async function submitResetPasskey(adminId) {
     return;
   }
   
-  if (!/[A-Za-z]/.test(newKey) || !/\d/.test(newKey)) {
-    showToast("Passkey harus mengandung huruf & angka", true);
-    return;
-  }
+  // 🎯 Passkey bebas — bisa huruf, angka, atau kombinasi (misal nomor WA)
   
   const btn = document.querySelector('#modal-overlay .modal-buttons button:first-child');
   if (btn) {

@@ -942,18 +942,134 @@ async function saveAdminRole(adminId) {
     } catch(e) { showToast("Gagal", true); }
 }
 
-async function resetPasskey(adminId) {
-    const defaultKey = `Passkey_${adminId.split('_')[1] || '1'}`;
-    try {
-        const url = `${window.GAS_ADMIN_URL}?action=resetPasskey&adminId=${currentAdmin.id}&targetAdminId=${adminId}&newKey=${defaultKey}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.status === 'success') {
-            showToast(`✅ Passkey direset menjadi: ${defaultKey}`);
-        } else {
-            showToast(data.message || "Gagal reset", true);
-        }
-    } catch(e) { showToast("Gagal koneksi", true); }
+function resetPasskey(adminId) {
+  // Buka modal input passkey baru
+  renderResetPasskeyModal(adminId);
+  if (typeof pushView === 'function') {
+    pushView('admin-reset-passkey', { adminId });
+  }
+}
+
+function renderResetPasskeyModal(adminId) {
+  const modal = document.getElementById('modal-overlay');
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 400px;">
+      <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+      <h3 style="text-align:center; margin-bottom:20px;"><i class="fas fa-key"></i> Reset Passkey</h3>
+      
+      <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:16px;">
+        Masukkan passkey baru untuk admin <strong>${escapeHtml(adminId)}</strong>.
+        Passkey akan ditampilkan setelah reset — catat & kirim ke admin tersebut.
+      </p>
+      
+      <div class="passkey-input-group">
+        <label><i class="fas fa-key"></i> Passkey Baru</label>
+        <input type="text" id="reset-passkey-new" placeholder="Min 6 char, huruf + angka" autocomplete="off">
+        <small style="color:#64748b; font-size:0.65rem;">Minimal 6 karakter, mengandung huruf dan angka</small>
+      </div>
+      
+      <div class="modal-buttons" style="margin-top: 20px;">
+        <button onclick="submitResetPasskey('${adminId}')" style="background:var(--color-primary); flex:1;">Reset</button>
+        <button onclick="closeModal()" style="background:#333; flex:1;">Batal</button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+  
+  setTimeout(() => {
+    const input = document.getElementById('reset-passkey-new');
+    if (input) input.focus();
+  }, 200);
+}
+
+async function submitResetPasskey(adminId) {
+  const input = document.getElementById('reset-passkey-new');
+  const newKey = input ? input.value.trim() : '';
+  
+  if (!newKey) {
+    showToast("Passkey tidak boleh kosong", true);
+    return;
+  }
+  
+  if (newKey.length < 6) {
+    showToast("Passkey minimal 6 karakter", true);
+    return;
+  }
+  
+  if (!/[A-Za-z]/.test(newKey) || !/\d/.test(newKey)) {
+    showToast("Passkey harus mengandung huruf & angka", true);
+    return;
+  }
+  
+  const btn = document.querySelector('#modal-overlay .modal-buttons button:first-child');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reset...';
+  }
+  
+  try {
+    const url = `${window.GAS_ADMIN_URL}?action=resetPasskey&adminId=${currentAdmin.id}&targetAdminId=${adminId}&newKey=${encodeURIComponent(newKey)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if (data.status === 'success') {
+      // Tampilkan passkey baru
+      showToast(`✅ Passkey direset: ${data.newPasskey || newKey}`);
+      setTimeout(() => {
+        renderPasskeyResultModal(adminId, data.newPasskey || newKey);
+      }, 300);
+    } else {
+      showToast(data.message || "Gagal reset", true);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Reset';
+      }
+    }
+  } catch(e) {
+    showToast("Gagal koneksi", true);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = 'Reset';
+    }
+  }
+}
+
+function renderPasskeyResultModal(adminId, newPasskey) {
+  const modal = document.getElementById('modal-overlay');
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 400px;">
+      <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+      <h3 style="text-align:center; margin-bottom:20px;"><i class="fas fa-check-circle" style="color:#4ade80;"></i> Berhasil</h3>
+      
+      <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:12px; text-align:center;">
+        Passkey baru untuk <strong>${escapeHtml(adminId)}</strong>:
+      </p>
+      
+      <div style="background:var(--bg-dark); border:1px solid var(--color-primary); border-radius:10px; padding:16px; text-align:center; margin-bottom:16px;">
+        <code style="font-size:1.1rem; color:var(--color-primary); font-weight:bold; letter-spacing:1px; user-select:all;" id="passkey-result-text">${escapeHtml(newPasskey)}</code>
+      </div>
+      
+      <p style="font-size:0.7rem; color:#ff8888; margin-bottom:16px; text-align:center;">
+        ⚠️ Catat & kirim ke admin tersebut. Tidak akan ditampilkan lagi.
+      </p>
+      
+      <div class="modal-buttons">
+        <button onclick="copyPasskeyToClipboard('${escapeHtml(newPasskey)}')" style="background:var(--color-primary); flex:1;">
+          <i class="fas fa-copy"></i> Copy
+        </button>
+        <button onclick="closeModal()" style="background:#333; flex:1;">Tutup</button>
+      </div>
+    </div>
+  `;
+  modal.style.display = 'flex';
+}
+
+function copyPasskeyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast("✅ Passkey dicopy");
+  }).catch(() => {
+    showToast("❌ Gagal copy", true);
+  });
 }
 
 // ==========================================
@@ -1032,6 +1148,10 @@ window.saveAdminName = saveAdminName;
 window.editAdminRole = editAdminRole;
 window.saveAdminRole = saveAdminRole;
 window.resetPasskey = resetPasskey;
+window.renderResetPasskeyModal = renderResetPasskeyModal;
+window.submitResetPasskey = submitResetPasskey;
+window.renderPasskeyResultModal = renderPasskeyResultModal;
+window.copyPasskeyToClipboard = copyPasskeyToClipboard;
 window.promoteToLeader = promoteToLeader;
 window.executePromoteLeader = executePromoteLeader;
 window.renderSettingsModalInternal = renderSettingsModalInternal;

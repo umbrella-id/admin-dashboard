@@ -159,51 +159,38 @@ function renderMemberList(members) {
     
     let html = '';
     for (const member of sortedMembers) {
-        const hasWA = member.wa ? `<i class="fab fa-whatsapp"></i> ${escapeHtml(member.wa)}` : '<span class="no-wa"><i class="fas fa-exclamation-triangle"></i> WA belum diisi</span>';
+        const hasWA = member.wa 
+            ? `<i class="fab fa-whatsapp"></i> ${escapeHtml(member.wa)}` 
+            : '<span class="no-wa"><i class="fas fa-exclamation-triangle"></i> WA belum diisi</span>';
         
-        // 🎯 Cek status WebUID
+        // 🎯 Cek status verified (tapi tidak tampilkan WebUID)
         const isVerified = member.webUID && member.webUID.trim() !== '';
         
-        let webUIDHtml = '';
-        if (isVerified) {
-            webUIDHtml = `
-                <div class="member-webuid verified">
-                    <i class="fas fa-check-circle" style="color:#4ade80;"></i>
-                    <span>Web UID: <code>${escapeHtml(member.webUID)}</code></span>
-                </div>
-            `;
-        } else {
-            webUIDHtml = `
-                <div class="member-webuid unverified">
-                    <i class="fas fa-times-circle" style="color:#f59e0b;"></i>
-                    <span>Web UID: Belum dikaitkan</span>
-                </div>
-            `;
-        }
-        
-        // 🎯 Tombol aksi
-        let actionButtons = '';
-        actionButtons += `
-            <button class="btn-small" onclick="editMember('${escapeHtml(member.uid)}')">
-                <i class="fas fa-edit"></i> Edit
+        // 🎯 Tombol aksi — compact
+        let actionButtons = `
+            <button class="btn-icon" onclick="editMember('${escapeHtml(member.uid)}')" title="Edit">
+                <i class="fas fa-edit"></i>
             </button>
         `;
         
         if (isVerified) {
-            // Sudah verified → tombol "Lihat Kode"
             actionButtons += `
-                <button class="btn-small btn-warning" onclick="showVerifCode('${escapeHtml(member.uid)}')">
-                    <i class="fas fa-eye"></i> Lihat Kode
+                <button class="btn-icon btn-icon-warning" onclick="showVerifCode('${escapeHtml(member.uid)}')" title="Lihat Kode">
+                    <i class="fas fa-eye"></i>
                 </button>
             `;
         } else {
-            // Belum verified → tombol "Generate Kode"
             actionButtons += `
-                <button class="btn-small btn-primary" onclick="generateVerifCode('${escapeHtml(member.uid)}')">
-                    <i class="fas fa-key"></i> Generate Kode
+                <button class="btn-icon btn-icon-primary" onclick="generateVerifCode('${escapeHtml(member.uid)}')" title="Generate Kode">
+                    <i class="fas fa-key"></i>
                 </button>
             `;
         }
+        
+        // 🎯 Badge verified (kecil di samping nama)
+        const verifiedBadge = isVerified 
+            ? `<span class="badge-verified" title="Akun Web Terkait"><i class="fas fa-check-circle"></i></span>`
+            : '';
         
         html += `
             <div class="member-row" data-uid="${escapeHtml(member.uid)}">
@@ -211,14 +198,10 @@ function renderMemberList(members) {
                     <div class="member-ign">
                         <strong>${escapeHtml(member.ign)}</strong>
                         <span class="member-role ${member.role}">${member.role.toUpperCase()}</span>
+                        ${verifiedBadge}
                     </div>
                     <div class="member-contact">
                         ${hasWA}
-                    </div>
-                    ${webUIDHtml}
-                    <div class="member-dates">
-                        <i class="fas fa-calendar-plus"></i> Join: ${member.joinDate || '-'} 
-                        | <i class="fas fa-calendar-alt"></i> Rejoin: ${member.rejoinDate || '-'}
                     </div>
                 </div>
                 <div class="member-actions">

@@ -970,6 +970,11 @@ window.filterMissingWA = filterMissingWA;
 window.showAllMembers = showAllMembers;
 window.exportMemberList = exportMemberList;
 
+window.generateVerifCode = generateVerifCode;
+window.showVerifCode = showVerifCode;
+window.renderVerifCodeModal = renderVerifCodeModal;
+window.copyVerifCode = copyVerifCode;
+
 // Expose internal untuk router
 window.renderAddMemberInternal = renderAddMemberInternal;
 window.renderEditMemberInternal = renderEditMemberInternal;

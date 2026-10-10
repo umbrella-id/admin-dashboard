@@ -338,3 +338,126 @@
 .modal-buttons button:active {
     transform: scale(0.97);
 }
+
+/* ==========================================
+   MODAL KODE VERIFIKASI
+   ========================================== */
+
+.verif-info {
+    background: var(--bg-dark);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.verif-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 0.75rem;
+}
+
+.verif-label {
+    color: var(--text-muted);
+}
+
+.verif-value {
+    color: white;
+    font-weight: 600;
+}
+
+.verif-code-box {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(168, 85, 247, 0.05));
+    border: 1px solid var(--color-primary);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.verif-code-label {
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.verif-code {
+    font-family: monospace;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--color-primary);
+    letter-spacing: 8px;
+    margin-bottom: 16px;
+    user-select: all;
+}
+
+.btn-copy-code {
+    background: var(--color-primary);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-copy-code:active {
+    transform: scale(0.97);
+}
+
+.btn-copy-code:hover {
+    filter: brightness(1.1);
+}
+
+.verif-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.5;
+    margin-top: 8px;
+}
+
+/* WebUID display di member list */
+.member-webuid {
+    font-size: 0.7rem;
+    margin: 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+}
+
+.member-webuid code {
+    background: rgba(168, 85, 247, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    color: var(--color-primary);
+}
+
+.member-webuid.verified {
+    color: #4ade80;
+}
+
+.member-webuid.unverified {
+    color: #f59e0b;
+}
+
+/* Tombol Primary untuk Generate Kode */
+.btn-primary {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    border: none;
+    color: white;
+}
+
+.btn-primary:hover {
+    filter: brightness(1.1);
+}

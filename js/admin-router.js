@@ -229,6 +229,11 @@ function routeToView(viewName, data) {
                 renderPromoteLeaderInternal(data.targetId);
             }
             break;
+        case 'verif-code':
+            if (data && typeof renderVerifCodeModal === 'function') {
+                renderVerifCodeModal(data);
+            }
+            break;
         
         case 'confirm':
             // Confirm modal sudah ditutup, tidak render ulang

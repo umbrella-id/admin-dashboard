@@ -161,6 +161,50 @@ function renderMemberList(members) {
     for (const member of sortedMembers) {
         const hasWA = member.wa ? `<i class="fab fa-whatsapp"></i> ${escapeHtml(member.wa)}` : '<span class="no-wa"><i class="fas fa-exclamation-triangle"></i> WA belum diisi</span>';
         
+        // 🎯 Cek status WebUID
+        const isVerified = member.webUID && member.webUID.trim() !== '';
+        
+        let webUIDHtml = '';
+        if (isVerified) {
+            webUIDHtml = `
+                <div class="member-webuid verified">
+                    <i class="fas fa-check-circle" style="color:#4ade80;"></i>
+                    <span>Web UID: <code>${escapeHtml(member.webUID)}</code></span>
+                </div>
+            `;
+        } else {
+            webUIDHtml = `
+                <div class="member-webuid unverified">
+                    <i class="fas fa-times-circle" style="color:#f59e0b;"></i>
+                    <span>Web UID: Belum dikaitkan</span>
+                </div>
+            `;
+        }
+        
+        // 🎯 Tombol aksi
+        let actionButtons = '';
+        actionButtons += `
+            <button class="btn-small" onclick="editMember('${escapeHtml(member.uid)}')">
+                <i class="fas fa-edit"></i> Edit
+            </button>
+        `;
+        
+        if (isVerified) {
+            // Sudah verified → tombol "Lihat Kode"
+            actionButtons += `
+                <button class="btn-small btn-warning" onclick="showVerifCode('${escapeHtml(member.uid)}')">
+                    <i class="fas fa-eye"></i> Lihat Kode
+                </button>
+            `;
+        } else {
+            // Belum verified → tombol "Generate Kode"
+            actionButtons += `
+                <button class="btn-small btn-primary" onclick="generateVerifCode('${escapeHtml(member.uid)}')">
+                    <i class="fas fa-key"></i> Generate Kode
+                </button>
+            `;
+        }
+        
         html += `
             <div class="member-row" data-uid="${escapeHtml(member.uid)}">
                 <div class="member-info">
@@ -171,21 +215,186 @@ function renderMemberList(members) {
                     <div class="member-contact">
                         ${hasWA}
                     </div>
+                    ${webUIDHtml}
                     <div class="member-dates">
                         <i class="fas fa-calendar-plus"></i> Join: ${member.joinDate || '-'} 
                         | <i class="fas fa-calendar-alt"></i> Rejoin: ${member.rejoinDate || '-'}
                     </div>
                 </div>
                 <div class="member-actions">
-                    <button class="btn-small" onclick="editMember('${escapeHtml(member.uid)}')">
-                        <i class="fas fa-edit"></i> Edit
-                    </button>
+                    ${actionButtons}
                 </div>
             </div>
         `;
     }
     
     container.innerHTML = html;
+}
+
+// ==========================================
+// 🎯 GENERATE KODE VERIFIKASI
+// ==========================================
+async function generateVerifCode(uid) {
+    const member = memberList.find(m => m.uid === uid);
+    if (!member) {
+        window.showToast("Member tidak ditemukan", true);
+        return;
+    }
+    
+    if (!member.wa) {
+        window.showToast("Member belum punya nomor WA", true);
+        return;
+    }
+    
+    // Tampilkan loading
+    window.showToast("⏳ Membuat kode...");
+    
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=generateVerifCode&adminId=${currentAdmin.id}&uid=${encodeURIComponent(uid)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            renderVerifCodeModal({
+                mode: 'generate',
+                code: data.code,
+                ign: data.ign,
+                wa: data.wa,
+                uid: uid
+            });
+        } else {
+            window.showToast("❌ " + (data.message || "Gagal"), true);
+        }
+    } catch(e) {
+        console.error("Generate verif code error:", e);
+        window.showToast("❌ Koneksi gagal", true);
+    }
+}
+
+// ==========================================
+// 🎯 LIHAT KODE (untuk member verified)
+// ==========================================
+async function showVerifCode(uid) {
+    const member = memberList.find(m => m.uid === uid);
+    if (!member) {
+        window.showToast("Member tidak ditemukan", true);
+        return;
+    }
+    
+    if (!member.wa) {
+        window.showToast("Member belum punya nomor WA", true);
+        return;
+    }
+    
+    window.showToast("⏳ Memuat kode...");
+    
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=generateVerifCode&adminId=${currentAdmin.id}&uid=${encodeURIComponent(uid)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            renderVerifCodeModal({
+                mode: 'view',
+                code: data.code,
+                ign: data.ign,
+                wa: data.wa,
+                uid: uid,
+                webUID: data.webUID
+            });
+        } else {
+            window.showToast("❌ " + (data.message || "Gagal"), true);
+        }
+    } catch(e) {
+        console.error("Show verif code error:", e);
+        window.showToast("❌ Koneksi gagal", true);
+    }
+}
+
+// ==========================================
+// 🎯 MODAL KODE VERIFIKASI
+// ==========================================
+function renderVerifCodeModal(data) {
+    const isViewMode = data.mode === 'view';
+    const title = isViewMode ? '🔑 Kode Verifikasi' : '🎉 Kode Berhasil Dibuat';
+    
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            
+            <h3 style="text-align:center; margin-bottom:20px;">${title}</h3>
+            
+            <div class="verif-info">
+                <div class="verif-row">
+                    <span class="verif-label">Member:</span>
+                    <span class="verif-value"><strong>${escapeHtml(data.ign)}</strong></span>
+                </div>
+                <div class="verif-row">
+                    <span class="verif-label">WA:</span>
+                    <span class="verif-value">${escapeHtml(data.wa)}</span>
+                </div>
+            </div>
+            
+            <div class="verif-code-box">
+                <div class="verif-code-label">Kode Verifikasi</div>
+                <div class="verif-code" id="verif-code-value">${escapeHtml(data.code)}</div>
+                <button class="btn-copy-code" onclick="copyVerifCode('${escapeHtml(data.code)}')">
+                    <i class="fas fa-copy"></i> Copy Kode
+                </button>
+            </div>
+            
+            <p class="verif-hint">
+                ${isViewMode 
+                    ? '💡 Kode ini bisa dipakai member untuk login di device baru.' 
+                    : '⚠️ Berikan kode ini ke member via DM. Kode hanya untuk member ini.'}
+            </p>
+            
+            <div class="modal-buttons" style="margin-top: 16px;">
+                <button onclick="window.closeModal()" style="background:#333;">Tutup</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+    
+    // Push view untuk router
+    if (typeof pushView === 'function') {
+        pushView('verif-code', data);
+    }
+}
+
+// ==========================================
+// 🎯 COPY KODE KE CLIPBOARD
+// ==========================================
+function copyVerifCode(code) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code)
+            .then(() => {
+                window.showToast("✅ Kode dicopy");
+            })
+            .catch(err => {
+                console.error('Copy error:', err);
+                fallbackCopyVerifCode(code);
+            });
+    } else {
+        fallbackCopyVerifCode(code);
+    }
+}
+
+function fallbackCopyVerifCode(code) {
+    const textarea = document.createElement('textarea');
+    textarea.value = code;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        window.showToast("✅ Kode dicopy");
+    } catch(e) {
+        window.showToast("❌ Gagal copy", true);
+    }
+    document.body.removeChild(textarea);
 }
 
 // ==========================================

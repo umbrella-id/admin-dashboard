@@ -467,7 +467,15 @@ async function doLogin() {
         return; 
     }
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=login&passkey=${encodeURIComponent(passkey)}`);
+        // 🔐 POST — passkey di body, tidak di URL
+        const res = await fetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'login',
+                passkey: passkey
+            })
+        });
         const data = await res.json();
         if (data.status === 'success') {
             currentAdmin = data.admin;
@@ -542,12 +550,20 @@ async function validateSessionInBackground(admin) {
         const session = JSON.parse(localStorage.getItem('umbrella_admin_session'));
         const adminPasskey = session.adminPasskey;
         
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=validateSession&adminId=${admin.id}&adminPasskey=${encodeURIComponent(adminPasskey)}`);
+        // 🔐 POST — passkey di body, tidak di URL
+        const res = await fetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'validateSession',
+                adminId: admin.id,
+                adminPasskey: adminPasskey
+            })
+        });
         const data = await res.json();
         
         if (!data.valid) {
             console.log("🔴 Session tidak valid, logout otomatis");
-            // Ganti alert dengan modal
             window.showConfirmModal(
                 '⚠️ Session tidak valid. Silakan login ulang.',
                 () => { logout(); }

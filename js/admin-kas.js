@@ -1,16 +1,18 @@
 /**
- * admin-kas.js - Modul Kas Lengkap (V4 — XSS Fix + Polish)
+ * admin-kas.js - Modul Kas Lengkap (V5 — Adm_Id Migration)
  * 
- * Perubahan dari V3:
- * - 🛡️ FIX XSS: Hapus onclick inline dengan data user, ganti data-attribute + event delegation
- * - Rapikan render tombol edit transaksi
- * - Konsisten dengan pola V3 (router, tanpa hardcoded)
+ * Perubahan dari V4:
+ * - 🎯 Migrasi Kas ke Adm_Id (UID-based)
+ * - bendahara = array of { admId, nama }
+ * - Selector transfer: value=admId, label=nama (tanpa saldo)
+ * - Tombol edit cek by admId (bukan nama)
+ * - Total saldo by admId
  */
 
 let kasData = {
     members: [],
-    bendahara: [],
-    saldo: {},
+    bendahara: [],           // Array of { admId, nama }
+    saldo: {},               // { 'ADM-0000': 234800000 }
     history: [],
     incomingRequests: [],
     outgoingRequests: [],
@@ -324,6 +326,7 @@ function renderKasDashboard() {
                 </div>
                 <button class="kas-submit-btn" onclick="submitTransferRequest()"><i class="fas fa-paper-plane"></i> AJUKAN</button>
             </div>
+    `;
     
     if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
         html += `
@@ -397,12 +400,12 @@ function renderKasDashboard() {
     }
     
     // ==========================================
-    // EVENT DELEGATION — Kas Edit Button (XSS FIX)
+    // EVENT DELEGATION — Kas Edit Button
     // ==========================================
     container.querySelectorAll('.kas-edit-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const rowId = parseInt(btn.dataset.rowid);
-            const notes = btn.dataset.notes;  // Sudah di-decode otomatis oleh browser
+            const notes = btn.dataset.notes;
             const spina = parseInt(btn.dataset.spina);
             editTransaction(rowId, notes, spina);
         });
@@ -456,7 +459,7 @@ function renderKasDashboard() {
 }
 
 // ==========================================
-// NOTIFIKASI — PUBLIC
+// NOTIFIKASI
 // ==========================================
 async function openKasNotification() {
     try {
@@ -482,9 +485,6 @@ async function openKasNotification() {
     }
 }
 
-// ==========================================
-// NOTIFIKASI — INTERNAL
-// ==========================================
 function renderKasNotificationInternal(notifications) {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
@@ -750,7 +750,7 @@ async function cancelTransferRequest(requestId) {
 }
 
 // ==========================================
-// EDIT TRANSACTION — PUBLIC
+// EDIT TRANSACTION
 // ==========================================
 function editTransaction(rowId, oldNotes, oldAmount) {
     const log = { rowId, oldNotes, oldAmount };
@@ -760,9 +760,6 @@ function editTransaction(rowId, oldNotes, oldAmount) {
     }
 }
 
-// ==========================================
-// EDIT TRANSACTION — INTERNAL
-// ==========================================
 function renderEditTransactionInternal(log) {
     const { rowId, oldNotes, oldAmount } = log;
     const isPengeluaran = oldAmount < 0 || (oldNotes && oldNotes.includes('[PENGELUARAN]'));
@@ -798,9 +795,6 @@ function renderEditTransactionInternal(log) {
     document.getElementById('save-transaction-btn').onclick = () => saveEditTransaction(rowId);
 }
 
-// ==========================================
-// SAVE EDIT TRANSACTION
-// ==========================================
 async function saveEditTransaction(rowId) {
     try {
         const parsedRowId = parseInt(rowId);
@@ -825,6 +819,7 @@ async function saveEditTransaction(rowId) {
         
         closeModal();
         
+        // 🎯 Kirim adminId + adminName
         let url = `${window.GAS_ADMIN_URL}?action=updateTransaction&adminId=${currentAdmin.id}&rowId=${parsedRowId}&amount=${newAmount}&adminName=${encodeURIComponent(currentAdmin.nama)}`;
         if (newNotes) {
             url += `&notes=${encodeURIComponent(newNotes)}`;
@@ -851,7 +846,7 @@ async function saveEditTransaction(rowId) {
 }
 
 // ==========================================
-// TARIF MODAL — PUBLIC
+// TARIF MODAL
 // ==========================================
 function openTarifModal() {
     renderTarifModalInternal();
@@ -860,9 +855,6 @@ function openTarifModal() {
     }
 }
 
-// ==========================================
-// TARIF MODAL — INTERNAL
-// ==========================================
 function renderTarifModalInternal() {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
@@ -944,4 +936,4 @@ window.renderKasNotificationInternal = renderKasNotificationInternal;
 window.renderEditTransactionInternal = renderEditTransactionInternal;
 window.renderTarifModalInternal = renderTarifModalInternal;
 
-console.log("✅ admin-kas.js loaded (V4 — XSS Fix + Polish)");
+console.log("✅ admin-kas.js loaded (V5 — Adm_Id Migration)");

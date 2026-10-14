@@ -502,8 +502,17 @@ async function doLogin() {
             
             setupDashboardAfterLogin();
             
+        } else if (data.status === 'rate_limited') {
+            // 🚦 Rate limit — tampilkan pesan khusus
+            document.getElementById('login-error').innerText = 
+                data.message || 'Terlalu banyak percobaan. Tunggu 15 menit.';
         } else {
-            document.getElementById('login-error').innerText = data.message || 'Login gagal!';
+            // Sisa percobaan (kalau ada)
+            let errMsg = data.message || 'Login gagal!';
+            if (typeof data.remaining === 'number' && data.remaining > 0) {
+                errMsg += ` (sisa ${data.remaining} percobaan)`;
+            }
+            document.getElementById('login-error').innerText = errMsg;
         }
     } catch(err) { 
         document.getElementById('login-error').innerText = 'Koneksi gagal!'; 

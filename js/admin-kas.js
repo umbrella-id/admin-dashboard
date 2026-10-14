@@ -62,8 +62,13 @@ function updateKasDataFromResponse(responseData) {
     kasData.history = responseData.history || [];
     kasData.incomingRequests = responseData.incomingRequests || [];
     kasData.outgoingRequests = (responseData.myRequests || []).filter(r => r.status === 'PENDING');
-    kasData.bendahara = Object.keys(kasData.saldo);
-    kasData.totalSaldo = kasData.bendahara.reduce((sum, nama) => sum + (kasData.saldo[nama] || 0), 0);
+    
+    // 🎯 BARU: bendahara = array of { admId, nama }
+    kasData.bendahara = responseData.bendahara || [];
+    
+    // Total saldo — jumlahkan by Adm_Id
+    kasData.totalSaldo = kasData.bendahara.reduce((sum, b) => sum + (kasData.saldo[b.admId] || 0), 0);
+    
     kasData.unreadNotifCount = responseData.pendingCount?.notifications || 0;
     
     kasData.currentTarif = responseData.currentTarif || null;
@@ -184,10 +189,10 @@ function renderKasDashboard() {
         
         <div class="kas-saldo-section">
             <div class="kas-saldo-list">
-                ${bendahara.map(nama => `
+                ${bendahara.map(b => `
                     <div class="kas-saldo-row">
-                        <span class="kas-saldo-name">${escapeHtml(nama)}</span>
-                        <span class="kas-saldo-value">${formatSpina(saldo[nama] || 0)}</span>
+                        <span class="kas-saldo-name">${escapeHtml(b.nama)}</span>
+                        <span class="kas-saldo-value">${formatSpina(saldo[b.admId] || 0)}</span>
                     </div>
                 `).join('')}
             </div>
@@ -304,8 +309,8 @@ function renderKasDashboard() {
                     <label>Penerima Dana</label>
                     <select id="kas-transfer-to">
                         <option value="">Pilih Bendahara</option>
-                        ${bendahara.filter(nama => nama !== currentAdmin.nama).map(nama => `
-                            <option value="${escapeHtml(nama)}">${escapeHtml(nama)} (${formatSpina(saldo[nama] || 0)})</option>
+                        ${bendahara.filter(b => b.admId !== currentAdmin.id).map(b => `
+                            <option value="${b.admId}">${escapeHtml(b.nama)}</option>
                         `).join('')}
                     </select>
                 </div>
@@ -319,7 +324,6 @@ function renderKasDashboard() {
                 </div>
                 <button class="kas-submit-btn" onclick="submitTransferRequest()"><i class="fas fa-paper-plane"></i> AJUKAN</button>
             </div>
-    `;
     
     if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
         html += `
@@ -357,7 +361,7 @@ function renderKasDashboard() {
                         <div class="kas-history-amount ${log.spina > 0 ? 'positive' : 'negative'}">${log.spina > 0 ? '+' : ''}${formatSpina(log.spina)}</div>
                         <div class="kas-history-notes">${escapeHtml(log.notes || '-')}</div>
                         <div class="kas-history-adm">${escapeHtml(log.adm || '?')}</div>
-                        ${log.adm === currentAdmin.nama ? `
+                        ${log.admId === currentAdmin.id ? `
                             <div class="kas-history-actions">
                                 <button class="kas-edit-btn" 
                                         data-rowid="${log.rowId}" 
@@ -560,12 +564,16 @@ async function submitSetoran() {
 // SUBMIT TRANSFER
 // ==========================================
 async function submitTransferRequest() {
-    const to = document.getElementById('kas-transfer-to')?.value;
+    const toId = document.getElementById('kas-transfer-to')?.value;  // ADM-XXXX
     const amount = parseInt(document.getElementById('kas-transfer-amount')?.value);
     const notes = document.getElementById('kas-notes-transfer')?.value || "";
     
-    if (!to) return window.showToast("Pilih penerima dana terlebih dahulu", true);
+    if (!toId) return window.showToast("Pilih penerima dana terlebih dahulu", true);
     if (isNaN(amount) || amount <= 0) return window.showToast("Jumlah transfer harus diisi dengan bilangan bulat positif", true);
+    
+    // Ambil nama penerima untuk display
+    const toBendahara = kasData.bendahara.find(b => b.admId === toId);
+    const toName = toBendahara ? toBendahara.nama : toId;
     
     const btn = document.querySelector('#kas-form-transfer .kas-submit-btn');
     const originalHtml = btn.innerHTML;
@@ -573,11 +581,12 @@ async function submitTransferRequest() {
     btn.disabled = true;
     
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=requestTransfer&adminId=${currentAdmin.id}&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toName=${encodeURIComponent(to)}&amount=${amount}&notes=${encodeURIComponent(notes)}`);
+        // 🎯 Kirim toId (UID) + toName (display)
+        const response = await fetch(`${window.GAS_ADMIN_URL}?action=requestTransfer&adminId=${currentAdmin.id}&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toId=${encodeURIComponent(toId)}&toName=${encodeURIComponent(toName)}&amount=${amount}&notes=${encodeURIComponent(notes)}`);
         const data = await response.json();
         
         if (data.status === 'success') {
-            window.showToast(data.message || `✅ Request transfer ${formatSpina(amount)} ke ${to} terkirim`);
+            window.showToast(data.message || `✅ Request transfer ${formatSpina(amount)} ke ${toName} terkirim`);
             if (data.data) {
                 sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
                 updateKasDataFromResponse(data.data);

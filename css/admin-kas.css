@@ -849,6 +849,31 @@
     transition: all 0.2s;
 }
 
+/* ==========================================
+   BADGE ARSIP — Bendahara Nonaktif dengan Saldo
+   ========================================== */
+.badge-arsip {
+    display: inline-block;
+    font-size: 0.55rem;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    margin-left: 6px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.kas-saldo-row.arsip .kas-saldo-name {
+    color: var(--text-muted);
+}
+
+.kas-saldo-row.arsip .kas-saldo-value {
+    color: #f59e0b;
+}
+
 .modal-content .modal-buttons button:active {
     transform: scale(0.97);
 }

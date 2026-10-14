@@ -1,17 +1,15 @@
 /**
- * admin-kas.js - Modul Kas Lengkap (V5 — Adm_Id Migration)
+ * admin-kas.js - Modul Kas Lengkap (V6 — Arsip Support)
  * 
- * Perubahan dari V4:
- * - 🎯 Migrasi Kas ke Adm_Id (UID-based)
- * - bendahara = array of { admId, nama }
- * - Selector transfer: value=admId, label=nama (tanpa saldo)
- * - Tombol edit cek by admId (bukan nama)
- * - Total saldo by admId
+ * Perubahan dari V5:
+ * - 🎯 Support bendahara arsip (nonaktif dengan saldo)
+ * - Panel saldo: tampil arsip + badge kuning
+ * - Selector transfer: hanya bendahara aktif
  */
 
 let kasData = {
     members: [],
-    bendahara: [],           // Array of { admId, nama }
+    bendahara: [],           // Array of { admId, nama, isActive }
     saldo: {},               // { 'ADM-0000': 234800000 }
     history: [],
     incomingRequests: [],
@@ -65,10 +63,10 @@ function updateKasDataFromResponse(responseData) {
     kasData.incomingRequests = responseData.incomingRequests || [];
     kasData.outgoingRequests = (responseData.myRequests || []).filter(r => r.status === 'PENDING');
     
-    // 🎯 BARU: bendahara = array of { admId, nama }
+    // 🎯 bendahara = array of { admId, nama, isActive }
     kasData.bendahara = responseData.bendahara || [];
     
-    // Total saldo — jumlahkan by Adm_Id
+    // Total saldo — jumlahkan by Adm_Id (semua, termasuk arsip)
     kasData.totalSaldo = kasData.bendahara.reduce((sum, b) => sum + (kasData.saldo[b.admId] || 0), 0);
     
     kasData.unreadNotifCount = responseData.pendingCount?.notifications || 0;
@@ -192,8 +190,11 @@ function renderKasDashboard() {
         <div class="kas-saldo-section">
             <div class="kas-saldo-list">
                 ${bendahara.map(b => `
-                    <div class="kas-saldo-row">
-                        <span class="kas-saldo-name">${escapeHtml(b.nama)}</span>
+                    <div class="kas-saldo-row ${!b.isActive ? 'arsip' : ''}">
+                        <span class="kas-saldo-name">
+                            ${escapeHtml(b.nama)}
+                            ${!b.isActive ? '<span class="badge-arsip">arsip</span>' : ''}
+                        </span>
                         <span class="kas-saldo-value">${formatSpina(saldo[b.admId] || 0)}</span>
                     </div>
                 `).join('')}
@@ -311,7 +312,7 @@ function renderKasDashboard() {
                     <label>Penerima Dana</label>
                     <select id="kas-transfer-to">
                         <option value="">Pilih Bendahara</option>
-                        ${bendahara.filter(b => b.admId !== currentAdmin.id).map(b => `
+                        ${bendahara.filter(b => b.isActive && b.admId !== currentAdmin.id).map(b => `
                             <option value="${b.admId}">${escapeHtml(b.nama)}</option>
                         `).join('')}
                     </select>
@@ -936,4 +937,4 @@ window.renderKasNotificationInternal = renderKasNotificationInternal;
 window.renderEditTransactionInternal = renderEditTransactionInternal;
 window.renderTarifModalInternal = renderTarifModalInternal;
 
-console.log("✅ admin-kas.js loaded (V5 — Adm_Id Migration)");
+console.log("✅ admin-kas.js loaded (V6 — Arsip Support)");

@@ -1,12 +1,5 @@
 /**
- * admin-member.js - Member Management Module (V2 — With Router)
- * 
- * Perubahan dari V1:
- * - Integrasi admin-router.js
- * - Pecah openAddMemberModal → public + renderAddMemberInternal
- * - Pecah editMember → public + renderEditMemberInternal
- * - Validasi hierarki diulang di internal function (anti-bypass via back)
- * - Hapus pushState lama, ganti pushView
+ * admin-member.js - Member Management Module (V3 — Role lowercase)
  */
 
 let memberList = [];
@@ -42,7 +35,7 @@ function sortMembers(members) {
 }
 
 // ==========================================
-// VALIDASI AKSES EDIT
+// VALIDASI AKSES EDIT — role lowercase
 // ==========================================
 function canEditMember(admin, targetMember) {
     const isLeader = admin?.role1 === 'leader';
@@ -163,10 +156,8 @@ function renderMemberList(members) {
             ? `<i class="fab fa-whatsapp"></i> ${escapeHtml(member.wa)}` 
             : '<span class="no-wa"><i class="fas fa-exclamation-triangle"></i> WA belum diisi</span>';
         
-        // 🎯 Cek status verified (tapi tidak tampilkan WebUID)
         const isVerified = member.webUID && member.webUID.trim() !== '';
         
-        // 🎯 Tombol aksi — compact
         let actionButtons = `
             <button class="btn-icon" onclick="editMember('${escapeHtml(member.uid)}')" title="Edit">
                 <i class="fas fa-edit"></i>
@@ -187,7 +178,6 @@ function renderMemberList(members) {
             `;
         }
         
-        // 🎯 Badge verified (kecil di samping nama)
         const verifiedBadge = isVerified 
             ? `<span class="badge-verified" title="Akun Web Terkait"><i class="fas fa-check-circle"></i></span>`
             : '';
@@ -215,7 +205,7 @@ function renderMemberList(members) {
 }
 
 // ==========================================
-// 🎯 GENERATE KODE VERIFIKASI
+// GENERATE KODE VERIFIKASI
 // ==========================================
 async function generateVerifCode(uid) {
     const member = memberList.find(m => m.uid === uid);
@@ -229,7 +219,6 @@ async function generateVerifCode(uid) {
         return;
     }
     
-    // Tampilkan loading
     window.showToast("⏳ Membuat kode...");
     
     try {
@@ -254,9 +243,6 @@ async function generateVerifCode(uid) {
     }
 }
 
-// ==========================================
-// 🎯 LIHAT KODE (untuk member verified)
-// ==========================================
 async function showVerifCode(uid) {
     const member = memberList.find(m => m.uid === uid);
     if (!member) {
@@ -294,9 +280,6 @@ async function showVerifCode(uid) {
     }
 }
 
-// ==========================================
-// 🎯 MODAL KODE VERIFIKASI
-// ==========================================
 function renderVerifCodeModal(data) {
     const isViewMode = data.mode === 'view';
     const title = isViewMode ? '🔑 Kode Verifikasi' : '🎉 Kode Berhasil Dibuat';
@@ -340,15 +323,11 @@ function renderVerifCodeModal(data) {
     `;
     modal.style.display = 'flex';
     
-    // Push view untuk router
     if (typeof pushView === 'function') {
         pushView('verif-code', data);
     }
 }
 
-// ==========================================
-// 🎯 COPY KODE KE CLIPBOARD
-// ==========================================
 function copyVerifCode(code) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(code)
@@ -458,7 +437,7 @@ function performSearch(query) {
 }
 
 // ==========================================
-// ADD MEMBER — PUBLIC (dengan pushView)
+// ADD MEMBER — PUBLIC
 // ==========================================
 function openAddMemberModal() {
     renderAddMemberInternal();
@@ -467,9 +446,6 @@ function openAddMemberModal() {
     }
 }
 
-// ==========================================
-// ADD MEMBER — INTERNAL (render saja)
-// ==========================================
 function renderAddMemberInternal() {
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
@@ -509,7 +485,7 @@ async function submitAddMember() {
     wa = sanitizeWA(wa);
     
     if (wa && !isValidWA(wa)) {
-        window.showToast("❌ Format WA salah! Tidak boleh diawali 0. Gunakan kode negara (contoh: 628xxxxxxxxxx)", true);
+        window.showToast("❌ Format WA salah! Tidak boleh diawali 0.", true);
         return;
     }
     
@@ -572,7 +548,7 @@ async function submitAddMember() {
 }
 
 // ==========================================
-// EDIT MEMBER — PUBLIC (dengan pushView)
+// EDIT MEMBER — PUBLIC
 // ==========================================
 async function editMember(uid) {
     console.log("✏️ [MEMBER] editMember dipanggil untuk UID:", uid);
@@ -583,7 +559,6 @@ async function editMember(uid) {
         return;
     }
     
-    // Validasi akses
     if (!canEditMember(currentAdmin, member)) {
         window.showToast("❌ Anda tidak memiliki izin untuk mengedit member ini!", true);
         return;
@@ -595,15 +570,11 @@ async function editMember(uid) {
     }
 }
 
-// ==========================================
-// EDIT MEMBER — INTERNAL (render saja + validasi ulang)
-// ==========================================
-async function renderEditMemberInternal(member) {
+function renderEditMemberInternal(member) {
     const uid = member.uid;
     
-    // ========== VALIDASI ULANG (ANTI-BYPASS VIA BACK) ==========
-    const isLeader = currentAdmin?.role1 === 'LEADER' || currentAdmin?.role2 === 'LEADER';
-    const isCoLead = currentAdmin?.role1 === 'CO-LEAD' || currentAdmin?.role2 === 'CO-LEAD';
+    const isLeader = currentAdmin?.role1 === 'leader';
+    const isCoLead = currentAdmin?.role1 === 'co-lead';
     const isTargetLeader = member?.role === 'leader';
     const isTargetCoLead = member?.role === 'co-lead';
     const isTargetSelf = member?.uid === currentAdmin?.id;
@@ -627,7 +598,6 @@ async function renderEditMemberInternal(member) {
         return;
     }
     
-    // ========== BUILD FORM ==========
     const roleOptions = isLeader ? 
         `<select id="edit-role" style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
             <option value="member" ${member.role === 'member' ? 'selected' : ''}>Member</option>
@@ -737,9 +707,8 @@ async function submitEditMember(uid) {
         return;
     }
     
-    // Validasi ulang
-    const isLeader = currentAdmin?.role1 === 'LEADER' || currentAdmin?.role2 === 'LEADER';
-    const isCoLead = currentAdmin?.role1 === 'CO-LEAD' || currentAdmin?.role2 === 'CO-LEAD';
+    const isLeader = currentAdmin?.role1 === 'leader';
+    const isCoLead = currentAdmin?.role1 === 'co-lead';
     const isTargetLeader = member?.role === 'leader';
     const isTargetCoLead = member?.role === 'co-lead';
     const isTargetSelf = member?.uid === currentAdmin?.id;
@@ -923,7 +892,7 @@ async function exportMemberList() {
     
     try {
         await navigator.clipboard.writeText(text);
-        window.showToast("✅ Daftar tersalin! Tempel dan kirim pada grup WA untuk update xixi");
+        window.showToast("✅ Daftar tersalin!");
     } catch(e) {
         console.error("Copy failed:", e);
         window.showToast("❌ Gagal menyalin", true);
@@ -958,8 +927,7 @@ window.showVerifCode = showVerifCode;
 window.renderVerifCodeModal = renderVerifCodeModal;
 window.copyVerifCode = copyVerifCode;
 
-// Expose internal untuk router
 window.renderAddMemberInternal = renderAddMemberInternal;
 window.renderEditMemberInternal = renderEditMemberInternal;
 
-console.log("✅ [MEMBER] admin-member.js loaded (V2 — With Router)");
+console.log("✅ admin-member.js loaded (V3 — Role lowercase)");

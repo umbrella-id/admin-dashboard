@@ -246,12 +246,14 @@ function renderMemberList(members) {
             actionButtons = '<span style="font-size:0.7rem; color:var(--text-muted); padding:6px;">—</span>';
         }
         
-        const verifiedBadge = isVerified 
-            ? `<span class="badge-verified" title="Akun Web Terkait"><i class="fas fa-check-circle"></i></span>`
+        // 🎯 Simbol akun web (WebUID)
+        const webSymbol = isVerified 
+            ? `<span title="Akun Web Terkait" style="color:#4ade80; font-size:0.75rem; margin-left:2px;">🌐</span>` 
             : '';
         
+        // 🎯 Badge admin
         const adminBadge = memberIsAdmin 
-            ? `<span class="badge-admin" title="Terdaftar sebagai Admin" style="display:inline-block; font-size:0.5rem; padding:1px 5px; border-radius:6px; background:rgba(245,158,11,0.25); color:#f59e0b; border:1px solid rgba(245,158,11,0.4); margin-left:4px;">ADMIN</span>`
+            ? `<span title="Terdaftar sebagai Admin" style="display:inline-block; font-size:0.5rem; padding:1px 5px; border-radius:6px; background:rgba(245,158,11,0.25); color:#f59e0b; border:1px solid rgba(245,158,11,0.4); margin-left:4px; font-weight:bold;">👑 ADMIN</span>`
             : '';
         
         html += `
@@ -260,7 +262,7 @@ function renderMemberList(members) {
                     <div class="member-ign">
                         <strong>${escapeHtml(member.ign)}</strong>
                         <span class="member-role ${member.role}">${member.role.toUpperCase()}</span>
-                        ${verifiedBadge}
+                        ${webSymbol}
                         ${adminBadge}
                     </div>
                     <div class="member-contact">

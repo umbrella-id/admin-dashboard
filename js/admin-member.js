@@ -104,6 +104,42 @@ async function loadAdminLinkedUids() {
 }
 
 // ==========================================
+// 🎯 HELPER: Update State dari Snapshot Response
+// (menghindari multiple GAS calls)
+// ==========================================
+function applySnapshot(snapshot) {
+    if (!snapshot) return false;
+    
+    if (snapshot.members && Array.isArray(snapshot.members)) {
+        memberList = sortMembers(snapshot.members);
+        sessionStorage.setItem('umbrella_cached_members', JSON.stringify(memberList));
+    }
+    
+    if (snapshot.admins && Array.isArray(snapshot.admins)) {
+        cachedAdminLinkedData = snapshot.admins
+            .filter(a => a.linkedMemberUid && a.linkedMemberUid.trim() !== '')
+            .map(a => ({
+                linkedUid: a.linkedMemberUid.trim(),
+                admId: a.id,
+                role1: a.role1 || '',
+                role2: a.role2 || '',
+                nama: a.nama || ''
+            }));
+    }
+    
+    if (snapshot.linkedUids && Array.isArray(snapshot.linkedUids)) {
+        cachedAdminLinkedUids = snapshot.linkedUids.slice();
+    } else if (snapshot.admins) {
+        cachedAdminLinkedUids = cachedAdminLinkedData.map(a => a.linkedUid);
+    }
+    
+    renderMemberList(memberList);
+    updateMissingWABadge(memberList);
+    
+    return true;
+}
+
+// ==========================================
 // VALIDASI AKSES EDIT
 // ==========================================
 function canEditMember(admin, targetMember) {
@@ -1216,14 +1252,20 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 window.closeModal();
                 
                 setTimeout(() => {
-                    // Ambil memberIgn dari memberList
+                    // Ambil memberIgn dari memberList (sebelum state di-update)
                     const memberData = memberList.find(m => m.uid === memberUid);
                     const memberIgn = memberData ? memberData.ign : '';
                     renderPromoteSuccessModal(data.data, memberIgn);
                 }, 200);
                 
-                await loadAdminLinkedUids();
-                await loadMemberList(true);
+                // 🎯 Update state dari snapshot (tanpa fetch ulang)
+                if (data.snapshot) {
+                    applySnapshot(data.snapshot);
+                } else {
+                    // Fallback: fetch manual (kalau GAS 4 lama)
+                    await loadAdminLinkedUids();
+                    await loadMemberList(true);
+                }
             } else {
                 window.showToast('❌ ' + (data.message || 'Gagal'), true);
                 btn.innerHTML = originalHtml;
@@ -1265,6 +1307,7 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 return;
             }
             
+            // 🎯 Cek hasil
             if (willDeleteAdmin) {
                 if (dataRole1.message && dataRole1.message.includes('dihapus')) {
                     window.showToast('✅ Admin berhasil dihapus');
@@ -1279,8 +1322,18 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
             }
             
             window.closeModal();
-            await loadAdminLinkedUids();
-            await loadMemberList(true);
+            
+            // 🎯 Update state dari snapshot response (yang terakhir = dataRole2)
+            // Snapshot ada di response updateAdmin saat field=role2
+            if (dataRole2.snapshot) {
+                applySnapshot(dataRole2.snapshot);
+            } else if (dataRole1.snapshot) {
+                applySnapshot(dataRole1.snapshot);
+            } else {
+                // Fallback
+                await loadAdminLinkedUids();
+                await loadMemberList(true);
+            }
         }
     } catch(e) {
         console.error('Submit promote error:', e);
@@ -1630,6 +1683,12 @@ window.submitTransferLeadership = async function() {
         if (data.status === 'success') {
             window.showToast('✅ ' + data.message);
             window.closeModal();
+            
+            // 🎯 Snapshot tidak terlalu perlu karena akan reload halaman
+            // (tapi tetap update state kalau ada)
+            if (data.snapshot) {
+                applySnapshot(data.snapshot);
+            }
             
             setTimeout(() => {
                 alert('Jabatan Anda telah berubah menjadi CO-LEAD + BENDAHARA.\n\nSilakan login ulang.');

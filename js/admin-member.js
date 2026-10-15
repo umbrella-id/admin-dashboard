@@ -1,17 +1,17 @@
 /**
- * admin-member.js - Member Management Module (V7)
+ * admin-member.js - Member Management Module (V8)
  * 
- * Perubahan dari V6:
+ * Perubahan dari V7:
+ * - 🐛 FIX BUG #1: Leader bisa edit nama & WA sendiri (status/role tetap readonly)
+ * - 🎯 Defensive Bug #2: pakai member.ign sebagai display name admin
  * - 🎯 Reset Passkey Random (generate di frontend)
  * - 🎯 Tombol Reset Passkey di modal Ubah Jabatan
  * - 🐛 FIX BUG: role2 "bendahara" tidak mau terhapus (isDeleteMode logic)
- * - 🎯 Edit Admin Name — pakai member.ign via linkedMemberUid (Opsi B)
- * - 🎯 Tombol copy passkey result
  */
 
 let memberList = [];
 let cachedAdminLinkedUids = [];
-let cachedAdminLinkedData = [];  // [{ linkedUid, admId, role1, role2 }]
+let cachedAdminLinkedData = [];
 
 // ==========================================
 // VALIDASI WA
@@ -51,9 +51,6 @@ function memberList_isAdmin(memberUid) {
     return cachedAdminLinkedUids.includes(memberUid);
 }
 
-// ==========================================
-// CEK APAKAH MEMBER BENDHAHARA (Role2)
-// ==========================================
 function memberList_isBendahara(memberUid) {
     if (!memberUid) return false;
     const adminEntry = cachedAdminLinkedData.find(a => a.linkedUid === memberUid);
@@ -61,9 +58,6 @@ function memberList_isBendahara(memberUid) {
     return adminEntry.role2 === 'bendahara';
 }
 
-// ==========================================
-// CEK APAKAH MEMBER CO-LEAD (Role1)
-// ==========================================
 function memberList_isCoLead(memberUid) {
     if (!memberUid) return false;
     const adminEntry = cachedAdminLinkedData.find(a => a.linkedUid === memberUid);
@@ -72,15 +66,14 @@ function memberList_isCoLead(memberUid) {
 }
 
 // ==========================================
-// 🎯 OPSI B: Ambil nama admin dari MEMBER_LIST
-// (bukan dari ADMIN_SETTINGS kolom B)
+// 🎯 AMBIL NAMA ADMIN DARI MEMBER_LIST
+// (bukan dari ADMIN_SETTINGS kolom B — single source of truth)
 // ==========================================
-function getAdminDisplayName(linkedUid) {
-    if (!linkedUid) return '(tanpa nama)';
+function getAdminDisplayName(linkedUid, fallbackName = '') {
+    if (!linkedUid) return fallbackName || '(tanpa nama)';
     const member = memberList.find(m => m.uid === linkedUid);
     if (member && member.ign) return member.ign;
-    // Fallback: cari di cachedAdminLinkedData (kalau ada nama lama)
-    return '(tanpa nama)';
+    return fallbackName || '(tanpa nama)';
 }
 
 // ==========================================
@@ -99,7 +92,8 @@ async function loadAdminLinkedUids() {
                     linkedUid: a.linkedMemberUid.trim(),
                     admId: a.id,
                     role1: a.role1 || '',
-                    role2: a.role2 || ''
+                    role2: a.role2 || '',
+                    nama: a.nama || ''
                 }));
             
             cachedAdminLinkedUids = cachedAdminLinkedData.map(a => a.linkedUid);
@@ -230,9 +224,6 @@ function renderMemberList(members) {
         const memberIsBendahara = memberList_isBendahara(member.uid);
         const memberIsCoLead = memberList_isCoLead(member.uid);
         
-        // ==========================================
-        // 🎯 BADGE
-        // ==========================================
         const verifiedBadge = isVerified 
             ? `<i class="fas fa-check-circle badge-verified" title="Akun Web Terkait"></i>` 
             : '';
@@ -242,9 +233,6 @@ function renderMemberList(members) {
             ? `<span class="badge-bendahara" title="Admin Bendahara (tanpa jabatan struktural)">BENDAHARA</span>` 
             : '';
         
-        // ==========================================
-        // 🎯 ACTION BUTTONS
-        // ==========================================
         let actionButtons = '';
         
         if (canEditMember(currentAdmin, member)) {
@@ -736,6 +724,11 @@ function renderEditMemberInternal(member) {
         return;
     }
     
+    // 🎯 FIX BUG #1: Leader bisa edit IGN & WA sendiri
+    // Tapi role & status tetap readonly untuk diri sendiri
+    const canEditIGNWA = isLeader || (isCoLead && !isTargetSelf && !isTargetLeader && !isTargetCoLead);
+    const canEditStatus = isLeader ? !isTargetSelf : (isCoLead && !isTargetSelf && !isTargetLeader && !isTargetCoLead);
+    
     const roleDisplay = member.role.toUpperCase();
     const roleOptions = `
         <input type="text" 
@@ -750,20 +743,7 @@ function renderEditMemberInternal(member) {
     `;
     
     let statusOptions = '';
-    
-    const canChangeStatus = (() => {
-        if (isLeader) {
-            if (isTargetSelf) return 'readonly-self';
-            return true;
-        }
-        if (isCoLead) {
-            if (isTargetSelf || isTargetLeader || isTargetCoLead) return false;
-            return true;
-        }
-        return false;
-    })();
-    
-    if (canChangeStatus === true) {
+    if (canEditStatus) {
         statusOptions = `
             <select id="edit-status" style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
                 <option value="aktif" ${member.status === 'aktif' ? 'selected' : ''}>✅ Aktif</option>
@@ -771,7 +751,7 @@ function renderEditMemberInternal(member) {
                 <option value="scammer" ${member.status === 'scammer' ? 'selected' : ''}>🔴 Scammer</option>
             </select>
         `;
-    } else if (canChangeStatus === 'readonly-self') {
+    } else {
         statusOptions = `
             <input type="text" id="edit-status" value="${member.status.toUpperCase()}" readonly disabled
                    style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white; opacity:0.6;">
@@ -779,17 +759,7 @@ function renderEditMemberInternal(member) {
                 ⚠️ Tidak bisa mengubah status diri sendiri
             </small>
         `;
-    } else {
-        statusOptions = `
-            <input type="text" id="edit-status" value="${member.status.toUpperCase()}" readonly disabled
-                   style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white; opacity:0.6;">
-            <small style="display:block; margin-top:4px; font-size:0.6rem; color:#ff6b6b;">
-                ⚠️ Hanya LEADER yang bisa mengubah status ${member.role.toUpperCase()}
-            </small>
-        `;
     }
-    
-    const canEditFields = canEditMember(currentAdmin, member);
     
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
@@ -818,13 +788,13 @@ function renderEditMemberInternal(member) {
             <div class="form-group" style="margin-bottom:16px;">
                 <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">IGN <span style="color:#ff4444;">*</span></label>
                 <input type="text" id="edit-ign" value="${escapeHtml(member.ign)}" placeholder="Nama IGN"
-                       ${!canEditFields ? 'disabled style="opacity:0.6;cursor:not-allowed;width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"' : 'style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"'}>
+                       ${!canEditIGNWA ? 'disabled style="opacity:0.6;cursor:not-allowed;width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"' : 'style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"'}>
             </div>
             
             <div class="form-group" style="margin-bottom:16px;">
                 <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">WhatsApp</label>
                 <input type="text" id="edit-wa" value="${escapeHtml(member.wa)}" placeholder="628123456789"
-                       ${!canEditFields ? 'disabled style="opacity:0.6;cursor:not-allowed;width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"' : 'style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"'}>
+                       ${!canEditIGNWA ? 'disabled style="opacity:0.6;cursor:not-allowed;width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"' : 'style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"'}>
             </div>
             
             <div class="form-group" style="margin-bottom:16px;">
@@ -839,8 +809,7 @@ function renderEditMemberInternal(member) {
             
             <div class="modal-buttons" style="margin-top: 20px;">
                 <button onclick="submitEditMember('${escapeHtml(member.uid)}')" 
-                        style="background:var(--color-primary);" 
-                        ${!canEditFields ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
+                        style="background:var(--color-primary);">
                     Simpan
                 </button>
                 <button onclick="closeModal()" style="background:#333;">Batal</button>
@@ -911,20 +880,16 @@ async function submitEditMember(uid) {
     
     const finalRole = member.role;
     
+    // 🎯 FIX BUG #1: Leader bisa edit IGN/WA sendiri, tapi status tetap
     let finalStatus = member.status;
-    if (newStatus) {
-        if (isLeader) {
-            if (isTargetSelf) {
-                window.showToast("❌ LEADER tidak bisa mengubah status diri sendiri!", true);
-                return;
-            }
+    if (newStatus && newStatus !== member.status) {
+        if (isLeader && !isTargetSelf) {
             finalStatus = newStatus;
-        } else if (isCoLead) {
-            if (isTargetSelf || isTargetLeader || isTargetCoLead) {
-                window.showToast("❌ Anda tidak bisa mengubah status member ini!", true);
-                return;
-            }
+        } else if (isCoLead && !isTargetSelf && !isTargetLeader && !isTargetCoLead) {
             finalStatus = newStatus;
+        } else if (isTargetSelf) {
+            window.showToast("❌ Tidak bisa mengubah status diri sendiri!", true);
+            return;
         }
     }
     
@@ -966,6 +931,11 @@ async function submitEditMember(uid) {
                 updateMissingWABadge(memberList);
             } else {
                 await loadMemberList(true);
+            }
+            
+            // Refresh admin linked data (kalau nama admin berubah)
+            if (isLeader && memberList_isAdmin(uid)) {
+                await loadAdminLinkedUids();
             }
         } else {
             if (result.action === 'scammer') {
@@ -1059,7 +1029,7 @@ async function refreshMemberList() {
 }
 
 // ==========================================
-// 🎯 MODAL: ANGKAT / UBAH JABATAN (LEADER ONLY)
+// 🎯 MODAL: ANGKAT / UBAH JABATAN
 // ==========================================
 window.openPromoteAdminModal = async function(memberUid, memberIgn) {
     if (currentAdmin?.role1 !== 'leader') {
@@ -1181,7 +1151,6 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
         pushView('promote-admin', { memberUid, memberIgn, mode });
     }
     
-    // Fetch saldo kas (mode edit)
     if (mode === 'edit' && adminData) {
         try {
             const kasUrl = `${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`;
@@ -1206,7 +1175,7 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
 };
 
 // ==========================================
-// 🎯 SUBMIT PROMOTE / EDIT ADMIN
+// SUBMIT PROMOTE / EDIT ADMIN
 // ==========================================
 window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdToEdit = '') {
     if (currentAdmin?.role1 !== 'leader') {
@@ -1242,7 +1211,10 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 window.closeModal();
                 
                 setTimeout(() => {
-                    renderPromoteSuccessModal(data.data);
+                    // Ambil memberIgn dari memberList
+                    const memberData = memberList.find(m => m.uid === memberUid);
+                    const memberIgn = memberData ? memberData.ign : '';
+                    renderPromoteSuccessModal(data.data, memberIgn);
                 }, 200);
                 
                 await loadAdminLinkedUids();
@@ -1254,7 +1226,7 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
             }
         } else {
             // ==========================================
-            // 🐛 FIX BUG: SELALU UPDATE role1 DAN role2
+            // FIX BUG: SELALU UPDATE role1 DAN role2
             // ==========================================
             const willDeleteAdmin = (!role1 && !role2);
             
@@ -1266,11 +1238,10 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 }
             }
             
-            // 🎯 STEP 1: Update role1
+            // STEP 1: Update role1
             const resRole1 = await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role1&value=${encodeURIComponent(role1)}`);
             const dataRole1 = await resRole1.json();
             
-            // Kalau role1 gagal DAN bukan delete mode → stop
             if (dataRole1.status !== 'success' && !willDeleteAdmin) {
                 window.showToast('❌ ' + (dataRole1.message || 'Gagal update role1'), true);
                 btn.innerHTML = originalHtml;
@@ -1278,7 +1249,7 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 return;
             }
             
-            // 🎯 STEP 2: SELALU update role2 (fix bug bendahara)
+            // STEP 2: SELALU update role2
             const resRole2 = await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role2&value=${encodeURIComponent(role2)}`);
             const dataRole2 = await resRole2.json();
             
@@ -1289,9 +1260,7 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 return;
             }
             
-            // 🎯 Cek hasil
             if (willDeleteAdmin) {
-                // Cek apakah admin benar-benar terhapus
                 if (dataRole1.message && dataRole1.message.includes('dihapus')) {
                     window.showToast('✅ Admin berhasil dihapus');
                 } else if (dataRole2.message && dataRole2.message.includes('dihapus')) {
@@ -1334,8 +1303,11 @@ async function syncMemberRoleFromAdmin(memberUid, role1) {
 // ==========================================
 // MODAL SUKSES PROMOTE
 // ==========================================
-window.renderPromoteSuccessModal = function(data) {
-    const { adminId, nama, passkey, role1, role2, linkedMemberUid, memberRole } = data;
+window.renderPromoteSuccessModal = function(data, memberIgn) {
+    const { adminId, passkey, role1, role2, linkedMemberUid } = data;
+    
+    // 🎯 Pakai memberIgn (dari parameter) — bukan data.nama
+    const displayName = memberIgn || getAdminDisplayName(linkedMemberUid, data.nama) || '(tanpa nama)';
     
     const roleParts = [];
     if (role1) roleParts.push(role1.toUpperCase());
@@ -1343,7 +1315,7 @@ window.renderPromoteSuccessModal = function(data) {
     const roleText = roleParts.join(' + ') || '(no role)';
     
     const infoText = 
-`Admin: ${nama}
+`Admin: ${displayName}
 ID: ${adminId}
 Passkey: ${passkey}
 Role: ${roleText}
@@ -1359,7 +1331,7 @@ Login: https://umbrella-id.github.io/admin-dashboard`;
             </h3>
             
             <p style="font-size:0.8rem; text-align:center; color:var(--text-muted); margin-bottom:16px;">
-                <strong>${escapeHtml(nama)}</strong> telah diangkat menjadi admin
+                <strong>${escapeHtml(displayName)}</strong> telah diangkat menjadi admin
             </p>
             
             <div class="verif-info" style="background:var(--bg-dark); border-radius:10px; padding:12px 16px; margin-bottom:16px;">
@@ -1422,7 +1394,7 @@ window.copyPromoteInfo = function(infoText) {
 };
 
 // ==========================================
-// 🎯 RESET PASSKEY (RANDOM)
+// RESET PASSKEY (RANDOM)
 // ==========================================
 window.handleResetPasskey = async function(adminId, adminNama) {
     if (!adminId) {
@@ -1439,7 +1411,6 @@ window.handleResetPasskey = async function(adminId, adminNama) {
     
     if (!konfirmasi) return;
     
-    // 🎯 Generate random passkey di frontend
     const newPasskey = generateRandomPasskey(8);
     
     window.showToast('⏳ Mereset passkey...');
@@ -1465,10 +1436,9 @@ window.handleResetPasskey = async function(adminId, adminNama) {
 };
 
 // ==========================================
-// GENERATE RANDOM PASSKEY (8 char, tanpa karakter ambigu)
+// GENERATE RANDOM PASSKEY
 // ==========================================
 function generateRandomPasskey(length = 8) {
-    // Tanpa 0/O/1/l/I agar tidak ambigu
     const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let result = '';
     for (let i = 0; i < length; i++) {
@@ -1535,7 +1505,7 @@ window.copyResetPasskey = function(passkey) {
 };
 
 // ==========================================
-// 🎯 MODAL: SERAH JABATAN LEADER
+// MODAL: SERAH JABATAN LEADER
 // ==========================================
 window.openTransferLeadershipModal = async function() {
     if (currentAdmin?.role1 !== 'leader') {
@@ -1592,7 +1562,7 @@ window.openTransferLeadershipModal = async function() {
                 <select id="transfer-target" style="width:100%; padding:10px; margin-bottom:16px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
                     <option value="">-- Pilih CO-LEAD --</option>
                     ${coLeads.map(cl => `
-                        <option value="${escapeHtml(cl.id)}">${escapeHtml(getAdminDisplayName(cl.linkedMemberUid) || cl.nama)} (${escapeHtml(cl.id)})</option>
+                        <option value="${escapeHtml(cl.id)}">${escapeHtml(getAdminDisplayName(cl.linkedMemberUid, cl.nama))} (${escapeHtml(cl.id)})</option>
                     `).join('')}
                 </select>
                 
@@ -1695,5 +1665,6 @@ window.renderAddMemberInternal = renderAddMemberInternal;
 window.renderEditMemberInternal = renderEditMemberInternal;
 window.memberList_isAdmin = memberList_isAdmin;
 window.memberList_isBendahara = memberList_isBendahara;
+window.getAdminDisplayName = getAdminDisplayName;
 
-console.log("✅ admin-member.js loaded (V7 — Reset Passkey Random + Fix Bug Bendahara)");
+console.log("✅ admin-member.js loaded (V8 — Fix Bug #1 + Defensive Bug #2)");

@@ -857,7 +857,12 @@ async function submitEditMember(uid) {
     
     const newIGN = document.getElementById('edit-ign')?.value.trim();
     let newWA = document.getElementById('edit-wa')?.value.trim() || '';
-    const newStatus = document.getElementById('edit-status')?.value;
+    
+    // 🎯 FIX BUG: Cek apakah field status EDITABLE
+    // Kalau disabled (self-edit leader/co-lead), anggap status tidak diubah
+    const statusEl = document.getElementById('edit-status');
+    const statusIsEditable = statusEl && !statusEl.disabled;
+    const newStatus = statusIsEditable ? statusEl.value : null;
     
     if (!newIGN) {
         window.showToast("IGN harus diisi", true);
@@ -880,15 +885,15 @@ async function submitEditMember(uid) {
     
     const finalRole = member.role;
     
-    // 🎯 FIX BUG #1: Leader bisa edit IGN/WA sendiri, tapi status tetap
+    // 🎯 FIX BUG: Validasi status HANYA kalau status memang editable + berubah
     let finalStatus = member.status;
     if (newStatus && newStatus !== member.status) {
         if (isLeader && !isTargetSelf) {
             finalStatus = newStatus;
         } else if (isCoLead && !isTargetSelf && !isTargetLeader && !isTargetCoLead) {
             finalStatus = newStatus;
-        } else if (isTargetSelf) {
-            window.showToast("❌ Tidak bisa mengubah status diri sendiri!", true);
+        } else {
+            window.showToast("❌ Tidak bisa mengubah status member ini!", true);
             return;
         }
     }

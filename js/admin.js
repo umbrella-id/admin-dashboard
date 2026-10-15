@@ -277,9 +277,9 @@ async function sendStandbyAndUpdateAll() {
 function shouldEnableHeartbeat() {
     if (!currentAdmin) return false;
     
-    const hasHeartbeat = (currentAdmin.role1 === 'LEADER' || 
-                          currentAdmin.role1 === 'CO-LEAD' || 
-                          currentAdmin.role2 === 'CO-LEAD');
+    // 🎯 Heartbeat aktif untuk leader & co-lead (lowercase)
+    const hasHeartbeat = (currentAdmin.role1 === 'leader' || 
+                          currentAdmin.role1 === 'co-lead');
     
     return hasHeartbeat;
 }
@@ -320,18 +320,18 @@ window.addEventListener('focus', function() {
     
     // Refresh tab aktif
     if (activeTab === 'kas') {
-        const hasKasAccess = (currentAdmin.role1 === 'LEADER' || 
-                              currentAdmin.role1 === 'BENDAHARA' || 
-                              currentAdmin.role2 === 'BENDAHARA');
+        // 🎯 Cek role lowercase
+        const hasKasAccess = (currentAdmin.role1 === 'leader' || 
+                              currentAdmin.role2 === 'bendahara');
         if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
             window.loadKasDashboard();
         }
     }
     
     if (activeTab === 'mailbox') {
-        const hasMailAccess = (currentAdmin.role1 === 'LEADER' || 
-                               currentAdmin.role1 === 'CO-LEAD' || 
-                               currentAdmin.role2 === 'CO-LEAD');
+        // 🎯 Cek role lowercase
+        const hasMailAccess = (currentAdmin.role1 === 'leader' || 
+                               currentAdmin.role1 === 'co-lead');
         if (hasMailAccess && typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
         }
@@ -390,15 +390,19 @@ window.stopStandbyPresence = stopStandbyPresence;
 // ==========================================
 function setupDashboardAfterLogin() {
     document.getElementById('admin-name-display').innerText = currentAdmin.nama;
-    const roleText = currentAdmin.role2 ? `${currentAdmin.role1} + ${currentAdmin.role2}` : currentAdmin.role1;
+    
+    // 🎯 Tampilan role: gabungan role1 + role2 (uppercase untuk display)
+    const roleParts = [];
+    if (currentAdmin.role1) roleParts.push(currentAdmin.role1.toUpperCase());
+    if (currentAdmin.role2) roleParts.push(currentAdmin.role2.toUpperCase());
+    const roleText = roleParts.join(' + ') || '(no role)';
     document.getElementById('admin-role-display').innerText = roleText;
     
     renderBottomNav();
     
-    // Chat widget
-    const hasChat = (currentAdmin.role1 === 'LEADER' || 
-                     currentAdmin.role1 === 'CO-LEAD' || 
-                     currentAdmin.role2 === 'CO-LEAD');
+    // 🎯 Chat widget — cek role lowercase
+    const hasChat = (currentAdmin.role1 === 'leader' || 
+                     currentAdmin.role1 === 'co-lead');
     if (hasChat) {
         const floatingChat = document.getElementById('floating-chat');
         if (floatingChat) floatingChat.style.display = 'block';
@@ -427,20 +431,22 @@ function setupDashboardAfterLogin() {
         }, 750);
     }
     
-    const hasKas = (currentAdmin.role1 === 'LEADER' || 
-                    currentAdmin.role1 === 'BENDAHARA' || 
-                    currentAdmin.role2 === 'BENDAHARA');
+    // 🎯 Kas — cek role lowercase
+    const hasKas = (currentAdmin.role1 === 'leader' || 
+                    currentAdmin.role2 === 'bendahara');
     if (hasKas) {
         setTimeout(() => {
             if (typeof window.loadKasDashboard === 'function') window.loadKasDashboard();
         }, 1000);
     }
     
-    if (currentAdmin.role1 === 'LEADER' && typeof window.refreshAdminList === 'function') {
+    // 🎯 Admin mgmt — hanya leader
+    if (currentAdmin.role1 === 'leader' && typeof window.refreshAdminList === 'function') {
         window.refreshAdminList();
     }
     
-    if (currentAdmin.role1 === 'LEADER' && typeof window.loadContentData === 'function') {
+    // 🎯 Konten — hanya leader
+    if (currentAdmin.role1 === 'leader' && typeof window.loadContentData === 'function') {
         window.loadContentData();
     }
     
@@ -502,17 +508,8 @@ async function doLogin() {
             
             setupDashboardAfterLogin();
             
-        } else if (data.status === 'rate_limited') {
-            // 🚦 Rate limit — tampilkan pesan khusus
-            document.getElementById('login-error').innerText = 
-                data.message || 'Terlalu banyak percobaan. Tunggu 15 menit.';
         } else {
-            // Sisa percobaan (kalau ada)
-            let errMsg = data.message || 'Login gagal!';
-            if (typeof data.remaining === 'number' && data.remaining > 0) {
-                errMsg += ` (sisa ${data.remaining} percobaan)`;
-            }
-            document.getElementById('login-error').innerText = errMsg;
+            document.getElementById('login-error').innerText = data.message || 'Login gagal!';
         }
     } catch(err) { 
         document.getElementById('login-error').innerText = 'Koneksi gagal!'; 
@@ -601,8 +598,14 @@ async function validateSessionInBackground(admin) {
             }
             
             document.getElementById('admin-name-display').innerText = currentAdmin.nama;
-            const roleText = currentAdmin.role2 ? `${currentAdmin.role1} + ${currentAdmin.role2}` : currentAdmin.role1;
+            
+            // 🎯 Role display: uppercase untuk tampilan
+            const roleParts = [];
+            if (currentAdmin.role1) roleParts.push(currentAdmin.role1.toUpperCase());
+            if (currentAdmin.role2) roleParts.push(currentAdmin.role2.toUpperCase());
+            const roleText = roleParts.join(' + ') || '(no role)';
             document.getElementById('admin-role-display').innerText = roleText;
+            
             renderBottomNav();
         }
         
@@ -620,11 +623,16 @@ function renderBottomNav() {
     const navContainer = document.getElementById('bottom-nav');
     const swipeArea = document.getElementById('tab-swipe-area');
     const tabs = [];
-    const hasMember = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
-    const hasMail = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'CO-LEAD' || currentAdmin.role2 === 'CO-LEAD');
-    const hasKas = (currentAdmin.role1 === 'LEADER' || currentAdmin.role1 === 'BENDAHARA' || currentAdmin.role2 === 'BENDAHARA');
-    const hasAdmin = (currentAdmin.role1 === 'LEADER');
-    const hasContent = (currentAdmin.role1 === 'LEADER');
+    
+    // 🎯 Cek role lowercase
+    const hasMember = (currentAdmin.role1 === 'leader' || 
+                       currentAdmin.role1 === 'co-lead');
+    const hasMail = (currentAdmin.role1 === 'leader' || 
+                     currentAdmin.role1 === 'co-lead');
+    const hasKas = (currentAdmin.role1 === 'leader' || 
+                    currentAdmin.role2 === 'bendahara');
+    const hasAdmin = (currentAdmin.role1 === 'leader');
+    const hasContent = (currentAdmin.role1 === 'leader');
 
     if (hasMember) tabs.push({ id: 'member', icon: 'fa-users', label: 'Member' });
     if (hasMail) tabs.push({ id: 'mailbox', icon: 'fa-envelope', label: 'Surat' });
@@ -859,7 +867,14 @@ function renderAdminList(admins) {
     const container = document.getElementById('admin-list-container');
     if (!container) return;
     
-    container.innerHTML = admins.map(admin => `
+    container.innerHTML = admins.map(admin => {
+        // 🎯 Format role display (uppercase)
+        const roleParts = [];
+        if (admin.role1) roleParts.push(admin.role1.toUpperCase());
+        if (admin.role2) roleParts.push(admin.role2.toUpperCase());
+        const roleText = roleParts.join(' + ') || '(no role)';
+        
+        return `
         <div class="admin-row">
             <div class="admin-info-row">
                 <div>
@@ -867,7 +882,7 @@ function renderAdminList(admins) {
                     <span style="font-size:0.7rem; color:var(--text-muted);">ID: ${admin.id}</span>
                 </div>
                 <div style="font-size:0.7rem;">
-                    ${admin.role1} ${admin.role2 ? `+ ${admin.role2}` : ''}
+                    ${roleText}
                 </div>
             </div>
             <div class="admin-buttons">
@@ -877,7 +892,8 @@ function renderAdminList(admins) {
                 ${currentAdmin.id !== admin.id ? `<button class="btn-small btn-danger" onclick="promoteToLeader('${admin.id}')"><i class="fas fa-crown"></i> Lantik Leader</button>` : ''}
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // ==========================================
@@ -933,17 +949,20 @@ function renderAdminEditRoleInternal(adminId, role1, role2) {
         <div class="modal-content">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-tag"></i> Edit Role</h3>
+            
+            <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">Jabatan Utama</label>
             <select id="edit-role1" style="width:100%; padding:10px; margin-bottom:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
-                <option value="LEADER" ${role1 === 'LEADER' ? 'selected' : ''} ${adminId === currentAdmin.id ? 'disabled' : ''}>LEADER</option>
-                <option value="CO-LEAD" ${role1 === 'CO-LEAD' ? 'selected' : ''}>CO-LEAD</option>
-                <option value="BENDAHARA" ${role1 === 'BENDAHARA' ? 'selected' : ''}>BENDAHARA</option>
-                <option value="">(Kosong)</option>
+                <option value="leader" ${role1 === 'leader' ? 'selected' : ''} ${adminId === currentAdmin.id ? 'disabled' : ''}>LEADER</option>
+                <option value="co-lead" ${role1 === 'co-lead' ? 'selected' : ''}>CO-LEAD</option>
+                <option value="" ${!role1 ? 'selected' : ''}>(Kosong)</option>
             </select>
+            
+            <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">Tugas Tambahan</label>
             <select id="edit-role2" style="width:100%; padding:10px; margin-bottom:15px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
-                <option value="">(Tidak ada)</option>
-                <option value="CO-LEAD" ${role2 === 'CO-LEAD' ? 'selected' : ''}>CO-LEAD</option>
-                <option value="BENDAHARA" ${role2 === 'BENDAHARA' ? 'selected' : ''}>BENDAHARA</option>
+                <option value="" ${!role2 ? 'selected' : ''}>(Tidak ada)</option>
+                <option value="bendahara" ${role2 === 'bendahara' ? 'selected' : ''}>BENDAHARA</option>
             </select>
+            
             <div class="modal-buttons">
                 <button onclick="saveAdminRole('${adminId}')" style="background:var(--color-primary);">Simpan</button>
                 <button onclick="closeModal()" style="background:#333;">Batal</button>

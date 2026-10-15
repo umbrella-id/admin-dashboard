@@ -217,6 +217,11 @@ function renderMemberList(members) {
         const memberIsAdmin = memberList_isAdmin(member.uid);
         const memberIsBendahara = memberList_isBendahara(member.uid);
         
+        const isVerified = member.webUID && member.webUID.trim() !== '';
+        const memberIsAdmin = memberList_isAdmin(member.uid);
+        const memberIsBendahara = memberList_isBendahara(member.uid);
+        const memberIsCoLead = memberList_isCoLead(member.uid);
+        
         // ==========================================
         // 🎯 BADGE
         // ==========================================
@@ -227,8 +232,12 @@ function renderMemberList(members) {
             : '';
         
         // 2. Badge BENDAHARA
-        const bendaharaBadge = memberIsBendahara 
-            ? `<span class="badge-bendahara" title="Bendahara">BENDAHARA</span>` 
+        //    Tampil HANYA kalau member ini admin dengan Role1 KOSONG
+        //    (tidak punya jabatan struktural leader/co-lead)
+        //    → tandai dia itu admin, meski tidak dalam hierarki jabatan
+        const memberIsBendaharaOnly = memberIsAdmin && !memberIsCoLead && !member.role.includes('leader');
+        const bendaharaBadge = memberIsBendaharaOnly 
+            ? `<span class="badge-bendahara" title="Admin Bendahara (tanpa jabatan struktural)">BENDAHARA</span>` 
             : '';
         
         // ==========================================

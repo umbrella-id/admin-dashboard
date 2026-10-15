@@ -1129,7 +1129,9 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
             </select>
             
             <div id="promote-info" style="background:rgba(168,85,247,0.1); border:1px solid var(--color-primary); border-radius:8px; padding:10px 12px; font-size:0.7rem; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
-                💡 Pilih minimal 1 role. Role <strong>LEADER</strong> / <strong>CO-LEAD</strong> akan disinkron ke MEMBER_LIST. Bendahara tidak disinkron.
+                ${mode === 'edit' 
+                    ? `💡 <strong>Ubah jabatan:</strong> pilih minimal 1 role untuk ubah jabatan.<br>⚠️ <strong>Hapus admin:</strong> kosongkan semua role (saldo kas harus 0).`
+                    : `💡 Pilih minimal 1 role. Role <strong>LEADER</strong> / <strong>CO-LEAD</strong> akan disinkron ke MEMBER_LIST. Bendahara tidak disinkron.`}
             </div>
             
             ${mode === 'promote' ? `
@@ -1194,14 +1196,46 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 btn.disabled = false;
             }
         } else {
-            // Mode edit jabatan — update role1 & role2
-            await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role1&value=${encodeURIComponent(role1)}`);
-            await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role2&value=${encodeURIComponent(role2)}`);
+            // ==========================================
+            // Mode edit jabatan
+            // ==========================================
             
-            // Sync role ke MEMBER_LIST
-            await syncMemberRoleFromAdmin(memberUid, role1);
+            // 🎯 Cek: apakah semua role kosong (mode hapus admin)?
+            const isDeleteMode = !role1 && !role2;
             
-            window.showToast('✅ Jabatan berhasil diperbarui');
+            if (isDeleteMode) {
+                // Konfirmasi hapus admin
+                if (!confirm(`⚠️ Semua jabatan dikosongkan.\n\nAdmin ini akan DIHAPUS dari sistem.\n\nLanjutkan?`)) {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                    return;
+                }
+            }
+            
+            // Update role1
+            const resRole1 = await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role1&value=${encodeURIComponent(role1)}`);
+            const dataRole1 = await resRole1.json();
+            
+            // Cek: apakah role1 update gagal karena "semua role kosong" → hapus admin?
+            if (isDeleteMode) {
+                if (dataRole1.status === 'success') {
+                    window.showToast(dataRole1.message || '✅ Admin berhasil dihapus');
+                } else {
+                    window.showToast('❌ ' + (dataRole1.message || 'Gagal hapus admin'), true);
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                    return;
+                }
+            } else {
+                // Update role2 (mode normal)
+                await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role2&value=${encodeURIComponent(role2)}`);
+                
+                // Sync role ke MEMBER_LIST
+                await syncMemberRoleFromAdmin(memberUid, role1);
+                
+                window.showToast('✅ Jabatan berhasil diperbarui');
+            }
+            
             window.closeModal();
             
             await loadAdminLinkedUids();

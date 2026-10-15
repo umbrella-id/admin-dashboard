@@ -1,15 +1,12 @@
 /**
- * admin-member.js - Member Management Module (V6)
+ * admin-member.js - Member Management Module (V7)
  * 
- * Perubahan dari V5:
- * - Badge BENDAHARA untuk member dengan Role2 = bendahara
- * - Fix URL login di promote success: /admin-dashboard
- * - Helper: memberList_isBendahara()
- * 
- * Badge:
- * - Verified (WebUID) → centang hijau ✓
- * - Bendahara (Role2) → badge "BENDAHARA"
- * - Admin role → role uppercase (LEADER/CO-LEAD)
+ * Perubahan dari V6:
+ * - 🎯 Reset Passkey Random (generate di frontend)
+ * - 🎯 Tombol Reset Passkey di modal Ubah Jabatan
+ * - 🐛 FIX BUG: role2 "bendahara" tidak mau terhapus (isDeleteMode logic)
+ * - 🎯 Edit Admin Name — pakai member.ign via linkedMemberUid (Opsi B)
+ * - 🎯 Tombol copy passkey result
  */
 
 let memberList = [];
@@ -74,6 +71,21 @@ function memberList_isCoLead(memberUid) {
     return adminEntry.role1 === 'co-lead';
 }
 
+// ==========================================
+// 🎯 OPSI B: Ambil nama admin dari MEMBER_LIST
+// (bukan dari ADMIN_SETTINGS kolom B)
+// ==========================================
+function getAdminDisplayName(linkedUid) {
+    if (!linkedUid) return '(tanpa nama)';
+    const member = memberList.find(m => m.uid === linkedUid);
+    if (member && member.ign) return member.ign;
+    // Fallback: cari di cachedAdminLinkedData (kalau ada nama lama)
+    return '(tanpa nama)';
+}
+
+// ==========================================
+// LOAD ADMIN LINKED UIDS
+// ==========================================
 async function loadAdminLinkedUids() {
     try {
         const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
@@ -221,16 +233,10 @@ function renderMemberList(members) {
         // ==========================================
         // 🎯 BADGE
         // ==========================================
-        
-        // 1. Centang verified (WebUID)
         const verifiedBadge = isVerified 
             ? `<i class="fas fa-check-circle badge-verified" title="Akun Web Terkait"></i>` 
             : '';
         
-        // 2. Badge BENDAHARA
-        //    Tampil HANYA kalau member ini admin dengan Role1 KOSONG
-        //    (tidak punya jabatan struktural leader/co-lead)
-        //    → tandai dia itu admin, meski tidak dalam hierarki jabatan
         const memberIsBendaharaOnly = memberIsAdmin && !memberIsCoLead && !member.role.includes('leader');
         const bendaharaBadge = memberIsBendaharaOnly 
             ? `<span class="badge-bendahara" title="Admin Bendahara (tanpa jabatan struktural)">BENDAHARA</span>` 
@@ -249,7 +255,6 @@ function renderMemberList(members) {
             `;
         }
         
-        // Tombol Verif Code — key ungu (sama untuk generate & lihat)
         if (canEditMember(currentAdmin, member)) {
             if (isVerified) {
                 actionButtons += `
@@ -266,7 +271,6 @@ function renderMemberList(members) {
             }
         }
         
-        // Tombol Angkat/Ubah Jabatan — LEADER only
         if (currentAdmin?.role1 === 'leader') {
             const isSelf = member.uid === currentAdmin.linkedMemberUid;
             if (!isSelf) {
@@ -288,9 +292,6 @@ function renderMemberList(members) {
             actionButtons = '<span style="font-size:0.7rem; color:var(--text-muted); padding:6px;">—</span>';
         }
         
-        // ==========================================
-        // 🎯 RENDER ROW
-        // ==========================================
         html += `
             <div class="member-row" data-uid="${escapeHtml(member.uid)}">
                 <div class="member-info">
@@ -1157,12 +1158,21 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
             </p>
             ` : ''}
             
-            <div class="modal-buttons">
+            <div class="modal-buttons" style="margin-bottom:10px;">
                 <button onclick="submitPromoteAdmin('${escapeHtml(memberUid)}', '${mode}', '${adminData?.id || ''}')" style="background:var(--color-primary); flex:2;">
                     <i class="fas fa-crown"></i> ${mode === 'promote' ? 'ANGKAT' : 'SIMPAN'}
                 </button>
                 <button onclick="window.closeModal()" style="background:#333; flex:1;">Batal</button>
             </div>
+            
+            ${mode === 'edit' ? `
+            <div style="border-top:1px solid var(--border-line); padding-top:12px;">
+                <button onclick="handleResetPasskey('${escapeHtml(adminData?.id || '')}', '${escapeHtml(memberIgn)}')" 
+                        style="width:100%; background:rgba(245,158,11,0.15); border:1px solid #f59e0b; border-radius:10px; padding:10px; color:#f59e0b; cursor:pointer; font-size:0.8rem; font-weight:bold;">
+                    <i class="fas fa-key"></i> Reset Passkey (Random)
+                </button>
+            </div>
+            ` : ''}
         </div>
     `;
     modal.style.display = 'flex';
@@ -1195,6 +1205,9 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
     }
 };
 
+// ==========================================
+// 🎯 SUBMIT PROMOTE / EDIT ADMIN
+// ==========================================
 window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdToEdit = '') {
     if (currentAdmin?.role1 !== 'leader') {
         window.showToast('❌ Hanya LEADER yang bisa', true);
@@ -1240,9 +1253,12 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 btn.disabled = false;
             }
         } else {
-            const isDeleteMode = !role1 && !role2;
+            // ==========================================
+            // 🐛 FIX BUG: SELALU UPDATE role1 DAN role2
+            // ==========================================
+            const willDeleteAdmin = (!role1 && !role2);
             
-            if (isDeleteMode) {
+            if (willDeleteAdmin) {
                 if (!confirm(`⚠️ Semua jabatan dikosongkan.\n\nAdmin ini akan DIHAPUS dari sistem.\n\nLanjutkan?`)) {
                     btn.innerHTML = originalHtml;
                     btn.disabled = false;
@@ -1250,31 +1266,41 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 }
             }
             
+            // 🎯 STEP 1: Update role1
             const resRole1 = await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role1&value=${encodeURIComponent(role1)}`);
             const dataRole1 = await resRole1.json();
             
-            if (isDeleteMode) {
-                if (dataRole1.status === 'success') {
-                    window.showToast(dataRole1.message || '✅ Admin berhasil dihapus');
+            // Kalau role1 gagal DAN bukan delete mode → stop
+            if (dataRole1.status !== 'success' && !willDeleteAdmin) {
+                window.showToast('❌ ' + (dataRole1.message || 'Gagal update role1'), true);
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                return;
+            }
+            
+            // 🎯 STEP 2: SELALU update role2 (fix bug bendahara)
+            const resRole2 = await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role2&value=${encodeURIComponent(role2)}`);
+            const dataRole2 = await resRole2.json();
+            
+            if (dataRole2.status !== 'success') {
+                window.showToast('❌ ' + (dataRole2.message || 'Gagal update role2'), true);
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                return;
+            }
+            
+            // 🎯 Cek hasil
+            if (willDeleteAdmin) {
+                // Cek apakah admin benar-benar terhapus
+                if (dataRole1.message && dataRole1.message.includes('dihapus')) {
+                    window.showToast('✅ Admin berhasil dihapus');
+                } else if (dataRole2.message && dataRole2.message.includes('dihapus')) {
+                    window.showToast('✅ Admin berhasil dihapus');
                 } else {
-                    window.showToast('❌ ' + (dataRole1.message || 'Gagal hapus admin'), true);
-                    btn.innerHTML = originalHtml;
-                    btn.disabled = false;
-                    return;
+                    window.showToast('✅ Jabatan dikosongkan');
                 }
             } else {
-                const resRole2 = await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role2&value=${encodeURIComponent(role2)}`);
-                const dataRole2 = await resRole2.json();
-                
-                if (dataRole2.status !== 'success') {
-                    window.showToast('❌ ' + (dataRole2.message || 'Gagal update role2'), true);
-                    btn.innerHTML = originalHtml;
-                    btn.disabled = false;
-                    return;
-                }
-                
                 await syncMemberRoleFromAdmin(memberUid, role1);
-                
                 window.showToast('✅ Jabatan berhasil diperbarui');
             }
             
@@ -1290,6 +1316,9 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
     }
 };
 
+// ==========================================
+// SYNC MEMBER ROLE DARI ADMIN
+// ==========================================
 async function syncMemberRoleFromAdmin(memberUid, role1) {
     let newRole = 'member';
     if (role1 === 'leader') newRole = 'leader';
@@ -1302,6 +1331,9 @@ async function syncMemberRoleFromAdmin(memberUid, role1) {
     }
 }
 
+// ==========================================
+// MODAL SUKSES PROMOTE
+// ==========================================
 window.renderPromoteSuccessModal = function(data) {
     const { adminId, nama, passkey, role1, role2, linkedMemberUid, memberRole } = data;
     
@@ -1310,7 +1342,6 @@ window.renderPromoteSuccessModal = function(data) {
     if (role2) roleParts.push(role2.toUpperCase());
     const roleText = roleParts.join(' + ') || '(no role)';
     
-    // 🎯 URL FIX
     const infoText = 
 `Admin: ${nama}
 ID: ${adminId}
@@ -1391,6 +1422,119 @@ window.copyPromoteInfo = function(infoText) {
 };
 
 // ==========================================
+// 🎯 RESET PASSKEY (RANDOM)
+// ==========================================
+window.handleResetPasskey = async function(adminId, adminNama) {
+    if (!adminId) {
+        window.showToast('❌ Admin ID tidak valid', true);
+        return;
+    }
+    
+    if (currentAdmin?.role1 !== 'leader') {
+        window.showToast('❌ Hanya LEADER yang bisa reset passkey', true);
+        return;
+    }
+    
+    const konfirmasi = confirm(`⚠️ Reset passkey untuk admin:\n\nNama: ${adminNama}\nID: ${adminId}\n\nPasskey baru akan di-generate otomatis (random).\n\nLanjutkan?`);
+    
+    if (!konfirmasi) return;
+    
+    // 🎯 Generate random passkey di frontend
+    const newPasskey = generateRandomPasskey(8);
+    
+    window.showToast('⏳ Mereset passkey...');
+    
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=resetPasskey&adminId=${currentAdmin.id}&targetAdminId=${encodeURIComponent(adminId)}&newKey=${encodeURIComponent(newPasskey)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            window.showToast('✅ Passkey berhasil direset');
+            
+            setTimeout(() => {
+                renderPasskeyResultModal(adminId, adminNama, data.newPasskey || newPasskey);
+            }, 300);
+        } else {
+            window.showToast('❌ ' + (data.message || 'Gagal reset'), true);
+        }
+    } catch(e) {
+        console.error('Reset passkey error:', e);
+        window.showToast('❌ Gagal koneksi', true);
+    }
+};
+
+// ==========================================
+// GENERATE RANDOM PASSKEY (8 char, tanpa karakter ambigu)
+// ==========================================
+function generateRandomPasskey(length = 8) {
+    // Tanpa 0/O/1/l/I agar tidak ambigu
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+// ==========================================
+// MODAL HASIL RESET PASSKEY
+// ==========================================
+function renderPasskeyResultModal(adminId, adminNama, newPasskey) {
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 420px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            
+            <h3 style="text-align:center; margin-bottom:16px; color:#4ade80;">
+                <i class="fas fa-check-circle"></i> Passkey Direset
+            </h3>
+            
+            <div class="verif-info" style="background:var(--bg-dark); border-radius:10px; padding:12px 16px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; padding:6px 0;">
+                    <span style="color:var(--text-muted);">Admin:</span>
+                    <strong style="color:white;">${escapeHtml(adminNama)}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:6px 0;">
+                    <span style="color:var(--text-muted);">Admin ID:</span>
+                    <span style="color:white; font-family:monospace; font-size:0.75rem;">${escapeHtml(adminId)}</span>
+                </div>
+            </div>
+            
+            <div style="background:rgba(245,158,11,0.1); border:1px solid #f59e0b; border-radius:10px; padding:16px; margin-bottom:16px; text-align:center;">
+                <div style="font-size:0.65rem; color:#f59e0b; letter-spacing:1px; margin-bottom:8px;">PASSKEY BARU</div>
+                <code style="font-size:1.3rem; font-weight:bold; color:#f59e0b; letter-spacing:2px; user-select:all; display:block; margin-bottom:12px;" id="reset-passkey-value">${escapeHtml(newPasskey)}</code>
+                <button onclick="copyResetPasskey('${escapeHtml(newPasskey)}')" 
+                        style="background:var(--color-primary); color:white; border:none; border-radius:8px; padding:8px 20px; cursor:pointer; font-size:0.75rem;">
+                    <i class="fas fa-copy"></i> Copy Passkey
+                </button>
+            </div>
+            
+            <p style="font-size:0.7rem; color:#ff8888; text-align:center; margin-bottom:16px;">
+                ⚠️ Passkey ini hanya ditampilkan sekali. Catat & kirim ke admin yang bersangkutan.
+            </p>
+            
+            <div class="modal-buttons">
+                <button onclick="window.closeModal()" style="background:#333; flex:1;">Tutup</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+    
+    if (typeof pushView === 'function') {
+        pushView('passkey-result', { adminId, adminNama, newPasskey });
+    }
+}
+
+window.copyResetPasskey = function(passkey) {
+    navigator.clipboard.writeText(passkey).then(() => {
+        window.showToast('✅ Passkey dicopy');
+    }).catch(() => {
+        fallbackCopyVerifCode(passkey);
+    });
+};
+
+// ==========================================
 // 🎯 MODAL: SERAH JABATAN LEADER
 // ==========================================
 window.openTransferLeadershipModal = async function() {
@@ -1448,7 +1592,7 @@ window.openTransferLeadershipModal = async function() {
                 <select id="transfer-target" style="width:100%; padding:10px; margin-bottom:16px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
                     <option value="">-- Pilih CO-LEAD --</option>
                     ${coLeads.map(cl => `
-                        <option value="${escapeHtml(cl.id)}">${escapeHtml(cl.nama)} (${escapeHtml(cl.id)})</option>
+                        <option value="${escapeHtml(cl.id)}">${escapeHtml(getAdminDisplayName(cl.linkedMemberUid) || cl.nama)} (${escapeHtml(cl.id)})</option>
                     `).join('')}
                 </select>
                 
@@ -1552,4 +1696,4 @@ window.renderEditMemberInternal = renderEditMemberInternal;
 window.memberList_isAdmin = memberList_isAdmin;
 window.memberList_isBendahara = memberList_isBendahara;
 
-console.log("✅ admin-member.js loaded (V6 — Bendahara Badge + URL Fix)");
+console.log("✅ admin-member.js loaded (V7 — Reset Passkey Random + Fix Bug Bendahara)");

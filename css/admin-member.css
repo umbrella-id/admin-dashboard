@@ -489,3 +489,21 @@
 .btn-primary:hover {
     filter: brightness(1.1);
 }
+
+/* ==========================================
+   BADGE BENDAHARA
+   ========================================== */
+.badge-bendahara {
+    display: inline-block;
+    font-size: 0.5rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(234, 179, 8, 0.2);
+    color: #eab308;
+    border: 1px solid rgba(234, 179, 8, 0.4);
+    margin-left: 4px;
+    letter-spacing: 0.5px;
+    font-weight: bold;
+    text-transform: uppercase;
+    vertical-align: middle;
+}

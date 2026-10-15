@@ -654,8 +654,8 @@ async function loadBackgroundPreview() {
 }
 
 window.uploadBackground = async function(btn) {
-    if (currentAdmin?.role1 !== 'LEADER') {
-        window.showToast('❌ Hanya LEADER yang bisa upload', true);
+    if (currentAdmin?.role1 !== 'leader') {
+        window.showToast('❌ Hanya leader yang bisa upload', true);
         return;
     }
     
@@ -782,8 +782,8 @@ window.uploadBackground = async function(btn) {
 };
 
 window.resetBackground = async function() {
-    if (currentAdmin?.role1 !== 'LEADER') {
-        window.showToast('❌ Hanya LEADER yang bisa reset', true);
+    if (currentAdmin?.role1 !== 'leader') {
+        window.showToast('❌ Hanya leader yang bisa reset', true);
         return;
     }
     

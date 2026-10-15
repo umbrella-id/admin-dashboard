@@ -206,7 +206,7 @@ function renderKasDashboard() {
         </div>
     `;
     
-    if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+    if (currentAdmin.role1 === 'leader' || currentAdmin.role2 === 'leader') {
         html += `
             <div id="kas-tarif-section" class="kas-tarif-section">
                 <div class="kas-tarif-header">
@@ -279,7 +279,7 @@ function renderKasDashboard() {
                 <button class="kas-form-tab ${kasCurrentForm === 'transfer' ? 'active' : ''}" data-form="transfer">🔄 TRANSFER BENDAHARA</button>
     `;
     
-    if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+    if (currentAdmin.role1 === 'leader' || currentAdmin.role2 === 'leader') {
         html += `<button class="kas-form-tab ${kasCurrentForm === 'pengeluaran' ? 'active' : ''}" data-form="pengeluaran">📤 KAS KELUAR</button>`;
     }
     
@@ -329,7 +329,7 @@ function renderKasDashboard() {
             </div>
     `;
     
-    if (currentAdmin.role1 === 'LEADER' || currentAdmin.role2 === 'LEADER') {
+    if (currentAdmin.role1 === 'leader' || currentAdmin.role2 === 'leader') {
         html += `
             <div id="kas-form-pengeluaran" class="kas-form-panel ${kasCurrentForm === 'pengeluaran' ? 'active' : ''}">
                 <div class="kas-form-group">
@@ -616,8 +616,8 @@ async function submitTransferRequest() {
 // SUBMIT PENGELUARAN
 // ==========================================
 async function submitPengeluaran() {
-    if (currentAdmin.role1 !== 'LEADER' && currentAdmin.role2 !== 'LEADER') {
-        window.showToast("Hanya Leader yang bisa mencatat pengeluaran", true);
+    if (currentAdmin.role1 !== 'leader' && currentAdmin.role2 !== 'leader') {
+        window.showToast("Hanya leader yang bisa mencatat pengeluaran", true);
         return;
     }
     

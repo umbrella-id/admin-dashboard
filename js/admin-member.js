@@ -216,10 +216,6 @@ function renderMemberList(members) {
         const isVerified = member.webUID && member.webUID.trim() !== '';
         const memberIsAdmin = memberList_isAdmin(member.uid);
         const memberIsBendahara = memberList_isBendahara(member.uid);
-        
-        const isVerified = member.webUID && member.webUID.trim() !== '';
-        const memberIsAdmin = memberList_isAdmin(member.uid);
-        const memberIsBendahara = memberList_isBendahara(member.uid);
         const memberIsCoLead = memberList_isCoLead(member.uid);
         
         // ==========================================

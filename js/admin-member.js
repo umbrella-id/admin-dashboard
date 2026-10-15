@@ -45,8 +45,8 @@ function sortMembers(members) {
 // VALIDASI AKSES EDIT
 // ==========================================
 function canEditMember(admin, targetMember) {
-    const isLeader = admin?.role1 === 'LEADER' || admin?.role2 === 'LEADER';
-    const isCoLead = admin?.role1 === 'CO-LEAD' || admin?.role2 === 'CO-LEAD';
+    const isLeader = admin?.role1 === 'leader';
+    const isCoLead = admin?.role1 === 'co-lead';
     const isTargetLeader = targetMember?.role === 'leader';
     const isTargetCoLead = targetMember?.role === 'co-lead';
     
@@ -62,8 +62,8 @@ function canEditMember(admin, targetMember) {
 }
 
 function canEditWA(admin, targetMember) {
-    const isLeader = admin?.role1 === 'LEADER' || admin?.role2 === 'LEADER';
-    const isCoLead = admin?.role1 === 'CO-LEAD' || admin?.role2 === 'CO-LEAD';
+    const isLeader = admin?.role1 === 'leader';
+    const isCoLead = admin?.role1 === 'co-lead';
     const isTargetCoLead = targetMember?.role === 'co-lead';
     const isTargetLeader = targetMember?.role === 'leader';
     

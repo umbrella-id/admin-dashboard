@@ -1,3 +1,8 @@
+/**
+ * admin.js — Core Admin Dashboard
+ * V4: Handle role lowercase (leader/co-lead/bendahara) + tampilan role baru
+ */
+
 window.GAS_ADMIN_URL = "https://script.google.com/macros/s/AKfycbx1VqwGfC0Bz_tXNacdEe6s3Lu7USX9uRy7JbrOet4qu_bjA6PR9r780Ne7LP73UwUs/exec";
 window.GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbwqsSUeVxPg4V5hMc9ph92eMQ2cFqTQI7SJZOG9f-FDlPii4IaXGEfOZ7zdRG35zbIhnw/exec";
 
@@ -45,20 +50,29 @@ function escapeHtml(str) {
 }
 
 // ==========================================
-// CLOSE MODAL — Pakai router
+// TAMPILAN ROLE — Format gabungan role1 + role2 (uppercase)
+// ==========================================
+function formatRoleDisplay(admin) {
+    if (!admin) return '-';
+    const parts = [];
+    if (admin.role1) parts.push(admin.role1.toUpperCase());
+    if (admin.role2) parts.push(admin.role2.toUpperCase());
+    return parts.join(' + ') || '(no role)';
+}
+
+// ==========================================
+// CLOSE MODAL
 // ==========================================
 function closeModal() {
-    // Konsisten dengan back button: pakai closeCurrentView
     if (typeof closeCurrentView === 'function') {
         closeCurrentView();
     } else {
-        // Fallback kalau router belum load
         document.getElementById('modal-overlay').style.display = 'none';
     }
 }
 
 // ==========================================
-// CONFIRM MODAL — Dengan pushView
+// CONFIRM MODAL
 // ==========================================
 window.showConfirmModal = function(pesan, onConfirm, onCancel) {
     const modal = document.getElementById('modal-overlay');
@@ -75,19 +89,16 @@ window.showConfirmModal = function(pesan, onConfirm, onCancel) {
     `;
     modal.style.display = 'flex';
     
-    // Push view confirm
     if (typeof pushView === 'function') {
         pushView('confirm');
     }
     
     document.getElementById('confirm-yes').onclick = () => {
-        // Pop view confirm dulu
         if (typeof closeCurrentView === 'function') {
             closeCurrentView();
         } else {
             modal.style.display = 'none';
         }
-        // Callback setelah pop selesai
         setTimeout(() => { if (onConfirm) onConfirm(); }, 150);
     };
     document.getElementById('confirm-no').onclick = () => {
@@ -165,7 +176,7 @@ window.sendPresence = async function(mode) {
 };
 
 // ==========================================
-// STANDBY — Cek chat & mail tiap 60s
+// STANDBY
 // ==========================================
 async function sendStandbyAndUpdateAll() {
     if (!currentAdmin) return;
@@ -272,16 +283,11 @@ async function sendStandbyAndUpdateAll() {
 }
 
 // ==========================================
-// HEARTBEAT CHECK
+// HEARTBEAT CHECK — hanya leader & co-lead
 // ==========================================
 function shouldEnableHeartbeat() {
     if (!currentAdmin) return false;
-    
-    // 🎯 Heartbeat aktif untuk leader & co-lead (lowercase)
-    const hasHeartbeat = (currentAdmin.role1 === 'leader' || 
-                          currentAdmin.role1 === 'co-lead');
-    
-    return hasHeartbeat;
+    return (currentAdmin.role1 === 'leader' || currentAdmin.role1 === 'co-lead');
 }
 
 // ==========================================
@@ -311,27 +317,21 @@ window.addEventListener('focus', function() {
     const chatIsOpen = window.isChatOpen && window.isChatOpen();
     const activeTab = document.querySelector('.nav-item.active')?.dataset.nav;
     
-    // Update presence
     if (chatIsOpen && shouldEnableHeartbeat()) {
         window.sendPresence('active');
     } else if (shouldEnableHeartbeat()) {
         window.sendPresence('standby');
     }
     
-    // Refresh tab aktif
     if (activeTab === 'kas') {
-        // 🎯 Cek role lowercase
-        const hasKasAccess = (currentAdmin.role1 === 'leader' || 
-                              currentAdmin.role2 === 'bendahara');
+        const hasKasAccess = (currentAdmin.role1 === 'leader' || currentAdmin.role2 === 'bendahara');
         if (hasKasAccess && typeof window.loadKasDashboard === 'function') {
             window.loadKasDashboard();
         }
     }
     
     if (activeTab === 'mailbox') {
-        // 🎯 Cek role lowercase
-        const hasMailAccess = (currentAdmin.role1 === 'leader' || 
-                               currentAdmin.role1 === 'co-lead');
+        const hasMailAccess = (currentAdmin.role1 === 'leader' || currentAdmin.role1 === 'co-lead');
         if (hasMailAccess && typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
         }
@@ -386,23 +386,16 @@ function stopStandbyPresence() {
 window.stopStandbyPresence = stopStandbyPresence;
 
 // ==========================================
-// SETUP DASHBOARD — dipakai login & session
+// SETUP DASHBOARD
 // ==========================================
 function setupDashboardAfterLogin() {
     document.getElementById('admin-name-display').innerText = currentAdmin.nama;
-    
-    // 🎯 Tampilan role: gabungan role1 + role2 (uppercase untuk display)
-    const roleParts = [];
-    if (currentAdmin.role1) roleParts.push(currentAdmin.role1.toUpperCase());
-    if (currentAdmin.role2) roleParts.push(currentAdmin.role2.toUpperCase());
-    const roleText = roleParts.join(' + ') || '(no role)';
-    document.getElementById('admin-role-display').innerText = roleText;
+    document.getElementById('admin-role-display').innerText = formatRoleDisplay(currentAdmin);
     
     renderBottomNav();
     
-    // 🎯 Chat widget — cek role lowercase
-    const hasChat = (currentAdmin.role1 === 'leader' || 
-                     currentAdmin.role1 === 'co-lead');
+    // Chat widget — leader & co-lead
+    const hasChat = (currentAdmin.role1 === 'leader' || currentAdmin.role1 === 'co-lead');
     if (hasChat) {
         const floatingChat = document.getElementById('floating-chat');
         if (floatingChat) floatingChat.style.display = 'block';
@@ -431,21 +424,20 @@ function setupDashboardAfterLogin() {
         }, 750);
     }
     
-    // 🎯 Kas — cek role lowercase
-    const hasKas = (currentAdmin.role1 === 'leader' || 
-                    currentAdmin.role2 === 'bendahara');
+    // Kas — leader atau bendahara
+    const hasKas = (currentAdmin.role1 === 'leader' || currentAdmin.role2 === 'bendahara');
     if (hasKas) {
         setTimeout(() => {
             if (typeof window.loadKasDashboard === 'function') window.loadKasDashboard();
         }, 1000);
     }
     
-    // 🎯 Admin mgmt — hanya leader
+    // Admin list — leader only
     if (currentAdmin.role1 === 'leader' && typeof window.refreshAdminList === 'function') {
         window.refreshAdminList();
     }
     
-    // 🎯 Konten — hanya leader
+    // Konten — leader only
     if (currentAdmin.role1 === 'leader' && typeof window.loadContentData === 'function') {
         window.loadContentData();
     }
@@ -454,10 +446,9 @@ function setupDashboardAfterLogin() {
     if (shouldEnableHeartbeat()) {
         startStandbyPresence();
     } else {
-        console.log("🔕 Silent login (BENDAHARA only)");
+        console.log("🔕 Silent login");
     }
     
-    // Setup router base state
     if (typeof setupBaseState === 'function') {
         setupBaseState();
     }
@@ -473,7 +464,6 @@ async function doLogin() {
         return; 
     }
     try {
-        // 🔐 POST — passkey di body, tidak di URL
         const res = await fetch(window.GAS_ADMIN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -491,7 +481,6 @@ async function doLogin() {
                 loggedInAt: Date.now()
             }));
             
-            // 🎯 Simpan WebUID admin sebagai "member" di web publik
             if (currentAdmin.webUid) {
                 localStorage.setItem('u_uid', currentAdmin.webUid);
                 localStorage.setItem('u_class', 'member');
@@ -556,7 +545,6 @@ async function validateSessionInBackground(admin) {
         const session = JSON.parse(localStorage.getItem('umbrella_admin_session'));
         const adminPasskey = session.adminPasskey;
         
-        // 🔐 POST — passkey di body, tidak di URL
         const res = await fetch(window.GAS_ADMIN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -590,7 +578,6 @@ async function validateSessionInBackground(admin) {
                 loggedInAt: Date.now()
             }));
             
-            // 🎯 Sync WebUID ke localStorage (kalau berubah)
             if (currentAdmin.webUid) {
                 localStorage.setItem('u_uid', currentAdmin.webUid);
                 localStorage.setItem('u_class', 'member');
@@ -598,14 +585,7 @@ async function validateSessionInBackground(admin) {
             }
             
             document.getElementById('admin-name-display').innerText = currentAdmin.nama;
-            
-            // 🎯 Role display: uppercase untuk tampilan
-            const roleParts = [];
-            if (currentAdmin.role1) roleParts.push(currentAdmin.role1.toUpperCase());
-            if (currentAdmin.role2) roleParts.push(currentAdmin.role2.toUpperCase());
-            const roleText = roleParts.join(' + ') || '(no role)';
-            document.getElementById('admin-role-display').innerText = roleText;
-            
+            document.getElementById('admin-role-display').innerText = formatRoleDisplay(currentAdmin);
             renderBottomNav();
         }
         
@@ -624,13 +604,10 @@ function renderBottomNav() {
     const swipeArea = document.getElementById('tab-swipe-area');
     const tabs = [];
     
-    // 🎯 Cek role lowercase
-    const hasMember = (currentAdmin.role1 === 'leader' || 
-                       currentAdmin.role1 === 'co-lead');
-    const hasMail = (currentAdmin.role1 === 'leader' || 
-                     currentAdmin.role1 === 'co-lead');
-    const hasKas = (currentAdmin.role1 === 'leader' || 
-                    currentAdmin.role2 === 'bendahara');
+    // Role lowercase
+    const hasMember = (currentAdmin.role1 === 'leader' || currentAdmin.role1 === 'co-lead');
+    const hasMail = (currentAdmin.role1 === 'leader' || currentAdmin.role1 === 'co-lead');
+    const hasKas = (currentAdmin.role1 === 'leader' || currentAdmin.role2 === 'bendahara');
     const hasAdmin = (currentAdmin.role1 === 'leader');
     const hasContent = (currentAdmin.role1 === 'leader');
 
@@ -821,18 +798,14 @@ function logout() {
         } catch(e) {}
     }
     
-    // Clear session storage (privacy)
     Object.keys(sessionStorage).forEach(key => {
         if (key.startsWith('umbrella_')) {
             sessionStorage.removeItem(key);
         }
     });
     
-    // 🎯 Hapus session admin SAJA
     localStorage.removeItem('umbrella_admin_session');
     currentAdmin = null;
-    
-    // 🎯 u_uid, u_class, u_ign TETAP (akun web tidak logout)
     
     if (typeof forceCloseAllModals === 'function') {
         forceCloseAllModals();
@@ -845,7 +818,7 @@ function logout() {
 // MANAGE ADMIN (LEADER ONLY)
 // ==========================================
 async function refreshAdminList() {
-    if (currentAdmin?.role1 !== 'LEADER') {
+    if (currentAdmin?.role1 !== 'leader') {
         return;
     }
     try {
@@ -868,11 +841,7 @@ function renderAdminList(admins) {
     if (!container) return;
     
     container.innerHTML = admins.map(admin => {
-        // 🎯 Format role display (uppercase)
-        const roleParts = [];
-        if (admin.role1) roleParts.push(admin.role1.toUpperCase());
-        if (admin.role2) roleParts.push(admin.role2.toUpperCase());
-        const roleText = roleParts.join(' + ') || '(no role)';
+        const roleText = formatRoleDisplay(admin);
         
         return `
         <div class="admin-row">
@@ -897,7 +866,7 @@ function renderAdminList(admins) {
 }
 
 // ==========================================
-// EDIT ADMIN — PUBLIC + INTERNAL
+// EDIT ADMIN
 // ==========================================
 function editAdminName(adminId, currentName) {
     renderAdminEditNameInternal(adminId, currentName);
@@ -976,10 +945,10 @@ async function saveAdminRole(adminId) {
     const role1 = document.getElementById('edit-role1').value;
     const role2 = document.getElementById('edit-role2').value;
     try {
-        if (role1) {
-            await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminId}&field=role1&value=${role1}`);
+        if (role1 !== null) {
+            await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminId}&field=role1&value=${encodeURIComponent(role1)}`);
         }
-        await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminId}&field=role2&value=${role2}`);
+        await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminId}&field=role2&value=${encodeURIComponent(role2)}`);
         showToast("Role berhasil diubah");
         closeModal();
         refreshAdminList();
@@ -987,7 +956,6 @@ async function saveAdminRole(adminId) {
 }
 
 function resetPasskey(adminId) {
-  // Buka modal input passkey baru
   renderResetPasskeyModal(adminId);
   if (typeof pushView === 'function') {
     pushView('admin-reset-passkey', { adminId });
@@ -1040,8 +1008,6 @@ async function submitResetPasskey(adminId) {
     return;
   }
   
-  // 🎯 Passkey bebas — bisa huruf, angka, atau kombinasi (misal nomor WA)
-  
   const btn = document.querySelector('#modal-overlay .modal-buttons button:first-child');
   if (btn) {
     btn.disabled = true;
@@ -1054,7 +1020,6 @@ async function submitResetPasskey(adminId) {
     const data = await res.json();
     
     if (data.status === 'success') {
-      // Tampilkan passkey baru
       showToast(`✅ Passkey direset: ${data.newPasskey || newKey}`);
       setTimeout(() => {
         renderPasskeyResultModal(adminId, data.newPasskey || newKey);
@@ -1179,6 +1144,7 @@ window.logoutWithConfirm = logoutWithConfirm;
 window.closeModal = closeModal;
 window.showToast = showToast;
 window.escapeHtml = escapeHtml;
+window.formatRoleDisplay = formatRoleDisplay;
 window.toggleNotificationSetting = toggleNotificationSetting;
 window.openChangePasskey = openChangePasskey;
 window.changeMyPasskey = changeMyPasskey;
@@ -1202,4 +1168,4 @@ window.renderAdminEditRoleInternal = renderAdminEditRoleInternal;
 window.renderPromoteLeaderInternal = renderPromoteLeaderInternal;
 
 checkSession();
-console.log("✅ admin.js loaded (V3 — With Router Integration)");
+console.log("✅ admin.js loaded (V4 — Role lowercase)");

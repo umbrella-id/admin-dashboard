@@ -1,20 +1,20 @@
 /**
- * admin-member.js - Member Management Module (V5)
+ * admin-member.js - Member Management Module (V6)
+ * 
+ * Perubahan dari V5:
+ * - Badge BENDAHARA untuk member dengan Role2 = bendahara
+ * - Fix URL login di promote success: /admin-dashboard
+ * - Helper: memberList_isBendahara()
  * 
  * Badge:
- * - Verified (WebUID) → centang hijau
- * - Admin (leader/co-lead) → role uppercase saja, tanpa badge tambahan
- * - Member + bendahara → badge "BENDAHARA"
- * 
- * Akses:
- * - LEADER: full access + tombol 👑 (angkat/ubah jabatan)
- * - CO-LEAD: edit member biasa saja, tidak bisa ubah role
- * 
- * Tombol Verif Code: sama (key ungu) untuk generate & lihat
+ * - Verified (WebUID) → centang hijau ✓
+ * - Bendahara (Role2) → badge "BENDAHARA"
+ * - Admin role → role uppercase (LEADER/CO-LEAD)
  */
 
 let memberList = [];
 let cachedAdminLinkedUids = [];
+let cachedAdminLinkedData = [];  // [{ linkedUid, admId, role1, role2 }]
 
 // ==========================================
 // VALIDASI WA
@@ -54,6 +54,26 @@ function memberList_isAdmin(memberUid) {
     return cachedAdminLinkedUids.includes(memberUid);
 }
 
+// ==========================================
+// CEK APAKAH MEMBER BENDHAHARA (Role2)
+// ==========================================
+function memberList_isBendahara(memberUid) {
+    if (!memberUid) return false;
+    const adminEntry = cachedAdminLinkedData.find(a => a.linkedUid === memberUid);
+    if (!adminEntry) return false;
+    return adminEntry.role2 === 'bendahara';
+}
+
+// ==========================================
+// CEK APAKAH MEMBER CO-LEAD (Role1)
+// ==========================================
+function memberList_isCoLead(memberUid) {
+    if (!memberUid) return false;
+    const adminEntry = cachedAdminLinkedData.find(a => a.linkedUid === memberUid);
+    if (!adminEntry) return false;
+    return adminEntry.role1 === 'co-lead';
+}
+
 async function loadAdminLinkedUids() {
     try {
         const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
@@ -61,9 +81,16 @@ async function loadAdminLinkedUids() {
         const data = await res.json();
         
         if (data.status === 'success' && data.data) {
-            cachedAdminLinkedUids = data.data
-                .map(a => a.linkedMemberUid)
-                .filter(u => u && u.trim() !== '');
+            cachedAdminLinkedData = data.data
+                .filter(a => a.linkedMemberUid && a.linkedMemberUid.trim() !== '')
+                .map(a => ({
+                    linkedUid: a.linkedMemberUid.trim(),
+                    admId: a.id,
+                    role1: a.role1 || '',
+                    role2: a.role2 || ''
+                }));
+            
+            cachedAdminLinkedUids = cachedAdminLinkedData.map(a => a.linkedUid);
         }
     } catch(e) {
         console.error('loadAdminLinkedUids error:', e);
@@ -188,41 +215,27 @@ function renderMemberList(members) {
         
         const isVerified = member.webUID && member.webUID.trim() !== '';
         const memberIsAdmin = memberList_isAdmin(member.uid);
+        const memberIsBendahara = memberList_isBendahara(member.uid);
         
         // ==========================================
-        // 🎯 BADGE — spesifikasi final
+        // 🎯 BADGE
         // ==========================================
         
-        // 1. Centang verified (WebUID) — gaya lama
+        // 1. Centang verified (WebUID)
         const verifiedBadge = isVerified 
             ? `<i class="fas fa-check-circle badge-verified" title="Akun Web Terkait"></i>` 
             : '';
         
-        // 2. Badge bendahara — HANYA untuk member non-admin dengan role2 = bendahara
-        //    (admin tidak perlu karena sudah jelas dari role)
-        //    Kita cek dari `role` member + admin status
-        //    Kalau bukan admin dan role1 = kosong/member tapi punya tugas bendahara
-        //    → deteksi dari member.role? Tapi `role` di MEMBER_LIST cuma `member/co-lead/leader`.
-        //    Jadi kita perlu info role2 dari ADMIN_SETTINGS (kalau member = admin).
-        //    Untuk member non-admin, role2 di ADMIN_SETTINGS tidak ada → tidak bisa jadi bendahara.
-        //    
-        //    Kesimpulan: badge bendahara HANYA muncul untuk member yang = admin dengan role2 = bendahara.
-        //    Tapi spesifikasi Anda: "admin tidak perlu badge karena sudah ada jabatan".
-        //    
-        //    Jadi kita skip badge bendahara untuk admin, dan untuk non-admin tidak mungkin ada bendahara.
-        //    
-        //    → KECUALI: kalau nanti ada sistem baru di mana bendahara bisa member murni.
-        //    → Sementara: tidak ada badge bendahara.
-        
-        // (Untuk sekarang, kita tidak render badge bendahara karena tidak ada data)
-        // Bisa ditambahkan nanti kalau struktur berubah.
+        // 2. Badge BENDAHARA
+        const bendaharaBadge = memberIsBendahara 
+            ? `<span class="badge-bendahara" title="Bendahara">BENDAHARA</span>` 
+            : '';
         
         // ==========================================
         // 🎯 ACTION BUTTONS
         // ==========================================
         let actionButtons = '';
         
-        // Tombol Edit — hanya kalau bisa edit
         if (canEditMember(currentAdmin, member)) {
             actionButtons += `
                 <button class="btn-icon" onclick="editMember('${escapeHtml(member.uid)}')" title="Edit">
@@ -231,7 +244,7 @@ function renderMemberList(members) {
             `;
         }
         
-        // Tombol Verif Code — sama (key ungu), generate & lihat
+        // Tombol Verif Code — key ungu (sama untuk generate & lihat)
         if (canEditMember(currentAdmin, member)) {
             if (isVerified) {
                 actionButtons += `
@@ -258,7 +271,6 @@ function renderMemberList(members) {
                     </button>
                 `;
             } else {
-                // Diri sendiri (LEADER) → tombol "Serah Jabatan"
                 actionButtons += `
                     <button class="btn-icon btn-icon-warning" onclick="openTransferLeadershipModal()" title="Serah Jabatan LEADER">
                         <i class="fas fa-exchange-alt"></i>
@@ -267,7 +279,6 @@ function renderMemberList(members) {
             }
         }
         
-        // Fallback
         if (!actionButtons) {
             actionButtons = '<span style="font-size:0.7rem; color:var(--text-muted); padding:6px;">—</span>';
         }
@@ -282,6 +293,7 @@ function renderMemberList(members) {
                         <strong>${escapeHtml(member.ign)}</strong>
                         <span class="member-role ${member.role}">${member.role.toUpperCase()}</span>
                         ${verifiedBadge}
+                        ${bendaharaBadge}
                     </div>
                     <div class="member-contact">
                         ${hasWA}
@@ -718,7 +730,6 @@ function renderEditMemberInternal(member) {
         return;
     }
     
-    // ========== ROLE DISPLAY (readonly) ==========
     const roleDisplay = member.role.toUpperCase();
     const roleOptions = `
         <input type="text" 
@@ -732,7 +743,6 @@ function renderEditMemberInternal(member) {
         </small>
     `;
     
-    // ========== STATUS DROPDOWN ==========
     let statusOptions = '';
     
     const canChangeStatus = (() => {
@@ -1235,7 +1245,6 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 }
             }
             
-            // Update role1 (dan auto-delete jika semua kosong)
             const resRole1 = await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role1&value=${encodeURIComponent(role1)}`);
             const dataRole1 = await resRole1.json();
             
@@ -1249,7 +1258,6 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                     return;
                 }
             } else {
-                // Update role2
                 const resRole2 = await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role2&value=${encodeURIComponent(role2)}`);
                 const dataRole2 = await resRole2.json();
                 
@@ -1260,7 +1268,6 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                     return;
                 }
                 
-                // Sync role ke MEMBER_LIST
                 await syncMemberRoleFromAdmin(memberUid, role1);
                 
                 window.showToast('✅ Jabatan berhasil diperbarui');
@@ -1298,12 +1305,13 @@ window.renderPromoteSuccessModal = function(data) {
     if (role2) roleParts.push(role2.toUpperCase());
     const roleText = roleParts.join(' + ') || '(no role)';
     
+    // 🎯 URL FIX
     const infoText = 
 `Admin: ${nama}
 ID: ${adminId}
 Passkey: ${passkey}
 Role: ${roleText}
-Login: ${window.location.origin}/admin`;
+Login: https://umbrella-id.github.io/admin-dashboard`;
     
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
@@ -1537,5 +1545,6 @@ window.copyVerifCode = copyVerifCode;
 window.renderAddMemberInternal = renderAddMemberInternal;
 window.renderEditMemberInternal = renderEditMemberInternal;
 window.memberList_isAdmin = memberList_isAdmin;
+window.memberList_isBendahara = memberList_isBendahara;
 
-console.log("✅ admin-member.js loaded (V5 — Badge & Akses Final)");
+console.log("✅ admin-member.js loaded (V6 — Bendahara Badge + URL Fix)");

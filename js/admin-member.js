@@ -1,8 +1,14 @@
 /**
- * admin-member.js - Member Management Module (V3 — Role lowercase)
+ * admin-member.js - Member Management Module (V4)
+ * 
+ * Aturan akses:
+ * - LEADER: edit semua member, ubah role via tombol 👑
+ * - CO-LEAD: edit member biasa (role=member) saja, TIDAK bisa ubah role
+ * - CO-LEAD TIDAK bisa edit: CO-LEAD lain, LEADER, diri sendiri
  */
 
 let memberList = [];
+let cachedAdminLinkedUids = [];  // UID member yang sudah jadi admin
 
 // ==========================================
 // VALIDASI WA
@@ -35,40 +41,70 @@ function sortMembers(members) {
 }
 
 // ==========================================
-// VALIDASI AKSES EDIT — role lowercase
+// CEK APAKAH MEMBER SUDAH JADI ADMIN
+// ==========================================
+function memberList_isAdmin(memberUid) {
+    if (!memberUid) return false;
+    return cachedAdminLinkedUids.includes(memberUid);
+}
+
+async function loadAdminLinkedUids() {
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.status === 'success' && data.data) {
+            cachedAdminLinkedUids = data.data
+                .map(a => a.linkedMemberUid)
+                .filter(u => u && u.trim() !== '');
+        }
+    } catch(e) {
+        console.error('loadAdminLinkedUids error:', e);
+    }
+}
+
+// ==========================================
+// VALIDASI AKSES EDIT — ROLE-BASED
+// 
+// LEADER:
+//   - Bisa edit semua
+//   - Kecuali: tidak bisa ubah status/jabatan dirinya sendiri (anti-lockout)
+// 
+// CO-LEAD:
+//   - Hanya bisa edit member biasa (role = member)
+//   - Tidak bisa edit CO-LEAD / LEADER / diri sendiri
 // ==========================================
 function canEditMember(admin, targetMember) {
-    const isLeader = admin?.role1 === 'leader';
-    const isCoLead = admin?.role1 === 'co-lead';
-    const isTargetLeader = targetMember?.role === 'leader';
-    const isTargetCoLead = targetMember?.role === 'co-lead';
+    if (!admin || !targetMember) return false;
     
+    const isLeader = admin.role1 === 'leader';
+    const isCoLead = admin.role1 === 'co-lead';
+    const isTargetSelf = targetMember.uid === admin.linkedMemberUid || targetMember.uid === admin.id;
+    const isTargetLeader = targetMember.role === 'leader';
+    const isTargetCoLead = targetMember.role === 'co-lead';
+    
+    // LEADER: bisa edit semua, kecuali diri sendiri untuk status/peran tertentu (di-handle terpisah)
     if (isLeader) return true;
     
+    // CO-LEAD
     if (isCoLead) {
+        // Tidak bisa edit diri sendiri
+        if (isTargetSelf) return false;
+        // Tidak bisa edit LEADER
         if (isTargetLeader) return false;
+        // Tidak bisa edit CO-LEAD lain
         if (isTargetCoLead) return false;
+        // Bisa edit member biasa
         return true;
     }
     
     return false;
 }
 
+// Cek apakah admin bisa edit WA/IGN member (sama dengan canEditMember)
 function canEditWA(admin, targetMember) {
-    const isLeader = admin?.role1 === 'leader';
-    const isCoLead = admin?.role1 === 'co-lead';
-    const isTargetCoLead = targetMember?.role === 'co-lead';
-    const isTargetLeader = targetMember?.role === 'leader';
-    
-    if (isLeader) return true;
-    
-    if (isCoLead) {
-        if (isTargetLeader) return false;
-        if (isTargetCoLead) return false;
-        return true;
-    }
-    
-    return false;
+    return canEditMember(admin, targetMember);
 }
 
 // ==========================================
@@ -76,15 +112,11 @@ function canEditWA(admin, targetMember) {
 // ==========================================
 function checkActiveWA(wa, excludeUID = '') {
     if (!wa) return null;
-    
     const searchWA = wa.toString().trim();
-    
-    const existing = memberList.find(m => {
+    return memberList.find(m => {
         const memberWA = m.wa ? m.wa.toString().trim() : '';
         return memberWA === searchWA && m.uid !== excludeUID && m.status === 'aktif';
-    });
-    
-    return existing || null;
+    }) || null;
 }
 
 // ==========================================
@@ -103,8 +135,13 @@ async function loadMemberList(forceRefresh = false) {
         try {
             const data = JSON.parse(cached);
             memberList = data;
-            renderMemberList(memberList);
-            updateMissingWABadge(memberList);
+            
+            // Load admin linked uids (async, tidak blocking)
+            loadAdminLinkedUids().then(() => {
+                renderMemberList(memberList);
+                updateMissingWABadge(memberList);
+            });
+            
             console.log("📦 [MEMBER] Render dari cache, jumlah:", memberList.length);
         } catch(e) {}
     }
@@ -121,6 +158,10 @@ async function loadMemberList(forceRefresh = false) {
         if (result.status === 'success' && result.data) {
             memberList = sortMembers(result.data);
             sessionStorage.setItem('umbrella_cached_members', JSON.stringify(memberList));
+            
+            // 🎯 Load admin linked uids
+            await loadAdminLinkedUids();
+            
             renderMemberList(memberList);
             updateMissingWABadge(memberList);
             initSearchListener();
@@ -157,29 +198,60 @@ function renderMemberList(members) {
             : '<span class="no-wa"><i class="fas fa-exclamation-triangle"></i> WA belum diisi</span>';
         
         const isVerified = member.webUID && member.webUID.trim() !== '';
+        const memberIsAdmin = memberList_isAdmin(member.uid);
         
-        let actionButtons = `
-            <button class="btn-icon" onclick="editMember('${escapeHtml(member.uid)}')" title="Edit">
-                <i class="fas fa-edit"></i>
-            </button>
-        `;
+        let actionButtons = '';
         
-        if (isVerified) {
+        // 🎯 Tombol Edit — hanya kalau bisa edit
+        if (canEditMember(currentAdmin, member)) {
             actionButtons += `
-                <button class="btn-icon btn-icon-warning" onclick="showVerifCode('${escapeHtml(member.uid)}')" title="Lihat Kode">
-                    <i class="fas fa-eye"></i>
-                </button>
-            `;
-        } else {
-            actionButtons += `
-                <button class="btn-icon btn-icon-primary" onclick="generateVerifCode('${escapeHtml(member.uid)}')" title="Generate Kode">
-                    <i class="fas fa-key"></i>
+                <button class="btn-icon" onclick="editMember('${escapeHtml(member.uid)}')" title="Edit">
+                    <i class="fas fa-edit"></i>
                 </button>
             `;
         }
         
+        // 🎯 Tombol Verif Code — hanya kalau bisa edit
+        if (canEditMember(currentAdmin, member)) {
+            if (isVerified) {
+                actionButtons += `
+                    <button class="btn-icon btn-icon-warning" onclick="showVerifCode('${escapeHtml(member.uid)}')" title="Lihat Kode">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                `;
+            } else {
+                actionButtons += `
+                    <button class="btn-icon btn-icon-primary" onclick="generateVerifCode('${escapeHtml(member.uid)}')" title="Generate Kode">
+                        <i class="fas fa-key"></i>
+                    </button>
+                `;
+            }
+        }
+        
+        // 🎯 Tombol Angkat/Ubah Jabatan — LEADER only
+        if (currentAdmin?.role1 === 'leader') {
+            // Cek: jangan tampil untuk diri sendiri
+            const isSelf = member.uid === currentAdmin.linkedMemberUid;
+            if (!isSelf) {
+                actionButtons += `
+                    <button class="btn-icon btn-icon-warning" onclick="openPromoteAdminModal('${escapeHtml(member.uid)}', '${escapeHtml(member.ign)}')" title="${memberIsAdmin ? 'Ubah Jabatan' : 'Angkat jadi Admin'}">
+                        <i class="fas fa-crown"></i>
+                    </button>
+                `;
+            }
+        }
+        
+        // Fallback kalau tidak ada tombol
+        if (!actionButtons) {
+            actionButtons = '<span style="font-size:0.7rem; color:var(--text-muted); padding:6px;">—</span>';
+        }
+        
         const verifiedBadge = isVerified 
             ? `<span class="badge-verified" title="Akun Web Terkait"><i class="fas fa-check-circle"></i></span>`
+            : '';
+        
+        const adminBadge = memberIsAdmin 
+            ? `<span class="badge-admin" title="Terdaftar sebagai Admin" style="display:inline-block; font-size:0.5rem; padding:1px 5px; border-radius:6px; background:rgba(245,158,11,0.25); color:#f59e0b; border:1px solid rgba(245,158,11,0.4); margin-left:4px;">ADMIN</span>`
             : '';
         
         html += `
@@ -189,6 +261,7 @@ function renderMemberList(members) {
                         <strong>${escapeHtml(member.ign)}</strong>
                         <span class="member-role ${member.role}">${member.role.toUpperCase()}</span>
                         ${verifiedBadge}
+                        ${adminBadge}
                     </div>
                     <div class="member-contact">
                         ${hasWA}
@@ -211,6 +284,11 @@ async function generateVerifCode(uid) {
     const member = memberList.find(m => m.uid === uid);
     if (!member) {
         window.showToast("Member tidak ditemukan", true);
+        return;
+    }
+    
+    if (!canEditMember(currentAdmin, member)) {
+        window.showToast("❌ Anda tidak memiliki izin", true);
         return;
     }
     
@@ -247,6 +325,11 @@ async function showVerifCode(uid) {
     const member = memberList.find(m => m.uid === uid);
     if (!member) {
         window.showToast("Member tidak ditemukan", true);
+        return;
+    }
+    
+    if (!canEditMember(currentAdmin, member)) {
+        window.showToast("❌ Anda tidak memiliki izin", true);
         return;
     }
     
@@ -437,7 +520,7 @@ function performSearch(query) {
 }
 
 // ==========================================
-// ADD MEMBER — PUBLIC
+// ADD MEMBER
 // ==========================================
 function openAddMemberModal() {
     renderAddMemberInternal();
@@ -459,7 +542,7 @@ function renderAddMemberInternal() {
             <div class="form-group">
                 <label>WhatsApp</label>
                 <input type="text" id="add-wa" placeholder="628123456789" autocomplete="off">
-                <small>Contoh: 628123456789 (tanpa 0, tanpa +62, tanpa spasi/tanda hubung)</small>
+                <small>Contoh: 628123456789 (tanpa 0, tanpa +62)</small>
             </div>
             <div class="modal-buttons" style="margin-top: 20px;">
                 <button onclick="submitAddMember()" style="background:var(--color-primary);">Tambah</button>
@@ -548,20 +631,40 @@ async function submitAddMember() {
 }
 
 // ==========================================
-// EDIT MEMBER — PUBLIC
+// EDIT MEMBER
 // ==========================================
 async function editMember(uid) {
-    console.log("✏️ [MEMBER] editMember dipanggil untuk UID:", uid);
-    
     const member = memberList.find(m => m.uid === uid);
     if (!member) {
         window.showToast("Member tidak ditemukan", true);
         return;
     }
     
-    if (!canEditMember(currentAdmin, member)) {
-        window.showToast("❌ Anda tidak memiliki izin untuk mengedit member ini!", true);
+    // 🎯 Validasi akses
+    const isLeader = currentAdmin?.role1 === 'leader';
+    const isCoLead = currentAdmin?.role1 === 'co-lead';
+    const isTargetSelf = uid === currentAdmin?.linkedMemberUid;
+    const isTargetLeader = member.role === 'leader';
+    const isTargetCoLead = member.role === 'co-lead';
+    
+    if (!isLeader && !isCoLead) {
+        window.showToast("❌ Anda tidak memiliki izin untuk mengedit member!", true);
         return;
+    }
+    
+    if (isCoLead) {
+        if (isTargetSelf) {
+            window.showToast("❌ Anda tidak bisa mengedit diri sendiri sebagai CO-LEAD!", true);
+            return;
+        }
+        if (isTargetLeader) {
+            window.showToast("❌ Anda tidak memiliki izin untuk mengedit LEADER!", true);
+            return;
+        }
+        if (isTargetCoLead) {
+            window.showToast("❌ Anda tidak memiliki izin untuk mengedit CO-LEAD lain!", true);
+            return;
+        }
     }
     
     renderEditMemberInternal(member);
@@ -577,38 +680,68 @@ function renderEditMemberInternal(member) {
     const isCoLead = currentAdmin?.role1 === 'co-lead';
     const isTargetLeader = member?.role === 'leader';
     const isTargetCoLead = member?.role === 'co-lead';
-    const isTargetSelf = member?.uid === currentAdmin?.id;
+    const isTargetSelf = member?.uid === currentAdmin?.linkedMemberUid;
     
+    // ========== VALIDASI ULANG (anti-bypass) ==========
     if (isCoLead && isTargetLeader) {
         window.showToast("❌ Anda tidak memiliki izin untuk mengedit LEADER!", true);
         return;
     }
-    
     if (isCoLead && isTargetCoLead) {
         if (isTargetSelf) {
-            window.showToast("❌ Anda tidak bisa mengedit diri sendiri sebagai CO-LEAD!", true);
+            window.showToast("❌ Anda tidak bisa mengedit diri sendiri!", true);
         } else {
             window.showToast("❌ Anda tidak memiliki izin untuk mengedit CO-LEAD lain!", true);
         }
         return;
     }
-    
     if (!isLeader && !isCoLead) {
-        window.showToast("❌ Anda tidak memiliki izin untuk mengedit member!", true);
+        window.showToast("❌ Anda tidak memiliki izin!", true);
         return;
     }
     
-    const roleOptions = isLeader ? 
-        `<select id="edit-role" style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
-            <option value="member" ${member.role === 'member' ? 'selected' : ''}>Member</option>
-            <option value="co-lead" ${member.role === 'co-lead' ? 'selected' : ''}>Co-Lead</option>
-            <option value="leader" ${member.role === 'leader' ? 'selected' : ''}>Leader</option>
-        </select>` :
-        `<input type="text" id="edit-role" value="${member.role.toUpperCase()}" readonly disabled style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white; opacity:0.6;">`;
+    // ========== ROLE DISPLAY (readonly) ==========
+    const roleDisplay = member.role.toUpperCase();
+    const roleOptions = `
+        <input type="text" 
+               id="edit-role" 
+               value="${roleDisplay}" 
+               readonly 
+               disabled 
+               style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white; opacity:0.6;">
+        <small style="display:block; margin-top:4px; font-size:0.6rem; color:var(--text-muted);">
+            ✏️ Role diatur via tombol 👑 "Angkat/Ubah Jabatan" (khusus LEADER)
+        </small>
+    `;
+    
+    // ========== STATUS DROPDOWN ==========
+    // LEADER: bisa ubah status siapa saja (kecuali diri sendiri untuk nonaktif/scammer)
+    // CO-LEAD: hanya bisa ubah status member biasa (role = member)
+    // CO-LEAD tidak bisa ubah status CO-LEAD lain / LEADER / diri sendiri
     
     let statusOptions = '';
     
-    if (isLeader) {
+    // Cek apakah boleh ubah status
+    const canChangeStatus = (() => {
+        if (isLeader) {
+            // LEADER bisa ubah status semua, kecuali diri sendiri
+            if (isTargetSelf) {
+                // LEADER tidak bisa nonaktifkan diri sendiri
+                return 'readonly-self';
+            }
+            return true;
+        }
+        if (isCoLead) {
+            // CO-LEAD hanya bisa ubah status member biasa
+            if (isTargetSelf || isTargetLeader || isTargetCoLead) {
+                return false;
+            }
+            return true;
+        }
+        return false;
+    })();
+    
+    if (canChangeStatus === true) {
         statusOptions = `
             <select id="edit-status" style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
                 <option value="aktif" ${member.status === 'aktif' ? 'selected' : ''}>✅ Aktif</option>
@@ -616,24 +749,28 @@ function renderEditMemberInternal(member) {
                 <option value="scammer" ${member.status === 'scammer' ? 'selected' : ''}>🔴 Scammer</option>
             </select>
         `;
-    } else if (isCoLead) {
-        if (member.role === 'member') {
-            statusOptions = `
-                <select id="edit-status" style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
-                    <option value="aktif" ${member.status === 'aktif' ? 'selected' : ''}>✅ Aktif</option>
-                    <option value="nonaktif" ${member.status === 'nonaktif' ? 'selected' : ''}>⚪ Nonaktif</option>
-                    <option value="scammer" ${member.status === 'scammer' ? 'selected' : ''}>🔴 Scammer</option>
-                </select>
-            `;
-        } else {
-            statusOptions = `
-                <input type="text" id="edit-status" value="${member.status.toUpperCase()}" readonly disabled style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white; opacity:0.6;">
-                <small style="color:#ff6b6b;">⚠️ Hanya LEADER yang bisa mengubah status ${member.role.toUpperCase()}</small>
-            `;
-        }
+    } else if (canChangeStatus === 'readonly-self') {
+        // LEADER — diri sendiri, hanya bisa lihat status (tidak bisa nonaktifkan diri sendiri)
+        statusOptions = `
+            <input type="text" id="edit-status" value="${member.status.toUpperCase()}" readonly disabled
+                   style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white; opacity:0.6;">
+            <small style="display:block; margin-top:4px; font-size:0.6rem; color:var(--text-muted);">
+                ⚠️ Tidak bisa mengubah status diri sendiri
+            </small>
+        `;
+    } else {
+        // CO-LEAD — target adalah CO-LEAD/LEADER/diri sendiri
+        statusOptions = `
+            <input type="text" id="edit-status" value="${member.status.toUpperCase()}" readonly disabled
+                   style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white; opacity:0.6;">
+            <small style="display:block; margin-top:4px; font-size:0.6rem; color:#ff6b6b;">
+                ⚠️ Hanya LEADER yang bisa mengubah status ${member.role.toUpperCase()}
+            </small>
+        `;
     }
     
-    const canEditWAField = canEditWA(currentAdmin, member);
+    // ========== CEK BISA EDIT IGN/WA ==========
+    const canEditFields = canEditMember(currentAdmin, member);
     
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
@@ -643,7 +780,7 @@ function renderEditMemberInternal(member) {
             
             ${isCoLead && isTargetSelf ? `
                 <div style="background:rgba(255,68,68,0.15); border:1px solid #ff4444; border-radius:8px; padding:10px; margin-bottom:15px; color:#ff6b6b; font-size:0.8rem;">
-                    ⚠️ Anda adalah CO-LEAD. Hubungi LEADER untuk mengubah data Anda sendiri.
+                    ⚠️ Anda CO-LEAD. Hubungi LEADER untuk mengubah data Anda.
                 </div>
             ` : ''}
             
@@ -662,21 +799,18 @@ function renderEditMemberInternal(member) {
             <div class="form-group" style="margin-bottom:16px;">
                 <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">IGN <span style="color:#ff4444;">*</span></label>
                 <input type="text" id="edit-ign" value="${escapeHtml(member.ign)}" placeholder="Nama IGN"
-                       ${!canEditWAField ? 'disabled style="opacity:0.6;cursor:not-allowed;width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"' : 'style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"'}>
-                ${!canEditWAField ? '<small style="color:#ff6b6b; display:block; margin-top:4px;">❌ Hanya LEADER yang bisa mengedit data CO-LEAD/LEADER</small>' : ''}
+                       ${!canEditFields ? 'disabled style="opacity:0.6;cursor:not-allowed;width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"' : 'style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"'}>
             </div>
             
             <div class="form-group" style="margin-bottom:16px;">
                 <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">WhatsApp</label>
                 <input type="text" id="edit-wa" value="${escapeHtml(member.wa)}" placeholder="628123456789"
-                       ${!canEditWAField ? 'disabled style="opacity:0.6;cursor:not-allowed;width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"' : 'style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"'}>
-                ${!canEditWAField ? '<small style="color:#ff6b6b; display:block; margin-top:4px;">❌ Hanya LEADER yang bisa mengedit data CO-LEAD/LEADER</small>' : ''}
+                       ${!canEditFields ? 'disabled style="opacity:0.6;cursor:not-allowed;width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"' : 'style="width:100%;padding:10px;background:var(--bg-dark);border:1px solid var(--border-line);border-radius:8px;color:white;"'}>
             </div>
             
             <div class="form-group" style="margin-bottom:16px;">
                 <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">Role</label>
                 ${roleOptions}
-                ${!isLeader ? '<small style="display:block; margin-top:4px; font-size:0.6rem; color:var(--text-muted);">✏️ Hanya Leader yang bisa mengubah Role</small>' : ''}
             </div>
             
             <div class="form-group" style="margin-bottom:16px;">
@@ -687,7 +821,7 @@ function renderEditMemberInternal(member) {
             <div class="modal-buttons" style="margin-top: 20px;">
                 <button onclick="submitEditMember('${escapeHtml(member.uid)}')" 
                         style="background:var(--color-primary);" 
-                        ${(!isLeader && (isTargetLeader || isTargetCoLead)) ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
+                        ${!canEditFields ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
                     Simpan
                 </button>
                 <button onclick="closeModal()" style="background:#333;">Batal</button>
@@ -709,41 +843,38 @@ async function submitEditMember(uid) {
     
     const isLeader = currentAdmin?.role1 === 'leader';
     const isCoLead = currentAdmin?.role1 === 'co-lead';
-    const isTargetLeader = member?.role === 'leader';
-    const isTargetCoLead = member?.role === 'co-lead';
-    const isTargetSelf = member?.uid === currentAdmin?.id;
+    const isTargetSelf = uid === currentAdmin?.linkedMemberUid;
+    const isTargetLeader = member.role === 'leader';
+    const isTargetCoLead = member.role === 'co-lead';
     
-    if (isCoLead && isTargetLeader) {
-        window.showToast("❌ Anda tidak memiliki izin untuk mengedit LEADER!", true);
-        return;
-    }
-    
-    if (isCoLead && isTargetCoLead) {
+    // ========== VALIDASI ULANG ==========
+    if (isCoLead) {
         if (isTargetSelf) {
-            window.showToast("❌ Anda tidak bisa mengedit diri sendiri sebagai CO-LEAD! Hubungi LEADER.", true);
-        } else {
-            window.showToast("❌ Anda tidak memiliki izin untuk mengedit CO-LEAD lain!", true);
+            window.showToast("❌ Anda tidak bisa mengedit diri sendiri!", true);
+            return;
         }
-        return;
+        if (isTargetLeader) {
+            window.showToast("❌ Anda tidak memiliki izin untuk mengedit LEADER!", true);
+            return;
+        }
+        if (isTargetCoLead) {
+            window.showToast("❌ Anda tidak memiliki izin untuk mengedit CO-LEAD lain!", true);
+            return;
+        }
     }
     
     if (!isLeader && !isCoLead) {
-        window.showToast("❌ Anda tidak memiliki izin untuk mengedit member!", true);
+        window.showToast("❌ Anda tidak memiliki izin!", true);
         return;
     }
     
     const newIGN = document.getElementById('edit-ign')?.value.trim();
     let newWA = document.getElementById('edit-wa')?.value.trim() || '';
-    const newRole = document.getElementById('edit-role')?.value;
     const newStatus = document.getElementById('edit-status')?.value;
     
     if (!newIGN) {
         window.showToast("IGN harus diisi", true);
         return;
-    }
-    
-    if (isCoLead && isTargetSelf && member.role === 'co-lead') {
-        newWA = member.wa || '';
     }
     
     if (newWA) {
@@ -760,23 +891,26 @@ async function submitEditMember(uid) {
         }
     }
     
-    let finalRole = member.role;
-    if (isLeader && newRole) {
-        finalRole = newRole;
-    } else if (!isLeader && newRole && newRole !== member.role) {
-        window.showToast("❌ Hanya Leader yang bisa mengubah Role!", true);
-        return;
-    }
+    // 🎯 Role TIDAK diubah dari sini
+    const finalRole = member.role;
     
+    // 🎯 Status:
+    // LEADER: bisa ubah status kecuali diri sendiri
+    // CO-LEAD: hanya bisa ubah status member biasa
     let finalStatus = member.status;
     if (newStatus) {
         if (isLeader) {
+            if (isTargetSelf) {
+                window.showToast("❌ LEADER tidak bisa mengubah status diri sendiri!", true);
+                return;
+            }
             finalStatus = newStatus;
-        } else if (isCoLead && member.role === 'member') {
+        } else if (isCoLead) {
+            if (isTargetSelf || isTargetLeader || isTargetCoLead) {
+                window.showToast("❌ Anda tidak bisa mengubah status member ini!", true);
+                return;
+            }
             finalStatus = newStatus;
-        } else if (isCoLead && member.role !== 'member') {
-            window.showToast(`❌ Hanya LEADER yang bisa mengubah status ${member.role.toUpperCase()}!`, true);
-            return;
         }
     }
     
@@ -911,6 +1045,274 @@ async function refreshMemberList() {
 }
 
 // ==========================================
+// 🎯 MODAL: ANGKAT / UBAH JABATAN (LEADER ONLY)
+// ==========================================
+window.openPromoteAdminModal = async function(memberUid, memberIgn) {
+    // Validasi: hanya LEADER
+    if (currentAdmin?.role1 !== 'leader') {
+        window.showToast('❌ Hanya LEADER yang bisa mengangkat/mengubah jabatan', true);
+        return;
+    }
+    
+    // Cek bukan diri sendiri
+    if (memberUid === currentAdmin.linkedMemberUid) {
+        window.showToast('❌ Tidak bisa mengubah jabatan diri sendiri', true);
+        return;
+    }
+    
+    const memberIsAdmin = memberList_isAdmin(memberUid);
+    
+    // Cari admin data (kalau sudah admin)
+    let adminData = null;
+    if (memberIsAdmin) {
+        try {
+            const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            
+            if (data.status === 'success' && data.data) {
+                adminData = data.data.find(a => a.linkedMemberUid === memberUid);
+            }
+        } catch(e) {
+            console.error('Fetch admin data error:', e);
+        }
+    }
+    
+    const mode = memberIsAdmin ? 'edit' : 'promote';
+    const title = mode === 'promote' ? 'Angkat jadi Admin' : 'Ubah Jabatan';
+    
+    const currentRole1 = adminData?.role1 || '';
+    const currentRole2 = adminData?.role2 || '';
+    
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <h3 style="text-align:center; margin-bottom:16px;">
+                <i class="fas fa-crown"></i> ${title}
+            </h3>
+            
+            <div class="verif-info" style="background:var(--bg-dark); border-radius:10px; padding:12px 16px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; padding:6px 0;">
+                    <span style="color:var(--text-muted);">Member:</span>
+                    <strong style="color:white;">${escapeHtml(memberIgn)}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:6px 0;">
+                    <span style="color:var(--text-muted);">UID:</span>
+                    <span style="color:white; font-family:monospace; font-size:0.75rem;">${escapeHtml(memberUid)}</span>
+                </div>
+                ${mode === 'edit' ? `
+                <div style="display:flex; justify-content:space-between; padding:6px 0;">
+                    <span style="color:var(--text-muted);">Admin ID:</span>
+                    <span style="color:white; font-family:monospace; font-size:0.75rem;">${escapeHtml(adminData?.id || '-')}</span>
+                </div>
+                ` : ''}
+            </div>
+            
+            <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">
+                JABATAN UTAMA (opsional)
+            </label>
+            <select id="promote-role1" style="width:100%; padding:10px; margin-bottom:12px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
+                <option value="" ${!currentRole1 ? 'selected' : ''}>(Kosong — bukan jabatan struktural)</option>
+                <option value="co-lead" ${currentRole1 === 'co-lead' ? 'selected' : ''}>CO-LEAD</option>
+                <option value="leader" ${currentRole1 === 'leader' ? 'selected' : ''}>LEADER</option>
+            </select>
+            
+            <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:6px;">
+                TUGAS TAMBAHAN (opsional)
+            </label>
+            <select id="promote-role2" style="width:100%; padding:10px; margin-bottom:16px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
+                <option value="" ${!currentRole2 ? 'selected' : ''}>(Tidak ada)</option>
+                <option value="bendahara" ${currentRole2 === 'bendahara' ? 'selected' : ''}>BENDAHARA</option>
+            </select>
+            
+            <div id="promote-info" style="background:rgba(168,85,247,0.1); border:1px solid var(--color-primary); border-radius:8px; padding:10px 12px; font-size:0.7rem; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+                💡 Pilih minimal 1 role. Role <strong>LEADER</strong> / <strong>CO-LEAD</strong> akan disinkron ke MEMBER_LIST. Bendahara tidak disinkron.
+            </div>
+            
+            ${mode === 'promote' ? `
+            <p style="font-size:0.7rem; color:#ff8888; text-align:center; margin-bottom:12px;">
+                ⚠️ Passkey akan di-generate & ditampilkan setelah proses.
+            </p>
+            ` : ''}
+            
+            <div class="modal-buttons">
+                <button onclick="submitPromoteAdmin('${escapeHtml(memberUid)}', '${mode}', '${adminData?.id || ''}')" style="background:var(--color-primary); flex:2;">
+                    <i class="fas fa-crown"></i> ${mode === 'promote' ? 'ANGKAT' : 'SIMPAN'}
+                </button>
+                <button onclick="window.closeModal()" style="background:#333; flex:1;">Batal</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+    
+    if (typeof pushView === 'function') {
+        pushView('promote-admin', { memberUid, memberIgn, mode });
+    }
+};
+
+window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdToEdit = '') {
+    // Validasi: hanya LEADER
+    if (currentAdmin?.role1 !== 'leader') {
+        window.showToast('❌ Hanya LEADER yang bisa', true);
+        return;
+    }
+    
+    const role1 = document.getElementById('promote-role1')?.value || '';
+    const role2 = document.getElementById('promote-role2')?.value || '';
+    
+    if (!role1 && !role2) {
+        window.showToast('❌ Pilih minimal 1 role', true);
+        return;
+    }
+    
+    const btn = document.querySelector('#modal-overlay .modal-buttons button:first-child');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+    btn.disabled = true;
+    
+    try {
+        if (mode === 'promote') {
+            const url = `${window.GAS_ADMIN_URL}?action=promoteMemberToAdmin&adminId=${currentAdmin.id}&memberUid=${encodeURIComponent(memberUid)}&role1=${encodeURIComponent(role1)}&role2=${encodeURIComponent(role2)}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                window.closeModal();
+                
+                setTimeout(() => {
+                    renderPromoteSuccessModal(data.data);
+                }, 200);
+                
+                await loadAdminLinkedUids();
+                await loadMemberList(true);
+            } else {
+                window.showToast('❌ ' + (data.message || 'Gagal'), true);
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        } else {
+            // Mode edit jabatan — update role1 & role2
+            await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role1&value=${encodeURIComponent(role1)}`);
+            await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role2&value=${encodeURIComponent(role2)}`);
+            
+            // Sync role ke MEMBER_LIST
+            await syncMemberRoleFromAdmin(memberUid, role1);
+            
+            window.showToast('✅ Jabatan berhasil diperbarui');
+            window.closeModal();
+            
+            await loadAdminLinkedUids();
+            await loadMemberList(true);
+        }
+    } catch(e) {
+        console.error('Submit promote error:', e);
+        window.showToast('❌ Koneksi gagal', true);
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+};
+
+async function syncMemberRoleFromAdmin(memberUid, role1) {
+    let newRole = 'member';
+    if (role1 === 'leader') newRole = 'leader';
+    else if (role1 === 'co-lead') newRole = 'co-lead';
+    
+    try {
+        await fetch(`${window.GAS_ADMIN_URL}?action=updateMemberRole&adminId=${currentAdmin.id}&uid=${encodeURIComponent(memberUid)}&role=${encodeURIComponent(newRole)}`);
+    } catch(e) {
+        console.error('Sync member role error:', e);
+    }
+}
+
+window.renderPromoteSuccessModal = function(data) {
+    const { adminId, nama, passkey, role1, role2, linkedMemberUid, memberRole } = data;
+    
+    const roleParts = [];
+    if (role1) roleParts.push(role1.toUpperCase());
+    if (role2) roleParts.push(role2.toUpperCase());
+    const roleText = roleParts.join(' + ') || '(no role)';
+    
+    const infoText = 
+`Admin: ${nama}
+ID: ${adminId}
+Passkey: ${passkey}
+Role: ${roleText}
+Login: ${window.location.origin}/admin`;
+    
+    const modal = document.getElementById('modal-overlay');
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            
+            <h3 style="text-align:center; margin-bottom:16px; color:#4ade80;">
+                <i class="fas fa-check-circle"></i> Berhasil
+            </h3>
+            
+            <p style="font-size:0.8rem; text-align:center; color:var(--text-muted); margin-bottom:16px;">
+                <strong>${escapeHtml(nama)}</strong> telah diangkat menjadi admin
+            </p>
+            
+            <div class="verif-info" style="background:var(--bg-dark); border-radius:10px; padding:12px 16px; margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <span style="color:var(--text-muted); font-size:0.75rem;">Admin ID:</span>
+                    <strong style="color:white; font-family:monospace;">${escapeHtml(adminId)}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <span style="color:var(--text-muted); font-size:0.75rem;">Role:</span>
+                    <strong style="color:white;">${escapeHtml(roleText)}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding:6px 0;">
+                    <span style="color:var(--text-muted); font-size:0.75rem;">Linked Member:</span>
+                    <span style="color:white; font-family:monospace; font-size:0.75rem;">${escapeHtml(linkedMemberUid)}</span>
+                </div>
+            </div>
+            
+            <div style="background:rgba(74,222,128,0.1); border:1px solid #4ade80; border-radius:10px; padding:16px; margin-bottom:16px; text-align:center;">
+                <div style="font-size:0.65rem; color:#4ade80; letter-spacing:1px; margin-bottom:8px;">PASSKEY</div>
+                <code style="font-size:1.3rem; font-weight:bold; color:#4ade80; letter-spacing:2px; user-select:all; display:block; margin-bottom:12px;" id="promote-passkey-value">${escapeHtml(passkey)}</code>
+                <button onclick="copyPromotePasskey('${escapeHtml(passkey)}')" 
+                        style="background:var(--color-primary); color:white; border:none; border-radius:8px; padding:8px 20px; cursor:pointer; font-size:0.75rem;">
+                    <i class="fas fa-copy"></i> Copy Passkey
+                </button>
+            </div>
+            
+            <p style="font-size:0.7rem; color:#ff8888; text-align:center; margin-bottom:16px;">
+                ⚠️ Passkey ini hanya ditampilkan sekali. Catat & kirim ke admin yang bersangkutan.
+            </p>
+            
+            <div class="modal-buttons">
+                <button onclick="copyPromoteInfo(\`${escapeHtml(infoText)}\`)" style="background:var(--color-primary); flex:1;">
+                    <i class="fas fa-clipboard"></i> Copy Info Lengkap
+                </button>
+                <button onclick="window.closeModal()" style="background:#333; flex:1;">Tutup</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+    
+    if (typeof pushView === 'function') {
+        pushView('promote-success', { data });
+    }
+};
+
+window.copyPromotePasskey = function(passkey) {
+    navigator.clipboard.writeText(passkey).then(() => {
+        window.showToast('✅ Passkey dicopy');
+    }).catch(() => {
+        window.showToast('❌ Gagal copy', true);
+    });
+};
+
+window.copyPromoteInfo = function(infoText) {
+    navigator.clipboard.writeText(infoText).then(() => {
+        window.showToast('✅ Info lengkap dicopy');
+    }).catch(() => {
+        window.showToast('❌ Gagal copy', true);
+    });
+};
+
+// ==========================================
 // EXPOSE
 // ==========================================
 window.loadMemberList = loadMemberList;
@@ -929,5 +1331,6 @@ window.copyVerifCode = copyVerifCode;
 
 window.renderAddMemberInternal = renderAddMemberInternal;
 window.renderEditMemberInternal = renderEditMemberInternal;
+window.memberList_isAdmin = memberList_isAdmin;
 
-console.log("✅ admin-member.js loaded (V3 — Role lowercase)");
+console.log("✅ admin-member.js loaded (V4 — Role-based access)");

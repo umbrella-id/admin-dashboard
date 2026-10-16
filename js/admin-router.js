@@ -1,6 +1,8 @@
 /**
  * admin-router.js — Router & History State Manager
  * 
+ * Update: Bersih dari case tab Admin lama + tambah case untuk view member baru
+ * 
  * Prinsip:
  * - Satu view = satu state history (seimbang)
  * - Back button Android → kembali ke view sebelumnya
@@ -148,6 +150,10 @@ function routeToView(viewName, data) {
             // Chat dibuka oleh toggleChatWidget, state hanya penanda
             break;
         
+        case 'chat-mute':
+            // Modal mute sudah di-render saat pushView, tidak render ulang
+            break;
+        
         case 'mail-list':
             if (typeof renderMailbox === 'function' && typeof currentMailList !== 'undefined') {
                 renderMailbox(currentMailList);
@@ -184,6 +190,35 @@ function routeToView(viewName, data) {
             }
             break;
         
+        case 'verif-code':
+            if (data && typeof renderVerifCodeModal === 'function') {
+                renderVerifCodeModal(data);
+            }
+            break;
+        
+        // ==========================================
+        // 🎯 VIEW BARU — MEMBER MANAGEMENT
+        // (modal sudah di-render sebelum pushView, jadi tinggal break)
+        // ==========================================
+        case 'promote-admin':
+            // Modal Angkat/Ubah Jabatan — sudah di-render
+            break;
+        
+        case 'promote-success':
+            // Modal sukses promote — sudah di-render
+            break;
+        
+        case 'transfer-leadership':
+            // Modal Serah Jabatan — sudah di-render
+            break;
+        
+        case 'passkey-result':
+            // Modal hasil Reset Passkey — sudah di-render
+            break;
+        
+        // ==========================================
+        // KAS
+        // ==========================================
         case 'kas-notif':
             // Modal notif sudah ditutup, tidak render ulang
             break;
@@ -200,6 +235,9 @@ function routeToView(viewName, data) {
             }
             break;
         
+        // ==========================================
+        // SETTINGS (dari admin.js — tetap ada)
+        // ==========================================
         case 'settings':
             if (typeof renderSettingsModalInternal === 'function') {
                 renderSettingsModalInternal();
@@ -212,29 +250,9 @@ function routeToView(viewName, data) {
             }
             break;
         
-        case 'admin-edit-name':
-            if (data.adminId && typeof renderAdminEditNameInternal === 'function') {
-                renderAdminEditNameInternal(data.adminId, data.currentName);
-            }
-            break;
-        
-        case 'admin-edit-role':
-            if (data.adminId && typeof renderAdminEditRoleInternal === 'function') {
-                renderAdminEditRoleInternal(data.adminId, data.role1, data.role2);
-            }
-            break;
-        
-        case 'admin-promote':
-            if (data.targetId && typeof renderPromoteLeaderInternal === 'function') {
-                renderPromoteLeaderInternal(data.targetId);
-            }
-            break;
-        case 'verif-code':
-            if (data && typeof renderVerifCodeModal === 'function') {
-                renderVerifCodeModal(data);
-            }
-            break;
-        
+        // ==========================================
+        // CONFIRM
+        // ==========================================
         case 'confirm':
             // Confirm modal sudah ditutup, tidak render ulang
             // (karena confirm = keputusan sudah diambil saat back)
@@ -289,4 +307,4 @@ window.setupBaseState = setupBaseState;
 window.forceCloseAllModals = forceCloseAllModals;
 window.hideModalOnly = hideModalOnly;
 
-console.log('✅ admin-router.js loaded');
+console.log('✅ admin-router.js loaded (V2 — Bersih dari case Admin lama)');

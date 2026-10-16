@@ -1312,3 +1312,152 @@ input:checked + .toggle-slider:before {
     width: 100%;
     margin-top: 10px;
 }
+
+/* ==========================================
+   🎯 GATE SETTINGS SECTION
+   ========================================== */
+.gate-settings-section {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
+    border: 1px solid #f59e0b;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
+}
+
+.gate-settings-header {
+    color: #f59e0b;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gate-settings-header i {
+    font-size: 0.9rem;
+}
+
+.gate-settings-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: white;
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.gate-settings-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+.gate-settings-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* Info row di modal */
+.gate-settings-info {
+    background: var(--bg-dark);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+
+.gate-settings-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 0.75rem;
+    gap: 12px;
+}
+
+.gate-settings-info-row:not(:last-child) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.gate-settings-label {
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.gate-settings-code {
+    font-family: monospace;
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+    padding: 3px 10px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+    word-break: break-all;
+}
+
+.gate-settings-question {
+    color: white;
+    font-weight: 500;
+    text-align: right;
+    word-break: break-word;
+}
+
+/* Form */
+.gate-settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.gate-settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.gate-settings-group label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.8px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.gate-settings-group label i {
+    color: #f59e0b;
+    margin-right: 4px;
+}
+
+.gate-settings-group input {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: white;
+    font-size: 0.85rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.gate-settings-group input:focus {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+}
+
+.gate-settings-group small {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    opacity: 0.8;
+}

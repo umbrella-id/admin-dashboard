@@ -1,15 +1,10 @@
 /**
- * admin-mail.js — Mailbox Manager V11 (Timestamp Consistent)
+ * admin-mail.js — Mailbox Manager V12
  * 
- * Perubahan dari V10:
- * - mailMarkRead → pakai timestamp (bukan rowId)
- * - mailReply → pakai timestamp
- * - mailClose → pakai timestamp
- * - updateFromFeedback → pakai timestamp
- * - Konsisten dengan deleteMail (yang sudah timestamp)
- * 
- * Aturan: SEMUA operasi mail pakai timestamp sebagai primary key.
- * Alasan: rowId bergeser kalau ada cleanup manual sheet.
+ * Perubahan dari V11:
+ * - 🎯 Semua request kirim adminId (fix privasi)
+ * - 🎯 Badge label lebih jelas (SUDAH DIBALAS, dll)
+ * - 🎯 Icon di badge untuk visual yang lebih cepat dibaca
  */
 
 let currentMailFilter = "all";
@@ -32,7 +27,7 @@ window.setMailFilter = function(filter) {
 };
 
 // ==========================================
-// FETCH LIST
+// FETCH LIST (dengan adminId)
 // ==========================================
 async function refreshMailbox() {
     const container = document.getElementById('mailbox-list');
@@ -50,7 +45,8 @@ async function refreshMailbox() {
     }
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getMailList&filter=${currentMailFilter}`);
+        // 🎯 Kirim adminId
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getMailList&adminId=${currentAdmin.id}&filter=${currentMailFilter}`);
         const data = await res.json();
         
         if (data.status === 'success' && data.mails) {
@@ -77,7 +73,7 @@ function renderMailbox(mails) {
     
     if (!mails || mails.length === 0) {
         let msg = '📭 Tidak ada surat';
-        if (currentMailFilter === 'unread') msg = '📩 Tidak ada surat belum terbaca';
+        if (currentMailFilter === 'unread') msg = '📩 Tidak ada surat baru';
         else if (currentMailFilter === 'read') msg = '📖 Tidak ada surat sudah dibaca';
         else if (currentMailFilter === 'replied') msg = '💬 Tidak ada surat sudah dibalas';
         else if (currentMailFilter === 'done') msg = '✅ Tidak ada surat selesai';
@@ -117,6 +113,51 @@ function renderMailbox(mails) {
 }
 
 // ==========================================
+// 🎯 HELPER: Build Badge — Label Lebih Jelas
+// ==========================================
+function buildStatusBadge(status) {
+    const s = (status || 'UNREAD').toUpperCase();
+    
+    if (s === 'REPLIED') {
+        return {
+            class: 'badge-replied',
+            text: '✓ SUDAH DIBALAS',
+            icon: ''
+        };
+    }
+    if (s === 'UNREAD') {
+        return {
+            class: 'badge-unread',
+            text: '● BELUM DIBUKA',
+            icon: ''
+        };
+    }
+    if (s === 'READ') {
+        return {
+            class: 'badge-read',
+            text: 'SUDAH DIBACA',
+            icon: ''
+        };
+    }
+    if (s === 'DONE') {
+        return {
+            class: 'badge-done',
+            text: 'SELESAI',
+            icon: ''
+        };
+    }
+    if (s === 'SENT') {
+        return {
+            class: 'badge-sent',
+            text: 'TERKIRIM',
+            icon: ''
+        };
+    }
+    
+    return { class: 'badge-unread', text: s, icon: '' };
+}
+
+// ==========================================
 // BUILD INBOX CARD
 // ==========================================
 function buildInboxCardHTML(mail) {
@@ -128,18 +169,8 @@ function buildInboxCardHTML(mail) {
     const jam = timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     const preview = message.substring(0, 80) + (message.length > 80 ? '...' : '');
     
-    let badgeClass = 'badge-unread';
-    let badgeText = 'UNREAD';
-    if (mail.status === 'READ') {
-        badgeClass = 'badge-read';
-        badgeText = 'DIBACA';
-    } else if (mail.status === 'REPLIED') {
-        badgeClass = 'badge-replied';
-        badgeText = 'DIBALAS';
-    } else if (mail.status === 'DONE') {
-        badgeClass = 'badge-done';
-        badgeText = 'SELESAI';
-    }
+    // 🎯 Badge lebih jelas
+    const badge = buildStatusBadge(mail.status);
     
     let catIcon = 'fa-comment', catColor = '#64748b', catLabel = 'Umum';
     if (mail.category === 'Request Join') {
@@ -157,7 +188,7 @@ function buildInboxCardHTML(mail) {
                         <span class="mail-uid">${uid}</span>
                     </div>
                     <div class="mail-status">
-                        <span class="mail-card-badge ${badgeClass}">${badgeText}</span>
+                        <span class="mail-card-badge ${badge.class}">${badge.text}</span>
                     </div>
                 </div>
                 <div class="mail-meta">
@@ -215,7 +246,7 @@ function buildSentCardHTML(mail) {
 }
 
 // ==========================================
-// BUKA DETAIL — PUBLIC (dengan pushView)
+// BUKA DETAIL — PUBLIC
 // ==========================================
 async function openMailDetail(mail) {
     renderMailDetailInternal(mail);
@@ -225,7 +256,7 @@ async function openMailDetail(mail) {
 }
 
 // ==========================================
-// BUKA DETAIL — INTERNAL (render saja)
+// BUKA DETAIL — INTERNAL
 // ==========================================
 async function renderMailDetailInternal(mail) {
     currentMailDetail = mail;
@@ -240,8 +271,8 @@ async function renderMailDetailInternal(mail) {
         
         renderMailbox(currentMailList);
         
-        // 🎯 Kirim TIMESTAMP, bukan rowId
-        fetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&timestamp=${mail.timestamp}`)
+        // 🎯 Kirim adminId + timestamp
+        fetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&adminId=${currentAdmin.id}&timestamp=${mail.timestamp}`)
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success' && data.feedback) {
@@ -367,7 +398,7 @@ function findAdminReply(userMessage) {
 }
 
 // ==========================================
-// BUKA HISTORY — PUBLIC (dengan pushView)
+// BUKA HISTORY — PUBLIC
 // ==========================================
 async function openHistory(uid) {
     renderMailHistoryInternal(uid);
@@ -377,7 +408,7 @@ async function openHistory(uid) {
 }
 
 // ==========================================
-// BUKA HISTORY — INTERNAL (render saja)
+// BUKA HISTORY — INTERNAL (kirim adminId)
 // ==========================================
 async function renderMailHistoryInternal(uid) {
     const modal = document.getElementById('modal-overlay');
@@ -398,7 +429,8 @@ async function renderMailHistoryInternal(uid) {
     modal.style.display = 'flex';
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getMailHistory&uid=${encodeURIComponent(uid)}`);
+        // 🎯 Kirim adminId
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getMailHistory&adminId=${currentAdmin.id}&uid=${encodeURIComponent(uid)}`);
         const data = await res.json();
         
         if (data.status === 'success' && data.history) {
@@ -449,7 +481,7 @@ async function renderMailHistoryInternal(uid) {
 }
 
 // ==========================================
-// BUKA REPLY FORM — PUBLIC (dengan pushView)
+// BUKA REPLY FORM — PUBLIC
 // ==========================================
 function openReplyForm() {
     if (!currentMailDetail) return;
@@ -460,7 +492,7 @@ function openReplyForm() {
 }
 
 // ==========================================
-// BUKA REPLY FORM — INTERNAL (render saja)
+// BUKA REPLY FORM — INTERNAL
 // ==========================================
 function renderMailReplyInternal(mail) {
     if (!mail) return;
@@ -607,7 +639,7 @@ async function markAsDone(timestamp) {
 }
 
 // ==========================================
-// FEEDBACK DARI GAS — PAKAI TIMESTAMP
+// FEEDBACK DARI GAS
 // ==========================================
 function updateFromFeedback(feedback) {
     if (!feedback) return;
@@ -679,11 +711,12 @@ window.deleteMail = async function(timestamp) {
 };
 
 // ==========================================
-// CHECK MAILBOX CHANGES
+// CHECK MAILBOX CHANGES (kirim adminId)
 // ==========================================
 async function checkMailboxChanges() {
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=checkMailboxStatus`);
+        // 🎯 Kirim adminId
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=checkMailboxStatus&adminId=${currentAdmin.id}`);
         const data = await res.json();
         
         if (data.status !== 'success') return false;
@@ -760,4 +793,4 @@ window.renderMailDetailInternal = renderMailDetailInternal;
 window.renderMailReplyInternal = renderMailReplyInternal;
 window.renderMailHistoryInternal = renderMailHistoryInternal;
 
-console.log("✅ admin-mail.js loaded (V11 — Timestamp Consistent)");
+console.log("✅ admin-mail.js loaded (V12 — AdminId + Badge Jelas)");

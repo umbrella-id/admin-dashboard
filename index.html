@@ -105,6 +105,17 @@
 
             <!-- KELOLA KONTEN TAB -->
             <div class="tab-page" data-tab="manage-content">
+                
+                <!-- 🎯 GATE SETTINGS SECTION (LEADER ONLY) -->
+                <div id="gate-settings-section" class="gate-settings-section" style="display: none;">
+                    <div class="gate-settings-header">
+                        <i class="fas fa-key"></i> PENGATURAN GATE WEB INTERNAL
+                    </div>
+                    <button class="gate-settings-btn" onclick="window.openGateSettingsModal()">
+                        <i class="fas fa-cog"></i> KELOLA KODE AKSES & PERTANYAAN
+                    </button>
+                </div>
+                
                 <h3><i class="fas fa-edit"></i> Kelola Konten Web</h3>
                 <div id="content-editor-container">Memuat...</div>
                 <button id="refresh-cache-btn" class="btn-primary" onclick="window.updateAllContent()" style="margin-top: 20px; width: 100%;">

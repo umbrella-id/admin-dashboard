@@ -1,10 +1,10 @@
 /**
  * admin.js — Core Admin Dashboard
- * V4: Handle role lowercase (leader/co-lead/bendahara) + tampilan role baru
+ * V5: Bersih dari fungsi tab Admin lama (sudah merge ke tab Member)
  */
 
 window.GAS_ADMIN_URL = "https://script.google.com/macros/s/AKfycbx1VqwGfC0Bz_tXNacdEe6s3Lu7USX9uRy7JbrOet4qu_bjA6PR9r780Ne7LP73UwUs/exec";
-window.GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbwqsSUeVxPg4V5hMc9ph92eMQ2cFqTQI7SJZOG9f-FDlPii4IaXGEfOZ7zdRG35zbIhnw/exec";
+window.GAS_SYNC_URL = "https://script.google.com/macros/sA/KfycbwqsSUeVxPg4V5hMc9ph92eMQ2cFqTQI7SJZOG9f-FDlPii4IaXGEfOZ7zdRG35zbIhnw/exec";
 
 let isLoggingOut = false;
 let currentAdmin = null;
@@ -283,7 +283,7 @@ async function sendStandbyAndUpdateAll() {
 }
 
 // ==========================================
-// HEARTBEAT CHECK — hanya leader & co-lead
+// HEARTBEAT CHECK
 // ==========================================
 function shouldEnableHeartbeat() {
     if (!currentAdmin) return false;
@@ -291,7 +291,7 @@ function shouldEnableHeartbeat() {
 }
 
 // ==========================================
-// BLUR — Standby
+// BLUR
 // ==========================================
 window.addEventListener('blur', function() {
     isWindowFocused = false;
@@ -305,7 +305,7 @@ window.addEventListener('blur', function() {
 });
 
 // ==========================================
-// FOCUS — Refresh
+// FOCUS
 // ==========================================
 window.addEventListener('focus', function() {
     if (!currentAdmin) return;
@@ -334,6 +334,16 @@ window.addEventListener('focus', function() {
         const hasMailAccess = (currentAdmin.role1 === 'leader' || currentAdmin.role1 === 'co-lead');
         if (hasMailAccess && typeof window.renderMailboxFromCache === 'function') {
             window.renderMailboxFromCache();
+        }
+    }
+    
+    if (activeTab === 'member') {
+        const hasMemberAccess = (currentAdmin.role1 === 'leader' || currentAdmin.role1 === 'co-lead');
+        if (hasMemberAccess && typeof window.renderMemberList === 'function') {
+            // render dari cache (jika ada)
+            if (typeof memberList !== 'undefined' && Array.isArray(memberList) && memberList.length > 0) {
+                window.renderMemberList(memberList);
+            }
         }
     }
     
@@ -430,11 +440,6 @@ function setupDashboardAfterLogin() {
         setTimeout(() => {
             if (typeof window.loadKasDashboard === 'function') window.loadKasDashboard();
         }, 1000);
-    }
-    
-    // Admin list — leader only
-    if (currentAdmin.role1 === 'leader' && typeof window.refreshAdminList === 'function') {
-        window.refreshAdminList();
     }
     
     // Konten — leader only
@@ -538,7 +543,7 @@ async function checkSession() {
 }
 
 // ==========================================
-// VALIDASI SESSION DI BACKGROUND
+// VALIDASI SESSION
 // ==========================================
 async function validateSessionInBackground(admin) {
     try {
@@ -604,17 +609,14 @@ function renderBottomNav() {
     const swipeArea = document.getElementById('tab-swipe-area');
     const tabs = [];
     
-    // Role lowercase
     const hasMember = (currentAdmin.role1 === 'leader' || currentAdmin.role1 === 'co-lead');
     const hasMail = (currentAdmin.role1 === 'leader' || currentAdmin.role1 === 'co-lead');
     const hasKas = (currentAdmin.role1 === 'leader' || currentAdmin.role2 === 'bendahara');
-    const hasAdmin = (currentAdmin.role1 === 'leader');
     const hasContent = (currentAdmin.role1 === 'leader');
 
     if (hasMember) tabs.push({ id: 'member', icon: 'fa-users', label: 'Member' });
     if (hasMail) tabs.push({ id: 'mailbox', icon: 'fa-envelope', label: 'Surat' });
     if (hasKas) tabs.push({ id: 'kas', icon: 'fa-coins', label: 'Kas' });
-    if (hasAdmin) tabs.push({ id: 'manage-admin', icon: 'fa-users-cog', label: 'Admin' });
     if (hasContent) tabs.push({ id: 'manage-content', icon: 'fa-edit', label: 'Konten' });
     
     for (let i = 0; i < swipeArea.children.length; i++) {
@@ -815,312 +817,6 @@ function logout() {
 }
 
 // ==========================================
-// MANAGE ADMIN (LEADER ONLY)
-// ==========================================
-async function refreshAdminList() {
-    if (currentAdmin?.role1 !== 'leader') {
-        return;
-    }
-    try {
-        const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.status === 'success' && data.data) {
-            renderAdminList(data.data);
-        } else {
-            document.getElementById('admin-list-container').innerHTML = '<div class="empty-state">Gagal memuat data admin</div>';
-        }
-    } catch(e) {
-        console.error("Refresh admin list error:", e);
-        document.getElementById('admin-list-container').innerHTML = '<div class="empty-state">Gagal koneksi</div>';
-    }
-}
-
-function renderAdminList(admins) {
-    const container = document.getElementById('admin-list-container');
-    if (!container) return;
-    
-    container.innerHTML = admins.map(admin => {
-        const roleText = formatRoleDisplay(admin);
-        
-        return `
-        <div class="admin-row">
-            <div class="admin-info-row">
-                <div>
-                    <strong>${escapeHtml(admin.nama)}</strong><br>
-                    <span style="font-size:0.7rem; color:var(--text-muted);">ID: ${admin.id}</span>
-                </div>
-                <div style="font-size:0.7rem;">
-                    ${roleText}
-                </div>
-            </div>
-            <div class="admin-buttons">
-                <button class="btn-small" onclick="editAdminName('${admin.id}', '${escapeHtml(admin.nama)}')"><i class="fas fa-user-edit"></i> Edit Nama</button>
-                <button class="btn-small" onclick="editAdminRole('${admin.id}', '${admin.role1}', '${admin.role2 || ''}')"><i class="fas fa-tag"></i> Edit Role</button>
-                <button class="btn-small btn-warning" onclick="resetPasskey('${admin.id}')"><i class="fas fa-key"></i> Reset Passkey</button>
-                ${currentAdmin.id !== admin.id ? `<button class="btn-small btn-danger" onclick="promoteToLeader('${admin.id}')"><i class="fas fa-crown"></i> Lantik Leader</button>` : ''}
-            </div>
-        </div>
-        `;
-    }).join('');
-}
-
-// ==========================================
-// EDIT ADMIN
-// ==========================================
-function editAdminName(adminId, currentName) {
-    renderAdminEditNameInternal(adminId, currentName);
-    if (typeof pushView === 'function') pushView('admin-edit-name', { adminId, currentName });
-}
-
-function renderAdminEditNameInternal(adminId, currentName) {
-    const modal = document.getElementById('modal-overlay');
-    modal.innerHTML = `
-        <div class="modal-content">
-            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
-            <h3><i class="fas fa-user-edit"></i> Edit Nama Admin</h3>
-            <input type="text" id="edit-name" value="${currentName}" placeholder="Nama baru" style="width:100%; padding:10px; margin-bottom:15px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
-            <div class="modal-buttons">
-                <button onclick="saveAdminName('${adminId}')" style="background:var(--color-primary);">Simpan</button>
-                <button onclick="closeModal()" style="background:#333;">Batal</button>
-            </div>
-        </div>
-    `;
-    modal.style.display = 'flex';
-}
-
-async function saveAdminName(adminId) {
-    const newName = document.getElementById('edit-name').value.trim();
-    if (!newName) { showToast("Nama tidak boleh kosong", true); return; }
-    try {
-        const url = `${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminId}&field=nama&value=${encodeURIComponent(newName)}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.status === 'success') {
-            showToast("Nama admin berhasil diubah");
-            closeModal();
-            refreshAdminList();
-            if (adminId === currentAdmin.id) currentAdmin.nama = newName;
-        } else {
-            showToast(data.message || "Gagal", true);
-        }
-    } catch(e) { showToast("Gagal koneksi", true); }
-}
-
-function editAdminRole(adminId, role1, role2) {
-    renderAdminEditRoleInternal(adminId, role1, role2);
-    if (typeof pushView === 'function') pushView('admin-edit-role', { adminId, role1, role2 });
-}
-
-function renderAdminEditRoleInternal(adminId, role1, role2) {
-    const modal = document.getElementById('modal-overlay');
-    modal.innerHTML = `
-        <div class="modal-content">
-            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
-            <h3><i class="fas fa-tag"></i> Edit Role</h3>
-            
-            <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">Jabatan Utama</label>
-            <select id="edit-role1" style="width:100%; padding:10px; margin-bottom:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
-                <option value="leader" ${role1 === 'leader' ? 'selected' : ''} ${adminId === currentAdmin.id ? 'disabled' : ''}>LEADER</option>
-                <option value="co-lead" ${role1 === 'co-lead' ? 'selected' : ''}>CO-LEAD</option>
-                <option value="" ${!role1 ? 'selected' : ''}>(Kosong)</option>
-            </select>
-            
-            <label style="display:block; font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">Tugas Tambahan</label>
-            <select id="edit-role2" style="width:100%; padding:10px; margin-bottom:15px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
-                <option value="" ${!role2 ? 'selected' : ''}>(Tidak ada)</option>
-                <option value="bendahara" ${role2 === 'bendahara' ? 'selected' : ''}>BENDAHARA</option>
-            </select>
-            
-            <div class="modal-buttons">
-                <button onclick="saveAdminRole('${adminId}')" style="background:var(--color-primary);">Simpan</button>
-                <button onclick="closeModal()" style="background:#333;">Batal</button>
-            </div>
-        </div>
-    `;
-    modal.style.display = 'flex';
-}
-
-async function saveAdminRole(adminId) {
-    const role1 = document.getElementById('edit-role1').value;
-    const role2 = document.getElementById('edit-role2').value;
-    try {
-        if (role1 !== null) {
-            await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminId}&field=role1&value=${encodeURIComponent(role1)}`);
-        }
-        await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminId}&field=role2&value=${encodeURIComponent(role2)}`);
-        showToast("Role berhasil diubah");
-        closeModal();
-        refreshAdminList();
-    } catch(e) { showToast("Gagal", true); }
-}
-
-function resetPasskey(adminId) {
-  renderResetPasskeyModal(adminId);
-  if (typeof pushView === 'function') {
-    pushView('admin-reset-passkey', { adminId });
-  }
-}
-
-function renderResetPasskeyModal(adminId) {
-  const modal = document.getElementById('modal-overlay');
-  modal.innerHTML = `
-    <div class="modal-content" style="max-width: 400px;">
-      <button class="modal-close-x" onclick="window.closeModal()">✕</button>
-      <h3 style="text-align:center; margin-bottom:20px;"><i class="fas fa-key"></i> Reset Passkey</h3>
-      
-      <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:16px;">
-        Masukkan passkey baru untuk admin <strong>${escapeHtml(adminId)}</strong>.
-        Passkey akan ditampilkan setelah reset — catat & kirim ke admin tersebut.
-      </p>
-      
-      <div class="passkey-input-group">
-        <label><i class="fas fa-key"></i> Passkey Baru</label>
-        <input type="text" id="reset-passkey-new" placeholder="Min 6 char, huruf + angka" autocomplete="off">
-        <small style="color:#64748b; font-size:0.65rem;">Minimal 6 karakter, mengandung huruf dan angka</small>
-      </div>
-      
-      <div class="modal-buttons" style="margin-top: 20px;">
-        <button onclick="submitResetPasskey('${adminId}')" style="background:var(--color-primary); flex:1;">Reset</button>
-        <button onclick="closeModal()" style="background:#333; flex:1;">Batal</button>
-      </div>
-    </div>
-  `;
-  modal.style.display = 'flex';
-  
-  setTimeout(() => {
-    const input = document.getElementById('reset-passkey-new');
-    if (input) input.focus();
-  }, 200);
-}
-
-async function submitResetPasskey(adminId) {
-  const input = document.getElementById('reset-passkey-new');
-  const newKey = input ? input.value.trim() : '';
-  
-  if (!newKey) {
-    showToast("Passkey tidak boleh kosong", true);
-    return;
-  }
-  
-  if (newKey.length < 6) {
-    showToast("Passkey minimal 6 karakter", true);
-    return;
-  }
-  
-  const btn = document.querySelector('#modal-overlay .modal-buttons button:first-child');
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reset...';
-  }
-  
-  try {
-    const url = `${window.GAS_ADMIN_URL}?action=resetPasskey&adminId=${currentAdmin.id}&targetAdminId=${adminId}&newKey=${encodeURIComponent(newKey)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    
-    if (data.status === 'success') {
-      showToast(`✅ Passkey direset: ${data.newPasskey || newKey}`);
-      setTimeout(() => {
-        renderPasskeyResultModal(adminId, data.newPasskey || newKey);
-      }, 300);
-    } else {
-      showToast(data.message || "Gagal reset", true);
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = 'Reset';
-      }
-    }
-  } catch(e) {
-    showToast("Gagal koneksi", true);
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = 'Reset';
-    }
-  }
-}
-
-function renderPasskeyResultModal(adminId, newPasskey) {
-  const modal = document.getElementById('modal-overlay');
-  modal.innerHTML = `
-    <div class="modal-content" style="max-width: 400px;">
-      <button class="modal-close-x" onclick="window.closeModal()">✕</button>
-      <h3 style="text-align:center; margin-bottom:20px;"><i class="fas fa-check-circle" style="color:#4ade80;"></i> Berhasil</h3>
-      
-      <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:12px; text-align:center;">
-        Passkey baru untuk <strong>${escapeHtml(adminId)}</strong>:
-      </p>
-      
-      <div style="background:var(--bg-dark); border:1px solid var(--color-primary); border-radius:10px; padding:16px; text-align:center; margin-bottom:16px;">
-        <code style="font-size:1.1rem; color:var(--color-primary); font-weight:bold; letter-spacing:1px; user-select:all;" id="passkey-result-text">${escapeHtml(newPasskey)}</code>
-      </div>
-      
-      <p style="font-size:0.7rem; color:#ff8888; margin-bottom:16px; text-align:center;">
-        ⚠️ Catat & kirim ke admin tersebut. Tidak akan ditampilkan lagi.
-      </p>
-      
-      <div class="modal-buttons">
-        <button onclick="copyPasskeyToClipboard('${escapeHtml(newPasskey)}')" style="background:var(--color-primary); flex:1;">
-          <i class="fas fa-copy"></i> Copy
-        </button>
-        <button onclick="closeModal()" style="background:#333; flex:1;">Tutup</button>
-      </div>
-    </div>
-  `;
-  modal.style.display = 'flex';
-}
-
-function copyPasskeyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    showToast("✅ Passkey dicopy");
-  }).catch(() => {
-    showToast("❌ Gagal copy", true);
-  });
-}
-
-// ==========================================
-// PROMOTE LEADER
-// ==========================================
-function promoteToLeader(targetId) {
-    renderPromoteLeaderInternal(targetId);
-    if (typeof pushView === 'function') pushView('admin-promote', { targetId });
-}
-
-function renderPromoteLeaderInternal(targetId) {
-    const modal = document.getElementById('modal-overlay');
-    modal.innerHTML = `
-        <div class="modal-content">
-            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
-            <h3><i class="fas fa-crown"></i> Lantik Leader Baru</h3>
-            <p style="margin-bottom:10px;">Anda akan turun menjadi CO-LEAD</p>
-            <input type="password" id="confirm-passkey" placeholder="Masukkan passkey Anda" style="width:100%; padding:10px; margin-bottom:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
-            <div class="modal-buttons">
-                <button onclick="executePromoteLeader('${targetId}')" style="background:var(--color-primary);">Lantik</button>
-                <button onclick="closeModal()" style="background:#333;">Batal</button>
-            </div>
-        </div>
-    `;
-    modal.style.display = 'flex';
-}
-
-async function executePromoteLeader(targetId) {
-    const passkey = document.getElementById('confirm-passkey').value.trim();
-    if (!passkey) { showToast("Passkey wajib diisi", true); return; }
-    try {
-        const url = `${window.GAS_ADMIN_URL}?action=promoteLeader&passkey=${encodeURIComponent(passkey)}&targetId=${targetId}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.status === 'success') {
-            showToast("Leader baru dilantik! Silakan login ulang.");
-            localStorage.removeItem('umbrella_admin_session');
-            setTimeout(() => logout(), 2000);
-        } else {
-            showToast(data.message || "Gagal", true);
-        }
-    } catch(e) { showToast("Gagal koneksi", true); }
-}
-
-// ==========================================
 // LOGIN DENGAN ENTER
 // ==========================================
 document.addEventListener('DOMContentLoaded', function() {
@@ -1149,23 +845,8 @@ window.toggleNotificationSetting = toggleNotificationSetting;
 window.openChangePasskey = openChangePasskey;
 window.changeMyPasskey = changeMyPasskey;
 window.openSettingsModal = openSettingsModal;
-window.refreshAdminList = refreshAdminList;
-window.editAdminName = editAdminName;
-window.saveAdminName = saveAdminName;
-window.editAdminRole = editAdminRole;
-window.saveAdminRole = saveAdminRole;
-window.resetPasskey = resetPasskey;
-window.renderResetPasskeyModal = renderResetPasskeyModal;
-window.submitResetPasskey = submitResetPasskey;
-window.renderPasskeyResultModal = renderPasskeyResultModal;
-window.copyPasskeyToClipboard = copyPasskeyToClipboard;
-window.promoteToLeader = promoteToLeader;
-window.executePromoteLeader = executePromoteLeader;
 window.renderSettingsModalInternal = renderSettingsModalInternal;
 window.renderChangePasskeyInternal = renderChangePasskeyInternal;
-window.renderAdminEditNameInternal = renderAdminEditNameInternal;
-window.renderAdminEditRoleInternal = renderAdminEditRoleInternal;
-window.renderPromoteLeaderInternal = renderPromoteLeaderInternal;
 
 checkSession();
-console.log("✅ admin.js loaded (V4 — Role lowercase)");
+console.log("✅ admin.js loaded (V5 — Bersih dari fungsi tab Admin lama)");

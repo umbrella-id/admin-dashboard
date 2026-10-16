@@ -249,6 +249,10 @@ function routeToView(viewName, data) {
                 renderChangePasskeyInternal();
             }
             break;
+        case 'gate-settings':
+            if (typeof renderGateSettingsModal === 'function') {
+            }
+            break;
         
         // ==========================================
         // CONFIRM

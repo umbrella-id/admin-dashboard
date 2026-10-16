@@ -286,8 +286,8 @@ async function fetchOnlineUsers() {
         const data = await res.json();
         let users = data.onlineUsers || [];
         
-        const admins = users.filter(u => u.uid && u.uid.includes('ADMIN_'));
-        const regulars = users.filter(u => u.uid && !u.uid.includes('ADMIN_'));
+        const admins = users.filter(u => u.uid && u.uid.includes('ADM-'));
+        const regulars = users.filter(u => u.uid && !u.uid.includes('ADM-'));
         onlineUsersCount = users.length;
         
         const onlineCountSpan = document.getElementById('online-count');

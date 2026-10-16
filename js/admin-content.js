@@ -1335,5 +1335,8 @@ window.collectChangedFields = collectChangedFields;
 window.loadBackgroundPreview = loadBackgroundPreview;
 window.uploadBackground = uploadBackground;
 window.resetBackground = resetBackground;
+window.openGateSettingsModal = openGateSettingsModal;
+window.submitGateSettings = submitGateSettings;
+window.checkGateSettingsAccess = checkGateSettingsAccess;
 
 console.log("✅ admin-content.js loaded (V10 — Migration Fix)");

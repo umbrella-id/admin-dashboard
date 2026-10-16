@@ -1,15 +1,15 @@
 /**
- * admin-content.js - Kelola Konten Web (V9) 
+ * admin-content.js - Kelola Konten Web (V10)
  * 
- * Fitur baru V9:
+ * Perubahan dari V9:
+ * - 🎯 triggerUpload: cek role leader di frontend (UX lebih baik)
+ * - 🎯 loadBackgroundPreview: pakai URL absolut untuk default
+ * - 🎯 updateImagePreview: handle URL relatif juga
+ * 
+ * Fitur utama:
  * - AUTO-CONVERT semua upload gambar ke WebP (kecuali SVG)
- * - Auto-compress dengan setting per konteks:
- *   - Background: 1280px, quality 0.7
- *   - Gallery: 1600px, quality 0.8
- *   - Headline: 1280px, quality 0.75
- *   - Profil: 1280px, quality 0.8
+ * - Auto-compress dengan setting per konteks
  * - SVG di-skip (vector, tidak perlu kompres)
- * - Hemat bandwidth ~80-95%
  */
 
 let currentContentData = [];
@@ -43,6 +43,9 @@ const COMPRESS_SETTINGS = {
 
 const BG_JSON_URL = 'https://raw.githubusercontent.com/umbrella-id/umbrella-id.github.io/main/upload/bg.json';
 const BG_IMG_URL  = 'https://raw.githubusercontent.com/umbrella-id/umbrella-id.github.io/main/upload/bg-img';
+
+// 🎯 URL absolut untuk default background (aman dari subfolder)
+const BG_DEFAULT_URL = 'https://umbrella-id.github.io/Assets/Background.webp';
 
 // ==========================================
 // KOMPRES KE WEBP
@@ -118,7 +121,6 @@ async function uploadToGitHub(file, context = 'gallery') {
     let ext;
     
     if (actualMime === 'image/svg+xml') {
-        // SVG: skip kompres (vector)
         ext = 'svg';
         console.log('ℹ️ SVG: skip kompres');
     } else {
@@ -131,7 +133,6 @@ async function uploadToGitHub(file, context = 'gallery') {
             console.log('🗜️ Compressed:', (uploadBlob.size / 1024).toFixed(0) + 'KB', `(${reduction}% reduction)`);
         } catch(err) {
             console.error('Compress error:', err);
-            // Fallback: pakai asli
             uploadBlob = file;
             ext = actualMime.split('/')[1] || 'jpeg';
             console.log('⚠️ Compress gagal, pakai asli');
@@ -182,6 +183,12 @@ async function uploadToGitHub(file, context = 'gallery') {
 // TRIGGER UPLOAD (untuk field URL gambar)
 // ==========================================
 window.triggerUpload = function(btn) {
+    // 🎯 Cek role leader dulu (UX)
+    if (currentAdmin?.role1 !== 'leader') {
+        window.showToast('❌ Hanya leader yang bisa upload', true);
+        return;
+    }
+    
     const input = btn.previousElementSibling;
     if (!input) return;
     
@@ -231,7 +238,7 @@ window.triggerUpload = function(btn) {
 };
 
 // ==========================================
-// PREVIEW GAMBAR
+// PREVIEW GAMBAR (handle URL absolut + relatif)
 // ==========================================
 function updateImagePreview(input) {
     const wrapper = input.closest('div[style*="display:flex"]');
@@ -248,9 +255,17 @@ function updateImagePreview(input) {
     
     const url = input.value.trim();
     
-    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+    if (url && url !== '') {
+        // 🎯 Handle URL absolut DAN relatif
+        let imgSrc = url;
+        
+        // Kalau relatif (mis. Assets/...), prefix dengan root
+        if (!imgSrc.startsWith('http://') && !imgSrc.startsWith('https://') && !imgSrc.startsWith('/') && !imgSrc.startsWith('data:')) {
+            imgSrc = '/' + imgSrc;
+        }
+        
         previewEl.innerHTML = `
-            <img src="${escapeHtml(url)}" 
+            <img src="${escapeHtml(imgSrc)}" 
                  style="max-width: 200px; max-height: 150px; border-radius: 8px; border: 1px solid var(--border-line); object-fit: cover;"
                  onerror="this.parentElement.innerHTML='<div style=\\'color:#ff8888;font-size:0.7rem;\\'>⚠️ Gambar tidak bisa dimuat</div>'">
         `;
@@ -630,7 +645,7 @@ async function loadBackgroundPreview() {
         if (!res.ok) {
             statusEl.textContent = 'Default (belum ada bg.json)';
             statusEl.style.color = 'var(--text-muted)';
-            previewEl.innerHTML = '<img src="/Assets/Background.webp" style="width:100%; opacity:0.5; max-height:200px; object-fit:cover;" onerror="this.src=\'/Assets/Background.png\';this.style.opacity=0.5;">';
+            previewEl.innerHTML = `<img src="${BG_DEFAULT_URL}" style="width:100%; opacity:0.5; max-height:200px; object-fit:cover;" onerror="this.style.opacity=0.3;">`;
             return;
         }
         
@@ -644,7 +659,7 @@ async function loadBackgroundPreview() {
         } else {
             statusEl.textContent = 'Default (nonaktif)';
             statusEl.style.color = 'var(--text-muted)';
-            previewEl.innerHTML = '<img src="/Assets/Background.webp" style="width:100%; opacity:0.7; max-height:200px; object-fit:cover;" onerror="this.src=\'/Assets/Background.png\';this.style.opacity=0.7;">';
+            previewEl.innerHTML = `<img src="${BG_DEFAULT_URL}" style="width:100%; opacity:0.7; max-height:200px; object-fit:cover;" onerror="this.style.opacity=0.3;">`;
         }
     } catch(e) {
         console.error('Load bg preview error:', e);
@@ -756,7 +771,7 @@ window.uploadBackground = async function(btn) {
                     adminId: currentAdmin.id,
                     status: 'aktif',
                     format: formatStr,
-                    size: uploadBlob.size,    // ← pakai ukuran compressed
+                    size: uploadBlob.size,
                     version: version
                 })
             });
@@ -1126,4 +1141,4 @@ window.loadBackgroundPreview = loadBackgroundPreview;
 window.uploadBackground = uploadBackground;
 window.resetBackground = resetBackground;
 
-console.log("✅ admin-content.js loaded (V9 — Auto WebP Compress)");
+console.log("✅ admin-content.js loaded (V10 — Migration Fix)");

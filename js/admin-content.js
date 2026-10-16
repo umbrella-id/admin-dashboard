@@ -398,7 +398,7 @@ async function loadContentData() {
     container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data konten...</div>';
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getAllContent`);
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getAllContent&adminId=${currentAdmin.id}`);
         const data = await res.json();
         
         if (data.status === 'success' && data.data) {

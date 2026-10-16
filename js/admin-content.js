@@ -1127,6 +1127,201 @@ window.addEventListener('beforeunload', function(e) {
 });
 
 // ==========================================
+// 🎯 GATE SETTINGS (KODE AKSES + PERTANYAAN)
+// ==========================================
+
+/**
+ * Cek apakah admin = leader, lalu tampilkan section
+ */
+function checkGateSettingsAccess() {
+    const section = document.getElementById('gate-settings-section');
+    if (!section) return;
+    
+    // Cek leader
+    if (currentAdmin && currentAdmin.role1 === 'leader') {
+        section.style.display = 'block';
+    } else {
+        section.style.display = 'none';
+    }
+}
+
+/**
+ * Buka modal gate settings
+ */
+window.openGateSettingsModal = async function() {
+    // Cek leader
+    if (!currentAdmin || currentAdmin.role1 !== 'leader') {
+        window.showToast('❌ Hanya leader yang bisa akses', true);
+        return;
+    }
+    
+    // Tampilkan modal dengan loading
+    renderGateSettingsModal(null, true);
+    if (typeof pushView === 'function') {
+        pushView('gate-settings');
+    }
+    
+    // Fetch settings dari GAS 4
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=getGateSettings&adminId=${currentAdmin.id}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.status === 'success' && data.data) {
+            renderGateSettingsModal(data.data, false);
+        } else {
+            renderGateSettingsModal(null, false, data.message || 'Gagal memuat');
+        }
+    } catch(e) {
+        console.error('Fetch gate settings error:', e);
+        renderGateSettingsModal(null, false, 'Koneksi gagal');
+    }
+};
+
+/**
+ * Render modal gate settings
+ */
+function renderGateSettingsModal(data, isLoading, errorMsg) {
+    const modal = document.getElementById('modal-overlay');
+    if (!modal) return;
+    
+    let contentHtml = '';
+    
+    if (isLoading) {
+        contentHtml = `
+            <div style="text-align: center; padding: 40px 20px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--color-primary);"></i>
+                <p style="margin-top: 12px; color: var(--text-muted);">Memuat pengaturan...</p>
+            </div>
+        `;
+    } else if (errorMsg) {
+        contentHtml = `
+            <div style="text-align: center; padding: 40px 20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ff8888;"></i>
+                <p style="margin-top: 12px; color: #ff8888;">${escapeHtml(errorMsg)}</p>
+            </div>
+        `;
+    } else {
+        const currentCode = data?.code || '';
+        const currentQuestion = data?.question || 'Masukkan Kode Akses';
+        
+        contentHtml = `
+            <div class="gate-settings-info">
+                <div class="gate-settings-info-row">
+                    <span class="gate-settings-label">Kode Saat Ini:</span>
+                    <code class="gate-settings-code">${escapeHtml(currentCode || '(belum di-set)')}</code>
+                </div>
+                <div class="gate-settings-info-row">
+                    <span class="gate-settings-label">Pertanyaan:</span>
+                    <span class="gate-settings-question">${escapeHtml(currentQuestion)}</span>
+                </div>
+            </div>
+            
+            <div class="gate-settings-form">
+                <div class="gate-settings-group">
+                    <label><i class="fas fa-key"></i> KODE AKSES BARU</label>
+                    <input type="text" 
+                           id="gate-new-code" 
+                           placeholder="Kosongkan jika tidak diubah" 
+                           autocomplete="off">
+                    <small>Kode ini dipakai member untuk masuk web internal. Minimal 4 karakter.</small>
+                </div>
+                
+                <div class="gate-settings-group">
+                    <label><i class="fas fa-question-circle"></i> PERTANYAAN BARU</label>
+                    <input type="text" 
+                           id="gate-new-question" 
+                           placeholder="${escapeHtml(currentQuestion)}" 
+                           maxlength="100"
+                           autocomplete="off">
+                    <small>Pertanyaan yang ditampilkan di gate. Contoh: "Masukkan Kode Akses".</small>
+                </div>
+                
+                <div style="background: rgba(255, 68, 68, 0.1); border: 1px solid #ff4444; border-radius: 8px; padding: 10px 12px; margin-top: 12px; font-size: 0.7rem; color: #ff8888; line-height: 1.5;">
+                    ⚠️ <strong>Perhatian:</strong><br>
+                    • Setelah disimpan, <strong>kode lama akan hangus</strong>.<br>
+                    • Member harus pakai kode baru untuk masuk web internal.<br>
+                    • Kosongkan field jika tidak ingin mengubah.
+                </div>
+            </div>
+        `;
+    }
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <h3 style="text-align:center; margin-bottom:16px;">
+                <i class="fas fa-key"></i> Pengaturan Gate
+            </h3>
+            ${contentHtml}
+            ${!isLoading && !errorMsg ? `
+                <div class="modal-buttons" style="margin-top: 16px;">
+                    <button onclick="window.submitGateSettings()" style="background:var(--color-primary); flex:2;">
+                        <i class="fas fa-save"></i> SIMPAN
+                    </button>
+                    <button onclick="window.closeModal()" style="background:#333; flex:1;">Batal</button>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    modal.style.display = 'flex';
+}
+
+/**
+ * Submit gate settings
+ */
+window.submitGateSettings = async function() {
+    const newCode = document.getElementById('gate-new-code')?.value.trim() || '';
+    const newQuestion = document.getElementById('gate-new-question')?.value.trim() || '';
+    
+    // Cek apakah ada yang diisi
+    if (!newCode && !newQuestion) {
+        window.showToast('❌ Tidak ada perubahan', true);
+        return;
+    }
+    
+    // Konfirmasi kalau ganti kode
+    if (newCode) {
+        const confirmed = confirm('⚠️ Kode lama akan hangus. Member harus pakai kode baru.\n\nLanjutkan?');
+        if (!confirmed) return;
+    }
+    
+    const btn = document.querySelector('#modal-overlay .modal-buttons button:first-child');
+    const originalHtml = btn?.innerHTML;
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> MENYIMPAN...';
+        btn.disabled = true;
+    }
+    
+    try {
+        let url = `${window.GAS_ADMIN_URL}?action=setGateSettings&adminId=${currentAdmin.id}`;
+        if (newCode) url += `&newCode=${encodeURIComponent(newCode)}`;
+        if (newQuestion) url += `&newQuestion=${encodeURIComponent(newQuestion)}`;
+        
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            window.showToast('✅ Pengaturan gate diperbarui');
+            window.closeModal();
+        } else {
+            window.showToast('❌ ' + (data.message || 'Gagal'), true);
+            if (btn) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+    } catch(e) {
+        console.error('Submit gate settings error:', e);
+        window.showToast('❌ Koneksi gagal', true);
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
+};
+
+// ==========================================
 // EXPOSE
 // ==========================================
 window.loadContentData = loadContentData;

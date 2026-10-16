@@ -446,6 +446,9 @@ function setupDashboardAfterLogin() {
     if (currentAdmin.role1 === 'leader' && typeof window.loadContentData === 'function') {
         window.loadContentData();
     }
+    if (typeof window.checkGateSettingsAccess === 'function') {
+    setTimeout(() => window.checkGateSettingsAccess(), 100);
+    }
     
     // Heartbeat
     if (shouldEnableHeartbeat()) {

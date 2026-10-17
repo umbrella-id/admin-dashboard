@@ -190,10 +190,8 @@ function routeToView(viewName, data) {
             }
             break;
         
-        case 'verif-code':
-            if (data && typeof renderVerifCodeModal === 'function') {
-                renderVerifCodeModal(data);
-            }
+        case 'activation-code':
+            // Modal sudah di-render sebelum pushView, tidak perlu render ulang
             break;
         
         // ==========================================

@@ -106,14 +106,16 @@
             <!-- KELOLA KONTEN TAB -->
             <div class="tab-page" data-tab="manage-content">
                 
-                <!-- 🎯 GATE SETTINGS — TOMBOL KECIL DI POJOK -->
-                <button id="gate-settings-section" 
-                        class="gate-settings-icon-btn" 
-                        onclick="window.openGateSettingsModal()" 
-                        title="Pengaturan Gate Web Internal"
-                        style="display: none;">
-                    <i class="fas fa-lock"></i>
-                </button>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;"><i class="fas fa-edit"></i> Kelola Konten Web</h3>
+                    <button id="gate-settings-section" 
+                            class="gate-settings-icon-btn" 
+                            onclick="window.openGateSettingsModal()" 
+                            title="Pengaturan Gate Web Internal"
+                            style="display: none;">
+                        <i class="fas fa-lock"></i>
+                    </button>
+                </div>
                 
                 <h3><i class="fas fa-edit"></i> Kelola Konten Web</h3>
                 <div id="content-editor-container">Memuat...</div>

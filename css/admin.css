@@ -1328,32 +1328,54 @@ input:checked + .toggle-slider:before {
 }
 
 /* ==========================================
-   🎯 GATE SETTINGS — TOMBOL KECIL
+   🎯 GATE SETTINGS — TOMBOL KECIL + ANIMASI
    ========================================== */
 .gate-settings-icon-btn {
-    background: rgba(245, 158, 11, 0.15);
-    border: 1px solid #f59e0b;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    background: transparent;
+    border: none;
     color: #f59e0b;
-    font-size: 0.9rem;
+    font-size: 1rem;
     cursor: pointer;
     transition: all 0.2s;
-    padding: 0;
+    padding: 6px 10px;
     flex-shrink: 0;
+    animation: gateAttention 10s ease-in-out infinite;
 }
 
 .gate-settings-icon-btn:hover {
-    background: rgba(245, 158, 11, 0.3);
-    transform: scale(1.05);
+    color: #fbbf24;
+    transform: scale(1.15);
 }
 
 .gate-settings-icon-btn:active {
     transform: scale(0.95);
+}
+
+@keyframes gateAttention {
+    0%, 85%, 100% {
+        transform: rotate(0deg) scale(1);
+        color: #f59e0b;
+    }
+    88% {
+        transform: rotate(-15deg) scale(1.1);
+        color: #fbbf24;
+    }
+    90% {
+        transform: rotate(15deg) scale(1.1);
+        color: #fbbf24;
+    }
+    92% {
+        transform: rotate(-15deg) scale(1.1);
+        color: #fbbf24;
+    }
+    94% {
+        transform: rotate(15deg) scale(1.1);
+        color: #fbbf24;
+    }
+    96% {
+        transform: rotate(-8deg) scale(1.05);
+        color: #fbbf24;
+    }
 }
 
 /* ==========================================
@@ -1394,55 +1416,4 @@ input:checked + .toggle-slider:before {
 .gate-settings-group input:focus {
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15);
-}
-/* ==========================================
-   🎯 GATE SETTINGS — TOMBOL KECIL + ANIMASI
-   ========================================== */
-.gate-settings-icon-btn {
-    background: transparent;
-    border: none;
-    color: #f59e0b;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    padding: 6px 10px;
-    flex-shrink: 0;
-    animation: gateAttention 10s ease-in-out infinite;
-}
-
-.gate-settings-icon-btn:hover {
-    color: #fbbf24;
-    transform: scale(1.15);
-}
-
-.gate-settings-icon-btn:active {
-    transform: scale(0.95);
-}
-
-/* Animasi "attention" — sesekali goyang */
-@keyframes gateAttention {
-    0%, 85%, 100% {
-        transform: rotate(0deg) scale(1);
-        color: #f59e0b;
-    }
-    88% {
-        transform: rotate(-15deg) scale(1.1);
-        color: #fbbf24;
-    }
-    90% {
-        transform: rotate(15deg) scale(1.1);
-        color: #fbbf24;
-    }
-    92% {
-        transform: rotate(-15deg) scale(1.1);
-        color: #fbbf24;
-    }
-    94% {
-        transform: rotate(15deg) scale(1.1);
-        color: #fbbf24;
-    }
-    96% {
-        transform: rotate(-8deg) scale(1.05);
-        color: #fbbf24;
-    }
 }

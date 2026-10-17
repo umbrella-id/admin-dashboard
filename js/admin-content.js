@@ -1189,77 +1189,60 @@ function renderGateSettingsModal(data, isLoading, errorMsg) {
     
     if (isLoading) {
         contentHtml = `
-            <div style="text-align: center; padding: 40px 20px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--color-primary);"></i>
-                <p style="margin-top: 12px; color: var(--text-muted);">Memuat pengaturan...</p>
+            <div style="text-align: center; padding: 30px 20px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: var(--color-primary);"></i>
             </div>
         `;
     } else if (errorMsg) {
         contentHtml = `
-            <div style="text-align: center; padding: 40px 20px;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ff8888;"></i>
-                <p style="margin-top: 12px; color: #ff8888;">${escapeHtml(errorMsg)}</p>
+            <div style="text-align: center; padding: 30px 20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem; color: #ff8888;"></i>
+                <p style="margin-top: 12px; color: #ff8888; font-size: 0.8rem;">${escapeHtml(errorMsg)}</p>
             </div>
         `;
     } else {
-        const currentCode = data?.code || '';
+        const currentAnswer = data?.code || '';
         const currentQuestion = data?.question || 'Masukkan Kode Akses';
         
         contentHtml = `
-            <div class="gate-settings-info">
-                <div class="gate-settings-info-row">
-                    <span class="gate-settings-label">Kode Saat Ini:</span>
-                    <code class="gate-settings-code">${escapeHtml(currentCode || '(belum di-set)')}</code>
-                </div>
-                <div class="gate-settings-info-row">
-                    <span class="gate-settings-label">Pertanyaan:</span>
-                    <span class="gate-settings-question">${escapeHtml(currentQuestion)}</span>
-                </div>
-            </div>
-            
             <div class="gate-settings-form">
+                <!-- PERTANYAAN -->
                 <div class="gate-settings-group">
-                    <label><i class="fas fa-key"></i> KODE AKSES BARU</label>
-                    <input type="text" 
-                           id="gate-new-code" 
-                           placeholder="Kosongkan jika tidak diubah" 
-                           autocomplete="off">
-                    <small>Kode ini dipakai member untuk masuk web internal. Minimal 4 karakter.</small>
-                </div>
-                
-                <div class="gate-settings-group">
-                    <label><i class="fas fa-question-circle"></i> PERTANYAAN BARU</label>
+                    <label>Pertanyaan</label>
                     <input type="text" 
                            id="gate-new-question" 
-                           placeholder="${escapeHtml(currentQuestion)}" 
+                           value="${escapeHtml(currentQuestion)}" 
+                           placeholder="Contoh: Siapa nama leader?"
                            maxlength="100"
                            autocomplete="off">
-                    <small>Pertanyaan yang ditampilkan di gate. Contoh: "Masukkan Kode Akses".</small>
                 </div>
                 
-                <div style="background: rgba(255, 68, 68, 0.1); border: 1px solid #ff4444; border-radius: 8px; padding: 10px 12px; margin-top: 12px; font-size: 0.7rem; color: #ff8888; line-height: 1.5;">
-                    ⚠️ <strong>Perhatian:</strong><br>
-                    • Setelah disimpan, <strong>kode lama akan hangus</strong>.<br>
-                    • Member harus pakai kode baru untuk masuk web internal.<br>
-                    • Kosongkan field jika tidak ingin mengubah.
+                <!-- JAWABAN -->
+                <div class="gate-settings-group">
+                    <label>Jawaban</label>
+                    <input type="text" 
+                           id="gate-new-code" 
+                           value="${escapeHtml(currentAnswer)}" 
+                           placeholder="Contoh: UMBRELLA2026"
+                           autocomplete="off">
                 </div>
             </div>
         `;
     }
     
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-content" style="max-width: 380px;">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
-            <h3 style="text-align:center; margin-bottom:16px;">
-                <i class="fas fa-key"></i> Pengaturan Gate
+            <h3 style="text-align: center; margin-bottom: 16px; font-size: 1rem;">
+                <i class="fas fa-lock"></i> Gate Web Internal
             </h3>
             ${contentHtml}
             ${!isLoading && !errorMsg ? `
                 <div class="modal-buttons" style="margin-top: 16px;">
-                    <button onclick="window.submitGateSettings()" style="background:var(--color-primary); flex:2;">
+                    <button onclick="window.submitGateSettings()" style="background: var(--color-primary); flex: 2;">
                         <i class="fas fa-save"></i> SIMPAN
                     </button>
-                    <button onclick="window.closeModal()" style="background:#333; flex:1;">Batal</button>
+                    <button onclick="window.closeModal()" style="background: #333; flex: 1;">Batal</button>
                 </div>
             ` : ''}
         </div>
@@ -1271,19 +1254,12 @@ function renderGateSettingsModal(data, isLoading, errorMsg) {
  * Submit gate settings
  */
 window.submitGateSettings = async function() {
-    const newCode = document.getElementById('gate-new-code')?.value.trim() || '';
     const newQuestion = document.getElementById('gate-new-question')?.value.trim() || '';
+    const newCode = document.getElementById('gate-new-code')?.value.trim() || '';
     
-    // Cek apakah ada yang diisi
-    if (!newCode && !newQuestion) {
-        window.showToast('❌ Tidak ada perubahan', true);
+    if (!newQuestion || !newCode) {
+        window.showToast('❌ Pertanyaan & jawaban harus diisi', true);
         return;
-    }
-    
-    // Konfirmasi kalau ganti kode
-    if (newCode) {
-        const confirmed = confirm('⚠️ Kode lama akan hangus. Member harus pakai kode baru.\n\nLanjutkan?');
-        if (!confirmed) return;
     }
     
     const btn = document.querySelector('#modal-overlay .modal-buttons button:first-child');
@@ -1295,8 +1271,8 @@ window.submitGateSettings = async function() {
     
     try {
         let url = `${window.GAS_ADMIN_URL}?action=setGateSettings&adminId=${currentAdmin.id}`;
-        if (newCode) url += `&newCode=${encodeURIComponent(newCode)}`;
-        if (newQuestion) url += `&newQuestion=${encodeURIComponent(newQuestion)}`;
+        url += `&newQuestion=${encodeURIComponent(newQuestion)}`;
+        url += `&newCode=${encodeURIComponent(newCode)}`;
         
         const res = await fetch(url);
         const data = await res.json();

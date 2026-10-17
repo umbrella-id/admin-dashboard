@@ -268,6 +268,10 @@ function renderMemberList(members) {
         const bendaharaBadge = memberIsBendaharaOnly 
             ? `<span class="badge-bendahara" title="Admin Bendahara (tanpa jabatan struktural)">BENDAHARA</span>` 
             : '';
+        const activationStatus = member.activationStatus;
+        const activationBadge = (activationStatus?.hasCode && !activationStatus?.used && !activationStatus?.expired)
+            ? `<span class="badge-activation" title="Punya kode aktivasi aktif">🔑</span>` 
+            : '';
         
         let actionButtons = '';
         
@@ -324,6 +328,7 @@ function renderMemberList(members) {
                         <span class="member-role ${member.role}">${member.role.toUpperCase()}</span>
                         ${verifiedBadge}
                         ${bendaharaBadge}
+                        ${activationBadge}
                     </div>
                     <div class="member-contact">
                         ${hasWA}

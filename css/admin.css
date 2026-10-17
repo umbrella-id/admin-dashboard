@@ -1,3 +1,6 @@
+/* ==========================================
+   ROOT VARIABLES
+   ========================================== */
 :root {
     --color-primary: #a855f7;
     --color-primary-glow: rgba(168, 85, 247, 0.3);
@@ -11,7 +14,6 @@
     --text-main: #cbd5e1;
     --text-muted: #64748b;
 }
-
 
 * {
     margin: 0;
@@ -37,7 +39,9 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--color-primary-glow); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
 
-/* LOGIN SCREEN */
+/* ==========================================
+   LOGIN SCREEN
+   ========================================== */
 #login-screen {
     position: fixed;
     inset: 0;
@@ -123,7 +127,9 @@ body {
     margin-top: 12px;
 }
 
-/* DASHBOARD */
+/* ==========================================
+   DASHBOARD
+   ========================================== */
 #dashboard {
     display: none;
     height: 100%;
@@ -166,7 +172,9 @@ body {
     transform: rotate(30deg);
 }
 
-/* TAB CONTAINER */
+/* ==========================================
+   TAB CONTAINER
+   ========================================== */
 .tab-container {
     flex: 1;
     overflow: hidden;
@@ -194,14 +202,16 @@ body {
     height: 100%;
 }
 
-/* BOTTOM NAVIGATION - GARIS MENYALA */
+/* ==========================================
+   BOTTOM NAVIGATION
+   ========================================== */
 .bottom-nav {
     display: flex;
     background: rgba(5, 3, 12, 0.95);
     backdrop-filter: blur(12px);
     border-top: 1px solid var(--border-line);
     padding: 0;
-    padding-bottom: env(safe-area-inset-bottom, 0px);  /* 🎯 safe area */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     gap: 0;
 }
 
@@ -246,7 +256,9 @@ body {
     transform: scale(0.95);
 }
 
-/* MAILBOX - LIST SERAGAM */
+/* ==========================================
+   MAILBOX - LIST
+   ========================================== */
 .card-list {
     display: flex;
     flex-direction: column;
@@ -341,7 +353,9 @@ body {
     background: rgba(255, 68, 68, 0.15);
 }
 
-/* BADGES */
+/* ==========================================
+   BADGES
+   ========================================== */
 .badge-unread {
     background: var(--color-primary);
     color: white;
@@ -375,7 +389,9 @@ body {
     color: var(--text-muted);
 }
 
-/* ADMIN MANAGEMENT */
+/* ==========================================
+   ADMIN MANAGEMENT
+   ========================================== */
 .admin-row {
     background: var(--bg-solid-form);
     border: 1px solid var(--border-line);
@@ -425,7 +441,9 @@ body {
     border-color: #f59e0b;
 }
 
-/* CHAT WIDGET */
+/* ==========================================
+   CHAT WIDGET
+   ========================================== */
 .floating-chat {
     position: fixed;
     bottom: 80px;
@@ -553,7 +571,6 @@ body {
     gap: 8px;
 }
 
-/* PESAN SISTEM (MUTE/UNMUTE) */
 .chat-row.system-message {
     display: flex;
     justify-content: center;
@@ -579,7 +596,6 @@ body {
     line-height: 1.4;
 }
 
-/* CHAT BUBBLES */
 .chat-row {
     margin-bottom: 8px;
     max-width: 85%;
@@ -711,7 +727,9 @@ body {
     transform: scale(0.95);
 }
 
-/* MODAL */
+/* ==========================================
+   MODAL
+   ========================================== */
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -750,7 +768,6 @@ body {
     color: var(--color-primary);
 }
 
-/* MODAL HEADER - TANPA GARIS BAWAH */
 .modal-sender-row {
     font-size: 1rem;
     font-weight: bold;
@@ -758,7 +775,6 @@ body {
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
-    /* border-bottom: 1px solid var(--border-line); → DIHAPUS */
 }
 
 .modal-sender-row .modal-uid {
@@ -777,7 +793,6 @@ body {
     font-size: 0.7rem;
     color: var(--text-muted);
     margin-bottom: 12px;
-    /* border-bottom: 1px solid var(--border-line); → DIHAPUS */
 }
 
 .modal-message {
@@ -793,7 +808,6 @@ body {
     text-indent: 0;
 }
 
-/* MODAL BUTTONS */
 .modal-buttons {
     display: flex;
     gap: 8px;
@@ -830,7 +844,9 @@ body {
     color: white;
 }
 
-/* TOAST */
+/* ==========================================
+   TOAST
+   ========================================== */
 .toast {
     position: fixed;
     bottom: -100px;
@@ -851,7 +867,9 @@ body {
     bottom: 30px;
 }
 
-/* TOGGLE SWITCH */
+/* ==========================================
+   TOGGLE SWITCH
+   ========================================== */
 .toggle-switch {
     position: relative;
     display: inline-block;
@@ -1004,7 +1022,9 @@ input:checked + .toggle-slider:before {
     transform: scale(0.97);
 }
 
-/* LOADING SPINNER */
+/* ==========================================
+   LOADING SPINNER
+   ========================================== */
 .fa-spinner {
     animation: spin 0.8s linear infinite;
 }
@@ -1013,7 +1033,9 @@ input:checked + .toggle-slider:before {
     to { transform: rotate(360deg); }
 }
 
-/* RESPONSIVE */
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
 @media (max-width: 480px) {
     .chat-widget {
         width: 92vw;
@@ -1053,24 +1075,19 @@ input:checked + .toggle-slider:before {
         font-size: 0.65rem;
     }
 }
-/* ==========================================
-   OPTIMASI LAYAR LEBAR (UNTUK SEMUA TAB)
-   ========================================== */
+
 @media screen and (min-width: 1200px) {
-    /* Batasi lebar konten semua tab */
     .tab-page {
         display: flex;
         flex-direction: column;
         align-items: center;
     }
     
-    /* Konten di dalam tab-page */
     .tab-page > * {
         max-width: 1000px;
         width: 100%;
     }
     
-    /* Pusatkan modal */
     .modal-content {
         max-width: 700px;
         width: 90%;
@@ -1162,7 +1179,6 @@ input:checked + .toggle-slider:before {
     transform: scale(0.97);
 }
 
-/* Item actions */
 .item-actions {
     display: flex;
     justify-content: space-between;
@@ -1171,7 +1187,6 @@ input:checked + .toggle-slider:before {
     gap: 10px;
 }
 
-/* Toggle Publish */
 .toggle-publish {
     display: inline-flex;
     align-items: center;
@@ -1217,7 +1232,6 @@ input:checked + .toggle-slider:before {
     color: var(--text-muted);
 }
 
-/* Status badges */
 .item-badge {
     position: absolute;
     top: -8px;
@@ -1314,104 +1328,37 @@ input:checked + .toggle-slider:before {
 }
 
 /* ==========================================
-   🎯 GATE SETTINGS SECTION
+   🎯 GATE SETTINGS — TOMBOL KECIL
    ========================================== */
-.gate-settings-section {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
+.gate-settings-icon-btn {
+    background: rgba(245, 158, 11, 0.15);
     border: 1px solid #f59e0b;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 20px;
-    box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
-}
-
-.gate-settings-header {
-    color: #f59e0b;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 1px;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.gate-settings-header i {
-    font-size: 0.9rem;
-}
-
-.gate-settings-btn {
-    width: 100%;
-    background: linear-gradient(135deg, #f59e0b, #d97706);
-    border: none;
-    border-radius: 8px;
-    padding: 10px 14px;
-    color: white;
-    font-weight: 600;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-}
-
-.gate-settings-btn:hover {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
-}
-
-.gate-settings-btn:active {
-    transform: translateY(0) scale(0.98);
-}
-
-/* Info row di modal */
-.gate-settings-info {
-    background: var(--bg-dark);
-    border-radius: 10px;
-    padding: 12px 14px;
-    margin-bottom: 16px;
-}
-
-.gate-settings-info-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
-    font-size: 0.75rem;
-    gap: 12px;
-}
-
-.gate-settings-info-row:not(:last-child) {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.gate-settings-label {
-    color: var(--text-muted);
+    color: #f59e0b;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 0;
     flex-shrink: 0;
 }
 
-.gate-settings-code {
-    font-family: monospace;
-    font-size: 0.85rem;
-    font-weight: bold;
-    color: #f59e0b;
-    background: rgba(245, 158, 11, 0.1);
-    padding: 3px 10px;
-    border-radius: 6px;
-    letter-spacing: 1px;
-    word-break: break-all;
+.gate-settings-icon-btn:hover {
+    background: rgba(245, 158, 11, 0.3);
+    transform: scale(1.05);
 }
 
-.gate-settings-question {
-    color: white;
-    font-weight: 500;
-    text-align: right;
-    word-break: break-word;
+.gate-settings-icon-btn:active {
+    transform: scale(0.95);
 }
 
-/* Form */
+/* ==========================================
+   🎯 GATE SETTINGS — FORM (MODAL)
+   ========================================== */
 .gate-settings-form {
     display: flex;
     flex-direction: column;
@@ -1425,16 +1372,10 @@ input:checked + .toggle-slider:before {
 }
 
 .gate-settings-group label {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
-    letter-spacing: 0.8px;
     font-weight: 600;
-    text-transform: uppercase;
-}
-
-.gate-settings-group label i {
-    color: #f59e0b;
-    margin-right: 4px;
+    letter-spacing: 0.5px;
 }
 
 .gate-settings-group input {
@@ -1451,13 +1392,6 @@ input:checked + .toggle-slider:before {
 }
 
 .gate-settings-group input:focus {
-    border-color: #f59e0b;
-    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
-}
-
-.gate-settings-group small {
-    font-size: 0.6rem;
-    color: var(--text-muted);
-    line-height: 1.4;
-    opacity: 0.8;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15);
 }

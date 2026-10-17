@@ -283,14 +283,6 @@ function renderMemberList(members) {
             `;
         }
         
-        if (canEditMember(currentAdmin, member)) {
-            actionButtons += `
-                <button class="btn-icon btn-icon-primary" onclick="window.generateActivationCode('${escapeHtml(member.uid)}', '${escapeHtml(member.ign)}')" title="Generate Kode Aktivasi">
-                    <i class="fas fa-key"></i>
-                </button>
-            `;
-        }
-        
         if (currentAdmin?.role1 === 'leader') {
             const isSelf = member.uid === currentAdmin.linkedMemberUid;
             if (!isSelf) {
@@ -843,12 +835,12 @@ function renderEditMemberInternal(member) {
             ${canEditIGNWA ? `
             <div style="border-top: 1px solid var(--border-line); padding-top: 16px; margin-top: 16px;">
                 <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;">
-                    🔑 AKTIVASI AKUN
+                    ✅ VERIFIKASI AKUN
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button onclick="window.generateActivationCode('${escapeHtml(member.uid)}', '${escapeHtml(member.ign)}')" 
-                            style="flex: 1; background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; border-radius: 8px; padding: 10px; color: #f59e0b; cursor: pointer; font-size: 0.75rem; font-weight: bold;">
-                        <i class="fas fa-key"></i> Generate Kode
+                            style="flex: 1; background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; border-radius: 8px; padding: 10px; color: #4ade80; cursor: pointer; font-size: 0.75rem; font-weight: bold;">
+                        <i class="fas fa-check-circle"></i> Generate Kode Verifikasi
                     </button>
                     ${member.activationStatus?.hasCode && !member.activationStatus?.used ? `
                     <button onclick="window.revokeActivationCode('${escapeHtml(member.uid)}', '${escapeHtml(member.ign)}')" 
@@ -862,7 +854,7 @@ function renderEditMemberInternal(member) {
                     ${member.activationStatus.used 
                         ? '✅ Sudah dipakai' 
                         : member.activationStatus.expired 
-                            ? '⏰ Expired' 
+                            ? '⏰ Kode expired' 
                             : `⏰ Aktif hingga: ${new Date(member.activationStatus.expiredAt).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'})}`
                     }
                 </div>

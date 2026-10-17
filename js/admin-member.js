@@ -843,6 +843,36 @@ function renderEditMemberInternal(member) {
                 ${statusOptions}
             </div>
             
+            ${canEditIGNWA ? `
+            <div style="border-top: 1px solid var(--border-line); padding-top: 16px; margin-top: 16px;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px;">
+                    🔑 AKTIVASI AKUN
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="window.generateActivationCode('${escapeHtml(member.uid)}', '${escapeHtml(member.ign)}')" 
+                            style="flex: 1; background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; border-radius: 8px; padding: 10px; color: #f59e0b; cursor: pointer; font-size: 0.75rem; font-weight: bold;">
+                        <i class="fas fa-key"></i> Generate Kode
+                    </button>
+                    ${member.activationStatus?.hasCode && !member.activationStatus?.used ? `
+                    <button onclick="window.revokeActivationCode('${escapeHtml(member.uid)}', '${escapeHtml(member.ign)}')" 
+                            style="flex: 1; background: rgba(255, 68, 68, 0.2); border: 1px solid #ff4444; border-radius: 8px; padding: 10px; color: #ff8888; cursor: pointer; font-size: 0.75rem;">
+                        <i class="fas fa-trash"></i> Revoke
+                    </button>
+                    ` : ''}
+                </div>
+                ${member.activationStatus?.hasCode ? `
+                <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 8px; padding: 6px 8px; background: rgba(0,0,0,0.3); border-radius: 6px;">
+                    ${member.activationStatus.used 
+                        ? '✅ Sudah dipakai' 
+                        : member.activationStatus.expired 
+                            ? '⏰ Expired' 
+                            : `⏰ Aktif hingga: ${new Date(member.activationStatus.expiredAt).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'})}`
+                    }
+                </div>
+                ` : ''}
+            </div>
+            ` : ''}
+            
             <div class="modal-buttons" style="margin-top: 20px;">
                 <button onclick="submitEditMember('${escapeHtml(member.uid)}')" 
                         style="background:var(--color-primary);">
@@ -1705,6 +1735,240 @@ window.submitTransferLeadership = async function() {
         window.showToast('❌ Koneksi gagal', true);
         btn.innerHTML = originalHtml;
         btn.disabled = false;
+    }
+};
+
+// ==========================================
+// 🎯 GENERATE ACTIVATION CODE (Admin Panel)
+// ==========================================
+window.generateActivationCode = async function(memberUid, memberIgn) {
+    if (currentAdmin?.role1 !== 'leader' && currentAdmin?.role1 !== 'co-lead') {
+        window.showToast('❌ Hanya leader/co-lead yang bisa generate', true);
+        return;
+    }
+    
+    // Tampilkan modal loading dulu
+    renderActivationCodeModal({
+        code: null,
+        uid: memberUid,
+        ign: memberIgn,
+        expired: null,
+        isLoading: true
+    });
+    
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=generateActivationCode&adminId=${currentAdmin.id}&uid=${encodeURIComponent(memberUid)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            // Update modal dengan kode
+            renderActivationCodeModal({
+                code: data.code,
+                uid: data.uid,
+                ign: data.ign,
+                expired: data.expired,
+                isLoading: false
+            });
+        } else {
+            // Gagal generate
+            renderActivationCodeModal({
+                code: null,
+                uid: memberUid,
+                ign: memberIgn,
+                expired: null,
+                isLoading: false,
+                error: data.message || 'Gagal generate kode'
+            });
+        }
+    } catch(e) {
+        console.error('Generate activation code error:', e);
+        renderActivationCodeModal({
+            code: null,
+            uid: memberUid,
+            ign: memberIgn,
+            expired: null,
+            isLoading: false,
+            error: 'Koneksi gagal'
+        });
+    }
+};
+
+// ==========================================
+// 🎯 RENDER MODAL KODE AKTIVASI
+// ==========================================
+function renderActivationCodeModal({ code, uid, ign, expired, isLoading, error }) {
+    const modal = document.getElementById('modal-overlay');
+    if (!modal) return;
+    
+    let expiredStr = '-';
+    if (expired) {
+        const expiredDate = new Date(expired);
+        expiredStr = expiredDate.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+    
+    // === LOADING STATE ===
+    if (isLoading) {
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 380px;">
+                <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+                <h3 style="text-align: center; margin-bottom: 16px;">
+                    🔑 Generate Kode Aktivasi
+                </h3>
+                <div style="text-align: center; padding: 30px 20px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #f59e0b;"></i>
+                    <p style="margin-top: 12px; color: var(--text-muted); font-size: 0.8rem;">
+                        Generating kode untuk <strong>${escapeHtml(ign)}</strong>...
+                    </p>
+                </div>
+            </div>
+        `;
+        modal.style.display = 'flex';
+        return;
+    }
+    
+    // === ERROR STATE ===
+    if (error) {
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 380px;">
+                <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+                <h3 style="text-align: center; margin-bottom: 16px;">
+                    ⚠️ Gagal Generate
+                </h3>
+                <div style="text-align: center; padding: 20px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ff8888;"></i>
+                    <p style="margin-top: 12px; color: #ff8888; font-size: 0.8rem;">
+                        ${escapeHtml(error)}
+                    </p>
+                </div>
+                <div class="modal-buttons" style="margin-top: 16px;">
+                    <button onclick="window.closeModal()" style="background: #333;">Tutup</button>
+                </div>
+            </div>
+        `;
+        modal.style.display = 'flex';
+        return;
+    }
+    
+    // === SUCCESS STATE ===
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <button class="modal-close-x" onclick="window.closeModal()">✕</button>
+            <h3 style="text-align: center; margin-bottom: 16px;">
+                🔑 Kode Aktivasi
+            </h3>
+            
+            <div style="background: var(--bg-dark); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.75rem;">
+                    <span style="color: var(--text-muted);">Member:</span>
+                    <strong style="color: white;">${escapeHtml(ign)}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.75rem;">
+                    <span style="color: var(--text-muted);">UID:</span>
+                    <span style="color: white; font-family: monospace; font-size: 0.7rem;">${escapeHtml(uid)}</span>
+                </div>
+            </div>
+            
+            <div style="background: rgba(245, 158, 11, 0.1); border: 2px solid #f59e0b; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 16px;">
+                <div style="font-size: 0.65rem; color: #f59e0b; letter-spacing: 1px; margin-bottom: 8px;">
+                    KODE AKTIVASI
+                </div>
+                <code id="activation-code-value" style="font-size: 1.8rem; font-weight: bold; color: #f59e0b; letter-spacing: 4px; user-select: all; display: block; margin-bottom: 12px;">
+                    ${escapeHtml(code)}
+                </code>
+                <button onclick="window.copyActivationCode('${escapeHtml(code)}')" 
+                        style="background: var(--color-primary); color: white; border: none; border-radius: 8px; padding: 8px 20px; cursor: pointer; font-size: 0.75rem;">
+                    <i class="fas fa-copy"></i> Copy Kode
+                </button>
+            </div>
+            
+            <div style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 10px 12px; font-size: 0.7rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px;">
+                ⏰ Expire: <strong style="color: #f59e0b;">${expiredStr}</strong><br>
+                ⚠️ Kode hanya ditampilkan sekali. Kirim ke member via WA pribadi.
+            </div>
+            
+            <div style="text-align: center; padding: 8px; color: #4ade80; font-size: 0.7rem;">
+                ✅ Kode tersimpan di server
+            </div>
+            
+            <div class="modal-buttons" style="margin-top: 16px;">
+                <button onclick="window.closeModal()" style="background: #333;">Tutup</button>
+            </div>
+        </div>
+    `;
+    modal.style.display = 'flex';
+    
+    if (typeof pushView === 'function') {
+        pushView('activation-code', { uid, ign });
+    }
+}
+
+// ==========================================
+// 🎯 COPY KODE AKTIVASI
+// ==========================================
+window.copyActivationCode = function(code) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(() => {
+            window.showToast('✅ Kode dicopy');
+        }).catch(() => {
+            fallbackCopyActivationCode(code);
+        });
+    } else {
+        fallbackCopyActivationCode(code);
+    }
+};
+
+function fallbackCopyActivationCode(code) {
+    const textarea = document.createElement('textarea');
+    textarea.value = code;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        window.showToast('✅ Kode dicopy');
+    } catch(e) {
+        window.showToast('❌ Gagal copy', true);
+    }
+    document.body.removeChild(textarea);
+}
+
+// ==========================================
+// 🎯 REVOKE KODE AKTIVASI
+// ==========================================
+window.revokeActivationCode = async function(memberUid, memberIgn) {
+    if (currentAdmin?.role1 !== 'leader' && currentAdmin?.role1 !== 'co-lead') {
+        window.showToast('❌ Hanya leader/co-lead yang bisa revoke', true);
+        return;
+    }
+    
+    const confirmed = confirm(`Hapus kode aktivasi untuk ${memberIgn}?\n\nKode lama tidak akan bisa dipakai lagi.`);
+    if (!confirmed) return;
+    
+    try {
+        const url = `${window.GAS_ADMIN_URL}?action=revokeActivationCode&adminId=${currentAdmin.id}&uid=${encodeURIComponent(memberUid)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            window.showToast('✅ Kode aktivasi dihapus');
+            // Refresh member list untuk update status
+            if (typeof window.loadMemberList === 'function') {
+                window.loadMemberList(true);
+            }
+        } else {
+            window.showToast('❌ ' + (data.message || 'Gagal'), true);
+        }
+    } catch(e) {
+        console.error('Revoke activation code error:', e);
+        window.showToast('❌ Koneksi gagal', true);
     }
 };
 

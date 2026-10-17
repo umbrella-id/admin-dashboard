@@ -284,19 +284,11 @@ function renderMemberList(members) {
         }
         
         if (canEditMember(currentAdmin, member)) {
-            if (isVerified) {
-                actionButtons += `
-                    <button class="btn-icon btn-icon-primary" onclick="showVerifCode('${escapeHtml(member.uid)}')" title="Lihat Kode">
-                        <i class="fas fa-key"></i>
-                    </button>
-                `;
-            } else {
-                actionButtons += `
-                    <button class="btn-icon btn-icon-primary" onclick="generateVerifCode('${escapeHtml(member.uid)}')" title="Generate Kode">
-                        <i class="fas fa-key"></i>
-                    </button>
-                `;
-            }
+            actionButtons += `
+                <button class="btn-icon btn-icon-primary" onclick="window.generateActivationCode('${escapeHtml(member.uid)}', '${escapeHtml(member.ign)}')" title="Generate Kode Aktivasi">
+                    <i class="fas fa-key"></i>
+                </button>
+            `;
         }
         
         if (currentAdmin?.role1 === 'leader') {

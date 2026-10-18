@@ -330,10 +330,21 @@ async function renderMailDetailInternal(mail) {
     }
     
     let footerHTML = '';
+    const isAnonymousSaran = (mail.uid || '').startsWith('SARAN-');
+
     if (isFromAdmin) {
         footerHTML = '';
     } else if (status === 'DONE') {
         footerHTML = '';
+    } else if (isAnonymousSaran) {
+        // 🎯 Saran anonim — tidak bisa dibalas, hanya bisa diselesaikan
+        footerHTML = `
+            <div class="modal-buttons">
+                <button onclick="markAsDone(${mail.timestamp})" style="background:#22c55e; color:white;">
+                    <i class="fas fa-check"></i> SELESAI
+                </button>
+            </div>
+        `;
     } else {
         footerHTML = `
             <div class="modal-buttons">

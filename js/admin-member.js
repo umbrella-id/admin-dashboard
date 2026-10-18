@@ -646,8 +646,16 @@ async function submitAddMember() {
     }
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=addOrReactivateMember&adminId=${currentAdmin.id}&ign=${encodeURIComponent(ign)}&wa=${encodeURIComponent(wa)}`;
-        const res = await fetch(url);
+        const res = await fetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'addOrReactivateMember',
+                adminId: currentAdmin.id,
+                ign: ign,
+                wa: wa
+            })
+        });
         const result = await res.json();
         
         if (result.status === 'success') {
@@ -968,8 +976,19 @@ async function submitEditMember(uid) {
     }
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=updateMemberWithMerge&adminId=${currentAdmin.id}&uid=${encodeURIComponent(uid)}&ign=${encodeURIComponent(newIGN)}&wa=${encodeURIComponent(newWA)}&role=${encodeURIComponent(finalRole)}&status=${encodeURIComponent(finalStatus)}`;
-        const res = await fetch(url);
+        const res = await fetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'updateMemberWithMerge',
+                adminId: currentAdmin.id,
+                uid: uid,
+                ign: newIGN,
+                wa: newWA,
+                role: finalRole,
+                status: finalStatus
+            })
+        });
         const result = await res.json();
         
         if (result.status === 'success') {

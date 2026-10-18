@@ -210,8 +210,14 @@ async function loadMemberList(forceRefresh = false) {
     }
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=getAllMembers&adminId=${currentAdmin.id}`;
-        const res = await fetch(url);
+        const res = await fetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'getAllMembers',
+                adminId: currentAdmin.id
+            })
+        });
         const result = await res.json();
         
         if (result.status === 'success' && result.data) {

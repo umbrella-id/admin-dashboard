@@ -80,27 +80,51 @@ function getAdminDisplayName(linkedUid, fallbackName = '') {
 // LOAD ADMIN LINKED UIDS
 // ==========================================
 async function loadAdminLinkedUids() {
+    // 🎯 Coba dari cache dulu (dari getAllMembers sebelumnya)
+    const cachedAdmins = sessionStorage.getItem('umbrella_cached_admins');
+    if (cachedAdmins) {
+        try {
+            const adminsData = JSON.parse(cachedAdmins);
+            applyAdminData(adminsData);
+            console.log('✅ [ADMIN] loadAdminLinkedUids dari cache');
+            return;
+        } catch(e) {}
+    }
+    
+    // Fallback: fetch kalau tidak ada cache (misal user reload page)
     try {
         const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
         const res = await fetch(url);
         const data = await res.json();
         
         if (data.status === 'success' && data.data) {
-            cachedAdminLinkedData = data.data
-                .filter(a => a.linkedMemberUid && a.linkedMemberUid.trim() !== '')
-                .map(a => ({
-                    linkedUid: a.linkedMemberUid.trim(),
-                    admId: a.id,
-                    role1: a.role1 || '',
-                    role2: a.role2 || '',
-                    nama: a.nama || ''
-                }));
-            
-            cachedAdminLinkedUids = cachedAdminLinkedData.map(a => a.linkedUid);
+            applyAdminData(data.data);
+            sessionStorage.setItem('umbrella_cached_admins', JSON.stringify(data.data));
+            console.log('✅ [ADMIN] loadAdminLinkedUids dari fetch');
         }
     } catch(e) {
         console.error('loadAdminLinkedUids error:', e);
     }
+}
+
+// ==========================================
+// 🎯 Helper baru — apply admin data dari response getAllMembers
+// (menggantikan loadAdminLinkedUids() untuk flow normal)
+// ==========================================
+function applyAdminData(adminsData) {
+    if (!adminsData || !Array.isArray(adminsData)) return;
+    
+    cachedAdminLinkedData = adminsData
+        .filter(a => a.linkedMemberUid && a.linkedMemberUid.trim() !== '')
+        .map(a => ({
+            linkedUid: a.linkedMemberUid.trim(),
+            admId: a.id,
+            role1: a.role1 || '',
+            role2: a.role2 || '',
+            nama: a.nama || ''
+        }));
+    
+    cachedAdminLinkedUids = cachedAdminLinkedData.map(a => a.linkedUid);
 }
 
 // ==========================================
@@ -116,15 +140,8 @@ function applySnapshot(snapshot) {
     }
     
     if (snapshot.admins && Array.isArray(snapshot.admins)) {
-        cachedAdminLinkedData = snapshot.admins
-            .filter(a => a.linkedMemberUid && a.linkedMemberUid.trim() !== '')
-            .map(a => ({
-                linkedUid: a.linkedMemberUid.trim(),
-                admId: a.id,
-                role1: a.role1 || '',
-                role2: a.role2 || '',
-                nama: a.nama || ''
-            }));
+        applyAdminData(snapshot.admins);
+        sessionStorage.setItem('umbrella_cached_admins', JSON.stringify(snapshot.admins));
     }
     
     if (snapshot.linkedUids && Array.isArray(snapshot.linkedUids)) {
@@ -190,16 +207,18 @@ async function loadMemberList(forceRefresh = false) {
     const container = document.getElementById('member-list-container');
     if (!container) return;
     
+    // Render dari cache dulu (kalau ada)
     const cached = sessionStorage.getItem('umbrella_cached_members');
-    if (cached) {
+    const cachedAdmins = sessionStorage.getItem('umbrella_cached_admins');
+    if (cached && cachedAdmins) {
         try {
             const data = JSON.parse(cached);
+            const adminsData = JSON.parse(cachedAdmins);
             memberList = data;
             
-            loadAdminLinkedUids().then(() => {
-                renderMemberList(memberList);
-                updateMissingWABadge(memberList);
-            });
+            applyAdminData(adminsData);
+            renderMemberList(memberList);
+            updateMissingWABadge(memberList);
             
             console.log("📦 [MEMBER] Render dari cache, jumlah:", memberList.length);
         } catch(e) {}
@@ -210,6 +229,7 @@ async function loadMemberList(forceRefresh = false) {
     }
     
     try {
+        // 🎯 1 request — semua data (members + admins) sekaligus
         const res = await fetch(window.GAS_ADMIN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -222,9 +242,14 @@ async function loadMemberList(forceRefresh = false) {
         
         if (result.status === 'success' && result.data) {
             memberList = sortMembers(result.data);
-            sessionStorage.setItem('umbrella_cached_members', JSON.stringify(memberList));
             
-            await loadAdminLinkedUids();
+            // 🎯 Simpan admins dari response yang sama
+            if (result.admins && Array.isArray(result.admins)) {
+                applyAdminData(result.admins);
+                sessionStorage.setItem('umbrella_cached_admins', JSON.stringify(result.admins));
+            }
+            
+            sessionStorage.setItem('umbrella_cached_members', JSON.stringify(memberList));
             
             renderMemberList(memberList);
             updateMissingWABadge(memberList);

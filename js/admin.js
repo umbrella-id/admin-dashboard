@@ -650,6 +650,9 @@ function renderBottomNav() {
             if (tabId === 'member' && typeof window.loadMemberList === 'function') {
                 window.loadMemberList();
             }
+            if (tabId === 'manage-content' && typeof window.checkGateSettingsAccess === 'function') {
+            setTimeout(() => window.checkGateSettingsAccess(), 150);
+            }
         });
     });
     

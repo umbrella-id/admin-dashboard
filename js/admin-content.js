@@ -405,6 +405,7 @@ async function loadContentData() {
             currentContentData = data.data;
             renderContentEditor(currentContentData);
             hasUnsavedChanges = false;
+            checkGateSettingsAccess();
         } else {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data konten</div>';
         }

@@ -55,7 +55,7 @@ function formatDate(timestamp) {
 // ==========================================
 // UPDATE DATA DARI RESPONSE
 // ==========================================
-function updateKasDataFromResponse(responseData) {
+function updateKasDataFromResponse(responseData, breakdownData) {
     if (!responseData) return false;
     
     kasData.members = responseData.members || [];
@@ -63,21 +63,18 @@ function updateKasDataFromResponse(responseData) {
     kasData.history = responseData.history || [];
     kasData.incomingRequests = responseData.incomingRequests || [];
     kasData.outgoingRequests = (responseData.myRequests || []).filter(r => r.status === 'PENDING');
-    
-    // 🎯 bendahara = array of { admId, nama, isActive }
     kasData.bendahara = responseData.bendahara || [];
-    
-    // Total saldo — jumlahkan by Adm_Id (semua, termasuk arsip)
     kasData.totalSaldo = kasData.bendahara.reduce((sum, b) => sum + (kasData.saldo[b.admId] || 0), 0);
-    
     kasData.unreadNotifCount = responseData.pendingCount?.notifications || 0;
-    
     kasData.currentTarif = responseData.currentTarif || null;
     kasData.currentTarifDate = responseData.currentTarifDate || null;
     kasData.tarifLogs = responseData.tarifLogs || [];
     
-    renderKasDashboard();
-    updateNotifBadge();
+    // 🎯 Terima breakdown (kalau ada)
+    if (breakdownData) {
+        kasData.breakdown = breakdownData;
+    }
+    
     return true;
 }
 
@@ -102,11 +99,27 @@ async function loadKasDashboard(forceRefresh = false) {
     const container = document.getElementById('kas-container');
     if (!container) return;
     
+    // 🎯 Cache baru: { kas, breakdown } dalam satu key
     const cached = sessionStorage.getItem('umbrella_cached_kas');
-    if (cached && !forceRefresh) {
+    let cachedKas = null;
+    let cachedBreakdown = null;
+    
+    if (cached) {
         try {
-            const data = JSON.parse(cached);
-            updateKasDataFromResponse(data);
+            const parsed = JSON.parse(cached);
+            // Backward compat: cache lama format datanya langsung (bukan wrapper)
+            if (parsed.kas && parsed.breakdown) {
+                cachedKas = parsed.kas;
+                cachedBreakdown = parsed.breakdown;
+            } else {
+                cachedKas = parsed;   // format lama
+            }
+            
+            if (cachedKas) {
+                updateKasDataFromResponse(cachedKas, cachedBreakdown);
+                renderKasDashboard();
+                renderKasBreakdownPanel();
+            }
         } catch(e) {}
     }
     
@@ -118,14 +131,29 @@ async function loadKasDashboard(forceRefresh = false) {
     }
     
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`);
-        const result = await response.json();
+        // 🎯 Fetch paralel: kas + breakdown bersamaan
+        const needsBreakdown = currentAdmin?.webUid;
         
-        if (result.status === 'success' && result.data) {
-            sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(result.data));
+        const [kasResponse, breakdownResponse] = await Promise.all([
+            fetch(`${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`)
+                .then(r => r.json()),
+            needsBreakdown 
+                ? fetchKasBreakdownData()   // fungsi baru, return raw breakdown
+                : Promise.resolve(null)
+        ]);
+        
+        if (kasResponse.status === 'success' && kasResponse.data) {
+            updateKasDataFromResponse(kasResponse.data, breakdownResponse);
+            
+            // Simpan ke cache sebagai object gabungan
+            sessionStorage.setItem('umbrella_cached_kas', JSON.stringify({
+                kas: kasResponse.data,
+                breakdown: breakdownResponse || null
+            }));
             sessionStorage.setItem('umbrella_cached_kas_time', Date.now().toString());
-            updateKasDataFromResponse(result.data);
-            loadKasBreakdown();
+            
+            renderKasDashboard();
+            renderKasBreakdownPanel();
         } else if (showLoading) {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
         }
@@ -139,66 +167,50 @@ async function loadKasDashboard(forceRefresh = false) {
     }
 }
 
-// ==========================================
-// 🎯 KAS BREAKDOWN — Jatuh Tempo & Dibayar Dimuka
-// ==========================================
-async function loadKasBreakdown() {
-  // Butuh webUid untuk akses GAS5
-  const webUid = currentAdmin?.webUid || '';
-  if (!webUid) {
-    kasData.breakdown = { error: 'no_webuid' };
-    renderKasBreakdownPanel();
-    return;
-  }
-  
-  kasData.breakdown = { loading: true };
-  renderKasBreakdownPanel();
-  
-  try {
-    const now = new Date();
-    const tahun = now.getFullYear();
-    const bulan = now.getMonth() + 1;
-    
-    const url = `${window.GAS5_URL}?action=getMonthlyTable` +
-      `&uid=${encodeURIComponent(webUid)}` +
-      `&tahun=${tahun}&bulan=${bulan}`;
-    
-    const res = await fetch(url);
-    const data = await res.json();
-    
-    if (!data.success) {
-      kasData.breakdown = { error: data.error || 'gagal' };
-      renderKasBreakdownPanel();
-      return;
+// 🎯 Fetch breakdown murni — return data, tidak render
+async function fetchKasBreakdownData() {
+    const webUid = currentAdmin?.webUid || '';
+    if (!webUid) {
+        return { error: 'no_webuid' };
     }
     
-    // Sum semua deposit (angka S)
-    const memberData = data.data || [];
-    let totalDeposit = 0;
-    let memberDenganDeposit = 0;
-    
-    for (const m of memberData) {
-      const dep = parseFloat(m.deposit) || 0;
-      if (dep > 0) {
-        totalDeposit += dep;
-        memberDenganDeposit++;
-      }
+    try {
+        const now = new Date();
+        const tahun = now.getFullYear();
+        const bulan = now.getMonth() + 1;
+        
+        const url = `${window.GAS5_URL}?action=getMonthlyTable` +
+            `&uid=${encodeURIComponent(webUid)}` +
+            `&tahun=${tahun}&bulan=${bulan}`;
+        
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (!data.success) {
+            return { error: data.error || 'gagal' };
+        }
+        
+        const memberData = data.data || [];
+        let totalDeposit = 0;
+        let memberDenganDeposit = 0;
+        
+        for (const m of memberData) {
+            const dep = parseFloat(m.deposit) || 0;
+            if (dep > 0) {
+                totalDeposit += dep;
+                memberDenganDeposit++;
+            }
+        }
+        
+        return {
+            dibayarDimuka: totalDeposit,
+            memberDenganDeposit: memberDenganDeposit,
+            totalMember: memberData.length
+        };
+    } catch(e) {
+        console.error('fetchKasBreakdownData error:', e);
+        return { error: 'koneksi' };
     }
-    
-    kasData.breakdown = {
-      dibayarDimuka: totalDeposit,
-      jatuhTempo: Math.max(0, kasData.totalSaldo - totalDeposit),
-      memberDenganDeposit: memberDenganDeposit,
-      totalMember: memberData.length,
-      loading: false
-    };
-    
-    renderKasBreakdownPanel();
-  } catch(e) {
-    console.error('loadKasBreakdown error:', e);
-    kasData.breakdown = { error: 'koneksi' };
-    renderKasBreakdownPanel();
-  }
 }
 
 // ==========================================
@@ -212,16 +224,6 @@ function renderKasBreakdownPanel() {
   
   if (!bd) {
     container.innerHTML = '';
-    return;
-  }
-  
-  if (bd.loading) {
-    container.innerHTML = `
-      <div class="kas-breakdown-box loading">
-        <div class="kas-breakdown-title">RINCIAN KAS</div>
-        <div class="kas-breakdown-loading"><i class="fas fa-spinner fa-spin"></i> Menghitung...</div>
-      </div>
-    `;
     return;
   }
   
@@ -239,12 +241,10 @@ function renderKasBreakdownPanel() {
     return;
   }
   
+  // 🎯 Hitung jatuhTempo di sini dari totalSaldo - dibayarDimuka
   const totalKas = kasData.totalSaldo;
-  const jatuhTempo = bd.jatuhTempo;
-  const dibayarDimuka = bd.dibayarDimuka;
-  const selisih = totalKas - dibayarDimuka;
-  
-  // Kalau dibayar dimuka > total kas (data anomali), kasih warning
+  const dibayarDimuka = bd.dibayarDimuka || 0;
+  const jatuhTempo = Math.max(0, totalKas - dibayarDimuka);
   const isAnomali = totalKas < dibayarDimuka;
   
   let html = `
@@ -272,7 +272,7 @@ function renderKasBreakdownPanel() {
         </span>
       </div>
       <div class="kas-breakdown-desc">
-        Sisa deposit ${bd.memberDenganDeposit} dari ${bd.totalMember} member (terikat iuran mendatang)
+        Sisa deposit ${bd.memberDenganDeposit || 0} dari ${bd.totalMember || 0} member (terikat iuran mendatang)
       </div>
   `;
   
@@ -281,13 +281,11 @@ function renderKasBreakdownPanel() {
       <div class="kas-breakdown-warning">
         <i class="fas fa-exclamation-triangle"></i>
         Total kas lebih kecil dari deposit tercatat (selisih: ${formatSpina(dibayarDimuka - totalKas)}).
-        Ada data yang perlu dicek (kemungkinan pengeluaran belum tercatat atau member nonaktif dengan deposit).
       </div>
     `;
   }
   
   html += `</div>`;
-  
   container.innerHTML = html;
 }
 
@@ -303,7 +301,7 @@ window.refreshKas = async function() {
     btn.disabled = true;
     
     try {
-        await loadKasDashboard(true);
+        await loadKasDashboard(true);   // fetch kas + breakdown paralel di dalamnya
         window.showToast("✅ Data kas diperbarui");
     } catch(e) {
         console.error("Refresh kas error:", e);

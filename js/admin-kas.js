@@ -9,8 +9,8 @@
 
 let kasData = {
     members: [],
-    bendahara: [],           // Array of { admId, nama, isActive }
-    saldo: {},               // { 'ADM-0000': 234800000 }
+    bendahara: [],
+    saldo: {},
     history: [],
     incomingRequests: [],
     outgoingRequests: [],
@@ -19,7 +19,8 @@ let kasData = {
     totalSaldo: 0,
     currentTarif: null,
     currentTarifDate: null,
-    tarifLogs: []
+    tarifLogs: [],
+    breakdown: null 
 };
 
 let kasLoading = false;
@@ -124,6 +125,9 @@ async function loadKasDashboard(forceRefresh = false) {
             sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(result.data));
             sessionStorage.setItem('umbrella_cached_kas_time', Date.now().toString());
             updateKasDataFromResponse(result.data);
+            if (currentAdmin?.role1 === 'leader') {
+                loadKasBreakdown();
+            }
         } else if (showLoading) {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
         }
@@ -135,6 +139,161 @@ async function loadKasDashboard(forceRefresh = false) {
     } finally {
         kasLoading = false;
     }
+}
+
+// ==========================================
+// 🎯 KAS BREAKDOWN — Jatuh Tempo & Dibayar Dimuka
+// ==========================================
+async function loadKasBreakdown() {
+  // Butuh webUid untuk akses GAS5
+  const webUid = currentAdmin?.webUid || '';
+  if (!webUid) {
+    kasData.breakdown = { error: 'no_webuid' };
+    renderKasBreakdownPanel();
+    return;
+  }
+  
+  kasData.breakdown = { loading: true };
+  renderKasBreakdownPanel();
+  
+  try {
+    const now = new Date();
+    const tahun = now.getFullYear();
+    const bulan = now.getMonth() + 1;
+    
+    const url = `${window.GAS5_URL}?action=getMonthlyTable` +
+      `&uid=${encodeURIComponent(webUid)}` +
+      `&tahun=${tahun}&bulan=${bulan}`;
+    
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if (!data.success) {
+      kasData.breakdown = { error: data.error || 'gagal' };
+      renderKasBreakdownPanel();
+      return;
+    }
+    
+    // Sum semua deposit (angka S)
+    const memberData = data.data || [];
+    let totalDeposit = 0;
+    let memberDenganDeposit = 0;
+    
+    for (const m of memberData) {
+      const dep = parseFloat(m.deposit) || 0;
+      if (dep > 0) {
+        totalDeposit += dep;
+        memberDenganDeposit++;
+      }
+    }
+    
+    kasData.breakdown = {
+      dibayarDimuka: totalDeposit,
+      jatuhTempo: Math.max(0, kasData.totalSaldo - totalDeposit),
+      memberDenganDeposit: memberDenganDeposit,
+      totalMember: memberData.length,
+      loading: false
+    };
+    
+    renderKasBreakdownPanel();
+  } catch(e) {
+    console.error('loadKasBreakdown error:', e);
+    kasData.breakdown = { error: 'koneksi' };
+    renderKasBreakdownPanel();
+  }
+}
+
+// ==========================================
+// 🎯 RENDER PANEL BREAKDOWN
+// ==========================================
+function renderKasBreakdownPanel() {
+  // 🎯 Guard: hanya leader
+  if (currentAdmin?.role1 !== 'leader') return;
+  
+  const container = document.getElementById('kas-breakdown-panel');
+  if (!container) return;
+  
+  const bd = kasData.breakdown;
+  
+  if (!bd) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  if (bd.loading) {
+    container.innerHTML = `
+      <div class="kas-breakdown-box loading">
+        <div class="kas-breakdown-title">RINCIAN KAS</div>
+        <div class="kas-breakdown-loading"><i class="fas fa-spinner fa-spin"></i> Menghitung...</div>
+      </div>
+    `;
+    return;
+  }
+  
+  if (bd.error) {
+    let msg = 'Gagal memuat rincian';
+    if (bd.error === 'no_webuid') msg = 'Akun admin belum terhubung ke member — tidak bisa menampilkan rincian';
+    else if (bd.error === 'koneksi') msg = 'Koneksi gagal';
+    
+    container.innerHTML = `
+      <div class="kas-breakdown-box error">
+        <div class="kas-breakdown-title">RINCIAN KAS</div>
+        <div class="kas-breakdown-error"><i class="fas fa-exclamation-triangle"></i> ${escapeHtml(msg)}</div>
+      </div>
+    `;
+    return;
+  }
+  
+  const totalKas = kasData.totalSaldo;
+  const jatuhTempo = bd.jatuhTempo;
+  const dibayarDimuka = bd.dibayarDimuka;
+  const selisih = totalKas - dibayarDimuka;
+  
+  // Kalau dibayar dimuka > total kas (data anomali), kasih warning
+  const isAnomali = totalKas < dibayarDimuka;
+  
+  let html = `
+    <div class="kas-breakdown-box">
+      <div class="kas-breakdown-title">RINCIAN KAS</div>
+      
+      <div class="kas-breakdown-row">
+        <span class="kas-breakdown-label">
+          <i class="fas fa-check-circle" style="color:#4ade80;"></i>
+          Jatuh Tempo
+        </span>
+        <span class="kas-breakdown-value" style="color:#4ade80;">
+          ${formatSpina(jatuhTempo)}
+        </span>
+      </div>
+      <div class="kas-breakdown-desc">Uang milik guild s/d akhir bulan — bebas dipakai</div>
+      
+      <div class="kas-breakdown-row">
+        <span class="kas-breakdown-label">
+          <i class="fas fa-lock" style="color:#f59e0b;"></i>
+          Dibayar Dimuka
+        </span>
+        <span class="kas-breakdown-value" style="color:#f59e0b;">
+          ${formatSpina(dibayarDimuka)}
+        </span>
+      </div>
+      <div class="kas-breakdown-desc">
+        Sisa deposit ${bd.memberDenganDeposit} dari ${bd.totalMember} member (terikat iuran mendatang)
+      </div>
+  `;
+  
+  if (isAnomali) {
+    html += `
+      <div class="kas-breakdown-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        Total kas lebih kecil dari deposit tercatat (selisih: ${formatSpina(dibayarDimuka - totalKas)}).
+        Ada data yang perlu dicek (kemungkinan pengeluaran belum tercatat atau member nonaktif dengan deposit).
+      </div>
+    `;
+  }
+  
+  html += `</div>`;
+  
+  container.innerHTML = html;
 }
 
 // ==========================================
@@ -203,6 +362,7 @@ function renderKasDashboard() {
                 <div class="kas-total-label">TOTAL KAS GUILD</div>
                 <div class="kas-total-value">${formatSpina(totalSaldo)}</div>
             </div>
+            ${currentAdmin?.role1 === 'leader' ? '<div id="kas-breakdown-panel"></div>' : ''}
         </div>
     `;
     
@@ -381,6 +541,7 @@ function renderKasDashboard() {
     `;
     
     container.innerHTML = html;
+    renderKasBreakdownPanel();
     
     // ==========================================
     // EVENT DELEGATION — Kas Form Tabs

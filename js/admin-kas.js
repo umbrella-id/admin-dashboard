@@ -125,9 +125,7 @@ async function loadKasDashboard(forceRefresh = false) {
             sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(result.data));
             sessionStorage.setItem('umbrella_cached_kas_time', Date.now().toString());
             updateKasDataFromResponse(result.data);
-            if (currentAdmin?.role1 === 'leader') {
-                loadKasBreakdown();
-            }
+            loadKasBreakdown();
         } else if (showLoading) {
             container.innerHTML = '<div class="empty-state">⚠️ Gagal memuat data kas</div>';
         }
@@ -207,9 +205,6 @@ async function loadKasBreakdown() {
 // 🎯 RENDER PANEL BREAKDOWN
 // ==========================================
 function renderKasBreakdownPanel() {
-  // 🎯 Guard: hanya leader
-  if (currentAdmin?.role1 !== 'leader') return;
-  
   const container = document.getElementById('kas-breakdown-panel');
   if (!container) return;
   
@@ -362,7 +357,7 @@ function renderKasDashboard() {
                 <div class="kas-total-label">TOTAL KAS GUILD</div>
                 <div class="kas-total-value">${formatSpina(totalSaldo)}</div>
             </div>
-            ${currentAdmin?.role1 === 'leader' ? '<div id="kas-breakdown-panel"></div>' : ''}
+            <div id="kas-breakdown-panel"></div>
         </div>
     `;
     

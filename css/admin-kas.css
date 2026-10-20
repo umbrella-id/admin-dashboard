@@ -873,7 +873,85 @@
 .kas-saldo-row.arsip .kas-saldo-value {
     color: #f59e0b;
 }
+/* ==========================================
+   🎯 KAS BREAKDOWN PANEL (Jatuh Tempo & Dibayar Dimuka)
+   ========================================== */
+.kas-breakdown-box {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
 
+.kas-breakdown-title {
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: var(--color-primary);
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-line);
+}
+
+.kas-breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 0.85rem;
+}
+
+.kas-breakdown-label {
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.kas-breakdown-value {
+    font-weight: bold;
+    font-family: monospace;
+    font-size: 0.95rem;
+}
+
+.kas-breakdown-desc {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    padding: 0 0 8px 20px;
+    line-height: 1.4;
+}
+
+.kas-breakdown-warning {
+    background: rgba(255, 68, 68, 0.1);
+    border: 1px solid rgba(255, 68, 68, 0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-top: 10px;
+    font-size: 0.7rem;
+    color: #ff8888;
+    line-height: 1.4;
+}
+
+.kas-breakdown-warning i {
+    margin-right: 4px;
+}
+
+.kas-breakdown-loading,
+.kas-breakdown-error {
+    font-size: 0.75rem;
+    text-align: center;
+    padding: 10px;
+    color: var(--text-muted);
+}
+
+.kas-breakdown-error {
+    color: #ff8888;
+}
+
+.kas-breakdown-error i {
+    margin-right: 4px;
+}
 .modal-content .modal-buttons button:active {
     transform: scale(0.97);
 }

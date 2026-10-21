@@ -259,15 +259,13 @@ function routeToView(viewName, data) {
             break;
         
         // ==========================================
-        // CONTENT SUB-VIEW (BARU — Fase D)
+        // CONTENT SUB-VIEWS (Fase D/E) — delegate
         // ==========================================
-        case 'content-sub':
-            if (typeof window.handleContentView === 'function') {
-                window.handleContentView('content-sub', data);
-            }
-            break;
-        
         default:
+            if (viewName.indexOf('content-') === 0 && typeof window.handleContentView === 'function') {
+                const handled = window.handleContentView(viewName, data);
+                if (handled) return;
+            }
             console.warn(`⚠️ Unknown view: ${viewName}`);
     }
 }

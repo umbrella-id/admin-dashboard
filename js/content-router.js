@@ -9,10 +9,23 @@ window.handleContentView = function(viewName, data) {
         window.renderContentSub(data.category);
       }
       return true;
-      
+    
     case 'content-info':
       if (typeof window.renderInfoView === 'function') {
         window.renderInfoView();
+      }
+      return true;
+    
+    // BARU — Gallery
+    case 'content-gallery-edit':
+      if (typeof window.renderGalleryEditForm === 'function') {
+        window.renderGalleryEditForm();
+      }
+      return true;
+    
+    case 'content-gallery-add':
+      if (typeof window.renderGalleryAddForm === 'function') {
+        window.renderGalleryAddForm();
       }
       return true;
     

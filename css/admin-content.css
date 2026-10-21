@@ -818,3 +818,218 @@
     height: 28px;
     font-size: 0.7rem;
 }
+
+/* ===== GALLERY GRID ===== */
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+@media (max-width: 900px) {
+    .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+    .gallery-grid { grid-template-columns: 1fr; gap: 8px; }
+}
+
+.gallery-card {
+    position: relative;
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+    aspect-ratio: 1;
+}
+
+.gallery-card:hover {
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+}
+
+.gallery-card:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.gallery-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.gallery-card-img-empty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 2rem;
+    opacity: 0.3;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.gallery-card.img-error {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.gallery-card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 8px 10px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.5) 60%, transparent);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.gallery-card-title {
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+.gallery-card-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    pointer-events: auto;
+}
+
+.gallery-card-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: white;
+    transition: all 0.2s;
+}
+
+.gallery-card-btn.edit {
+    background: rgba(168, 85, 247, 0.9);
+}
+
+.gallery-card-btn.delete {
+    background: rgba(239, 68, 68, 0.9);
+}
+
+.gallery-card-btn:hover {
+    filter: brightness(1.2);
+    transform: scale(1.1);
+}
+
+.gallery-card-btn:active {
+    transform: scale(0.95);
+}
+
+/* ===== GALLERY EDIT FORM ===== */
+.gallery-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.gallery-edit-preview {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    background: #0a0612;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border-line);
+}
+
+.gallery-edit-preview > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.gallery-edit-preview-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0.7;
+}
+
+.gallery-edit-preview-empty i {
+    font-size: 2rem;
+    opacity: 0.5;
+}
+
+.gallery-edit-preview-overlay {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    gap: 8px;
+    z-index: 2;
+}
+
+.gallery-edit-preview-overlay button {
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--color-primary);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+}
+
+.gallery-edit-preview-overlay button:hover {
+    background: var(--color-primary);
+}
+
+.gallery-edit-preview-overlay button:active {
+    transform: scale(0.95);
+}
+
+.gallery-edit-preview-overlay button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.gallery-edit-loading {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: white;
+    font-size: 0.85rem;
+    z-index: 5;
+    backdrop-filter: blur(2px);
+}

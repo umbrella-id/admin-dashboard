@@ -64,17 +64,30 @@ async function renderPreviewStage() {
   const stage = document.getElementById('content-preview-stage');
   if (!stage) return;
   
-  // Fase D: placeholder dengan gambar default
+  // Fase D: preview pakai bg default + overlay ornamen
+  // Fase F: bg diambil dari bg.json (aktif) atau default
+  const bgUrl = 'https://umbrella-id.github.io/Assets/Background.webp';
+  const overlayUrl = 'Assets/preview-overlay.webp';
+  
   stage.innerHTML = `
-    <img src="https://umbrella-id.github.io/Assets/Background.webp" 
+    <img class="preview-bg" 
+         src="${bgUrl}" 
          alt="Preview Background"
-         onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'preview-loading\\'><i class=\\'fas fa-image\\'></i> Background default</div>'">
-    <div class="preview-overlay"></div>
+         onerror="this.style.display='none'">
+    <img class="preview-overlay-img" 
+         src="${overlayUrl}" 
+         alt=""
+         onerror="this.style.display='none'">
     <button class="preview-edit-btn" onclick="window.contentPreviewEdit()">
       <i class="fas fa-edit"></i> Edit
     </button>
   `;
 }
+
+window.contentPreviewEdit = function() {
+  // Fase D: placeholder
+  window.showToast('Fitur edit preview akan hadir di Fase F', true);
+};
 
 window.contentPreviewEdit = function() {
   // Fase D: placeholder

@@ -90,37 +90,40 @@
                 <div id="mailbox-list" class="card-list">Memuat...</div>
             </div>
             
-            <!-- KAS TAB -->
-            <div class="tab-page" data-tab="kas">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-                    <h3 style="margin:0;"><i class="fas fa-coins"></i> Buku Kas</h3>
-                    <button class="refresh-btn btn-small" onclick="window.refreshKas()">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
+            <!-- TAB KONTEN — REBUILD -->
+            <div class="tab-page" data-tab="manage-content" id="tab-content-page">
+                
+                <!-- ============ VIEW: HOME ============ -->
+                <div id="content-view-home" class="content-view">
+                    
+                    <!-- Banner Publish Status -->
+                    <div id="publish-status-banner" class="publish-status-banner">
+                        <div class="publish-banner-loading">Memuat status...</div>
+                    </div>
+                    
+                    <!-- Preview Stage -->
+                    <div id="content-preview-stage" class="content-preview-stage">
+                        <div class="preview-loading">
+                            <i class="fas fa-spinner fa-spin"></i> Memuat preview...
+                        </div>
+                    </div>
+                    
+                    <!-- Menu Grid -->
+                    <div class="content-menu-title">Pilih Kategori:</div>
+                    <div id="content-menu-grid" class="content-menu-grid"></div>
+                    
                 </div>
-                <div id="kas-container">
-                    <div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data kas...</div>
-                </div>
+                
+                <!-- ============ VIEW: SUB (dinamis) ============ -->
+                <div id="content-view-sub" class="content-view" style="display: none;"></div>
+                
             </div>
-
-            <!-- KELOLA KONTEN TAB -->
-            <div class="tab-page" data-tab="manage-content">
-                
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0;"><i class="fas fa-edit"></i> Kelola Konten Web</h3>
-                    <button id="gate-settings-section" 
-                            class="gate-settings-icon-btn" 
-                            onclick="window.openGateSettingsModal()" 
-                            title="Pengaturan Gate Web Internal"
-                            style="display: none;">
-                        <i class="fas fa-lock"></i>
-                    </button>
+            
+            <!-- ============ MODAL REUSABLE (di luar tab-page) ============ -->
+            <div id="content-modal-overlay" class="content-modal-overlay">
+                <div class="content-modal-box">
+                    <div id="content-modal-body"></div>
                 </div>
-                
-                <div id="content-editor-container">Memuat...</div>
-                <button id="refresh-cache-btn" class="btn-primary" onclick="window.updateAllContent()" style="margin-top: 20px; width: 100%;">
-                    <i class="fas fa-sync-alt"></i> PERBARUI KONTEN & CACHE
-                </button>
             </div>
             
         </div>

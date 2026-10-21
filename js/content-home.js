@@ -214,26 +214,32 @@ async function renderMenuCards() {
 // ==========================================
 window.contentOpenCategory = function(category) {
   console.log('📂 buka kategori:', category);
+  
+  // 1. RENDER DULU (pushView tidak render)
+  renderContentSub(category);
+  
+  // 2. BARU push state untuk back navigation
   if (typeof pushView === 'function') {
     pushView('content-sub', { category: category });
-  } else {
-    renderContentSub(category);
   }
 };
 
 window.renderContentSub = function(category) {
+  const homeView = document.getElementById('content-view-home');
+  const subView = document.getElementById('content-view-sub');
+  if (!homeView || !subView) return;
+  
+  // WAJIB: show sub-view, hide home — DI AWAL, sebelum routing
+  homeView.style.display = 'none';
+  subView.style.display = 'flex';
+  
+  // Route ke handler spesifik
   if (category === 'profil' && typeof window.renderProfilList === 'function') {
     window.renderProfilList();
     return;
   }
   
   // Placeholder untuk kategori lain (Fase E lanjutan)
-  const homeView = document.getElementById('content-view-home');
-  const subView = document.getElementById('content-view-sub');
-  if (!homeView || !subView) return;
-  homeView.style.display = 'none';
-  subView.style.display = 'flex';
-  
   const titles = { info: 'Informasi', gallery: 'Gallery', webinternal: 'Web Internal' };
   const title = titles[category] || category;
   
@@ -258,6 +264,27 @@ window.contentBackFromSub = function() {
     closeCurrentView();
   } else {
     renderContentHome();
+  }
+};
+
+window.contentBackFromSub = function() {
+  if (typeof closeCurrentView === 'function') {
+    closeCurrentView();
+  } else {
+    renderContentHome();
+  }
+};
+
+// ==========================================
+// RESET KE HOME — dipanggil dari router saat back ke dashboard
+// ==========================================
+window.contentResetToHome = function() {
+  const homeView = document.getElementById('content-view-home');
+  const subView = document.getElementById('content-view-sub');
+  if (homeView) homeView.style.display = 'flex';
+  if (subView) {
+    subView.style.display = 'none';
+    subView.innerHTML = '';
   }
 };
 

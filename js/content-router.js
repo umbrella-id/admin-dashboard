@@ -9,6 +9,12 @@ window.handleContentView = function(viewName, data) {
         window.renderContentSub(data.category);
       }
       return true;
+      
+    case 'content-info':
+      if (typeof window.renderInfoView === 'function') {
+        window.renderInfoView();
+      }
+      return true;
     
     case 'content-profil-edit':
       if (typeof window.renderProfilEditForm === 'function') {

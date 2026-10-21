@@ -1136,7 +1136,7 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
 };
 
 // ==========================================
-// SUBMIT PROMOTE / EDIT ADMIN
+// SUBMIT PROMOTE / EDIT ADMIN — atomic
 // ==========================================
 window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdToEdit = '') {
     if (currentAdmin?.role1 !== 'leader') {
@@ -1157,6 +1157,13 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
         return;
     }
     
+    const willDeleteAdmin = (mode === 'edit' && !role1 && !role2);
+    if (willDeleteAdmin) {
+        if (!confirm(`⚠️ Semua jabatan dikosongkan.\n\nAdmin ini akan DIHAPUS dari sistem.\n\nLanjutkan?`)) {
+            return;
+        }
+    }
+    
     const btn = document.querySelector('#modal-overlay .modal-buttons button:first-child');
     const originalHtml = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
@@ -1164,25 +1171,22 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
     
     try {
         if (mode === 'promote') {
+            // Promote — tetap pakai endpoint lama (sudah atomic)
             const url = `${window.GAS_ADMIN_URL}?action=promoteMemberToAdmin&adminId=${currentAdmin.id}&memberUid=${encodeURIComponent(memberUid)}&role1=${encodeURIComponent(role1)}&role2=${encodeURIComponent(role2)}`;
             const res = await fetch(url);
             const data = await res.json();
             
             if (data.status === 'success') {
                 window.closeModal();
-                
                 setTimeout(() => {
-                    // Ambil memberIgn dari memberList (sebelum state di-update)
                     const memberData = memberList.find(m => m.uid === memberUid);
                     const memberIgn = memberData ? memberData.ign : '';
                     renderPromoteSuccessModal(data.data, memberIgn);
                 }, 200);
                 
-                // 🎯 Update state dari snapshot (tanpa fetch ulang)
                 if (data.snapshot) {
                     applySnapshot(data.snapshot);
                 } else {
-                    // Fallback: fetch manual (kalau GAS 4 lama)
                     await loadAdminLinkedUids();
                     await loadMemberList(true);
                 }
@@ -1191,68 +1195,32 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 btn.innerHTML = originalHtml;
                 btn.disabled = false;
             }
+            
         } else {
-            // ==========================================
-            // FIX BUG: SELALU UPDATE role1 DAN role2
-            // ==========================================
-            const willDeleteAdmin = (!role1 && !role2);
+            // Edit — pakai endpoint baru atomic
+            const url = `${window.GAS_ADMIN_URL}?action=updateAdminRoles` +
+                `&adminId=${currentAdmin.id}` +
+                `&targetAdminId=${encodeURIComponent(adminIdToEdit)}` +
+                `&role1=${encodeURIComponent(role1)}` +
+                `&role2=${encodeURIComponent(role2)}`;
             
-            if (willDeleteAdmin) {
-                if (!confirm(`⚠️ Semua jabatan dikosongkan.\n\nAdmin ini akan DIHAPUS dari sistem.\n\nLanjutkan?`)) {
-                    btn.innerHTML = originalHtml;
-                    btn.disabled = false;
-                    return;
-                }
-            }
+            const res = await fetch(url);
+            const data = await res.json();
             
-            // STEP 1: Update role1
-            const resRole1 = await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role1&value=${encodeURIComponent(role1)}`);
-            const dataRole1 = await resRole1.json();
-            
-            if (dataRole1.status !== 'success' && !willDeleteAdmin) {
-                window.showToast('❌ ' + (dataRole1.message || 'Gagal update role1'), true);
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-                return;
-            }
-            
-            // STEP 2: SELALU update role2
-            const resRole2 = await fetch(`${window.GAS_ADMIN_URL}?action=updateAdmin&adminId=${currentAdmin.id}&targetAdminId=${adminIdToEdit}&field=role2&value=${encodeURIComponent(role2)}`);
-            const dataRole2 = await resRole2.json();
-            
-            if (dataRole2.status !== 'success') {
-                window.showToast('❌ ' + (dataRole2.message || 'Gagal update role2'), true);
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-                return;
-            }
-            
-            // 🎯 Cek hasil
-            if (willDeleteAdmin) {
-                if (dataRole1.message && dataRole1.message.includes('dihapus')) {
-                    window.showToast('✅ Admin berhasil dihapus');
-                } else if (dataRole2.message && dataRole2.message.includes('dihapus')) {
-                    window.showToast('✅ Admin berhasil dihapus');
+            if (data.status === 'success') {
+                window.showToast('✅ ' + (data.message || 'Jabatan diperbarui'));
+                window.closeModal();
+                
+                if (data.snapshot) {
+                    applySnapshot(data.snapshot);
                 } else {
-                    window.showToast('✅ Jabatan dikosongkan');
+                    await loadAdminLinkedUids();
+                    await loadMemberList(true);
                 }
             } else {
-                await syncMemberRoleFromAdmin(memberUid, role1);
-                window.showToast('✅ Jabatan berhasil diperbarui');
-            }
-            
-            window.closeModal();
-            
-            // 🎯 Update state dari snapshot response (yang terakhir = dataRole2)
-            // Snapshot ada di response updateAdmin saat field=role2
-            if (dataRole2.snapshot) {
-                applySnapshot(dataRole2.snapshot);
-            } else if (dataRole1.snapshot) {
-                applySnapshot(dataRole1.snapshot);
-            } else {
-                // Fallback
-                await loadAdminLinkedUids();
-                await loadMemberList(true);
+                window.showToast('❌ ' + (data.message || 'Gagal'), true);
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
             }
         }
     } catch(e) {

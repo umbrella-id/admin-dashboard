@@ -137,20 +137,13 @@ async function renderPreviewStage() {
   const stage = document.getElementById('content-preview-stage');
   if (!stage) return;
   
-  const bgUrl = 'https://umbrella-id.github.io/Assets/Background.webp';
-  const overlayUrl = 'Assets/preview-overlay.webp';
-  
-  stage.innerHTML = 
-    '<img class="preview-bg" src="' + bgUrl + '" alt="Preview" onerror="this.style.display=\'none\'">' +
-    '<img class="preview-overlay-img" src="' + overlayUrl + '" alt="" onerror="this.style.display=\'none\'">' +
-    '<button class="preview-edit-btn" onclick="window.contentPreviewEdit()">' +
-    '  <i class="fas fa-edit"></i> Edit' +
-    '</button>';
+  // Delegate ke content-preview.js
+  if (typeof window.renderPreviewStageSkeleton === 'function') {
+    window.renderPreviewStageSkeleton(stage);
+  } else {
+    stage.innerHTML = '<div class="preview-loading"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>';
+  }
 }
-
-window.contentPreviewEdit = function() {
-  window.showToast('Fitur edit preview akan hadir di Fase F', true);
-};
 
 // ==========================================
 // MENU CARDS

@@ -90,22 +90,53 @@
 .content-preview-stage {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 9;
-    max-height: 320px;
+    aspect-ratio: 533 / 330;
+    max-height: 400px;
     background: #0a0612;
     border-radius: 12px;
     border: 1px solid var(--border-line);
     overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
-.content-preview-stage img {
+/* Background image — auto-fill (cover) */
+.content-preview-stage .preview-bg {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+    z-index: 1;
+}
+
+/* Overlay ornamen — stretch mengikuti container */
+.content-preview-stage .preview-overlay-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    display: block;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Tombol edit — di atas overlay */
+.content-preview-stage .preview-edit-btn {
+    z-index: 3;
+}
+
+/* Placeholder / loading state */
+.content-preview-stage .preview-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    z-index: 3;
 }
 
 .preview-loading {

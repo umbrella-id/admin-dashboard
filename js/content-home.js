@@ -242,6 +242,10 @@ window.renderContentSub = function(category) {
     window.renderInfoView();
     return;
   }
+  if (category === 'gallery' && typeof window.renderGalleryList === 'function') {
+    window.renderGalleryList();
+    return;
+  }
   
   // Placeholder untuk kategori lain (Fase E lanjutan)
   const titles = { info: 'Informasi', gallery: 'Gallery', webinternal: 'Web Internal' };

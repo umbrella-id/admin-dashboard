@@ -1,27 +1,30 @@
 /**
- * content-router.js — Helper navigasi sub-view tab konten
- * Fase D: minimal, hanya bridge ke admin-router.js
+ * content-router.js — Router sub-view tab konten
  */
 
-// Mapping view → render function
-const CONTENT_VIEW_HANDLERS = {
-  'content-sub': function(data) {
-    if (data && data.category && typeof window.renderContentSub === 'function') {
-      window.renderContentSub(data.category);
-    }
-  }
-};
-
-// ==========================================
-// HANDLE CONTENT VIEW (dipanggil dari admin-router.js)
-// ==========================================
 window.handleContentView = function(viewName, data) {
-  const handler = CONTENT_VIEW_HANDLERS[viewName];
-  if (handler) {
-    handler(data);
-    return true;
+  switch (viewName) {
+    case 'content-sub':
+      if (data && data.category) {
+        window.renderContentSub(data.category);
+      }
+      return true;
+    
+    case 'content-profil-edit':
+      if (typeof window.renderProfilEditForm === 'function') {
+        window.renderProfilEditForm();
+      }
+      return true;
+    
+    case 'content-profil-add':
+      if (typeof window.renderProfilAddForm === 'function') {
+        window.renderProfilAddForm();
+      }
+      return true;
+    
+    default:
+      return false;
   }
-  return false;
 };
 
-console.log('✅ content-router.js loaded');
+console.log('✅ content-router.js loaded (Fase E)');

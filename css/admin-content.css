@@ -491,6 +491,135 @@
     .content-menu-card-title {
         font-size: 0.75rem;
     }
+
+   /* ===== PROFIL LIST ===== */
+.profil-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.profil-item {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s;
+}
+
+.profil-item:hover {
+    border-color: var(--color-primary);
+}
+
+.profil-item-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.profil-item-header {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profil-item-preview {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profil-item-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.profil-icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(168, 85, 247, 0.15);
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 0.75rem;
+}
+
+.profil-icon-btn:hover {
+    background: var(--color-primary);
+    color: white;
+}
+
+.profil-icon-btn.danger {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.profil-icon-btn.danger:hover {
+    background: #ef4444;
+    color: white;
+}
+
+.profil-icon-btn:active {
+    transform: scale(0.95);
+}
+
+/* ===== CONTENT FORM ===== */
+.content-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.content-form-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: -4px;
+}
+
+.content-form-input,
+.content-form-textarea {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: white;
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.content-form-input:focus,
+.content-form-textarea:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15);
+}
+
+.content-form-textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.5;
+}
     
     .content-sub-title {
         font-size: 0.9rem;

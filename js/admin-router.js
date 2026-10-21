@@ -256,8 +256,15 @@ function routeToView(viewName, data) {
         // CONFIRM
         // ==========================================
         case 'confirm':
-            // Confirm modal sudah ditutup, tidak render ulang
-            // (karena confirm = keputusan sudah diambil saat back)
+            break;
+        
+        // ==========================================
+        // CONTENT SUB-VIEW (BARU — Fase D)
+        // ==========================================
+        case 'content-sub':
+            if (typeof window.handleContentView === 'function') {
+                window.handleContentView('content-sub', data);
+            }
             break;
         
         default:

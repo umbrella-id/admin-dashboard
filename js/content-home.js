@@ -238,6 +238,10 @@ window.renderContentSub = function(category) {
     window.renderProfilList();
     return;
   }
+  if (category === 'info' && typeof window.renderInfoView === 'function') {
+    window.renderInfoView();
+    return;
+  }
   
   // Placeholder untuk kategori lain (Fase E lanjutan)
   const titles = { info: 'Informasi', gallery: 'Gallery', webinternal: 'Web Internal' };

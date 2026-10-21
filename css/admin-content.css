@@ -1033,3 +1033,30 @@
     z-index: 5;
     backdrop-filter: blur(2px);
 }
+
+/* ===== PREVIEW LOADING OVERLAY ===== */
+.preview-loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 4;
+    backdrop-filter: blur(3px);
+    border-radius: 12px;
+}
+
+.preview-loading-overlay i {
+    color: var(--color-primary);
+    font-size: 1rem;
+}
+
+.preview-edit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

@@ -443,13 +443,8 @@ function setupDashboardAfterLogin() {
         }, 1000);
     }
     
-    // Konten — leader only
-    if (currentAdmin.role1 === 'leader' && typeof window.loadContentData === 'function') {
-        window.loadContentData();
-    }
-    if (typeof window.checkGateSettingsAccess === 'function') {
-    setTimeout(() => window.checkGateSettingsAccess(), 100);
-    }
+    // Konten — leader only (tab load sendiri saat user buka tab)
+    // Tidak perlu preload — initContentTab dipanggil saat tab dibuka
     
     // Heartbeat
     if (shouldEnableHeartbeat()) {
@@ -641,8 +636,8 @@ function renderBottomNav() {
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
-            if (tabId === 'manage-content' && typeof window.loadContentData === 'function') {
-                window.loadContentData();
+            if (tabId === 'manage-content' && typeof window.initContentTab === 'function') {
+                window.initContentTab();
             }
             if (tabId === 'kas' && typeof window.loadKasDashboard === 'function') {
                 window.loadKasDashboard();

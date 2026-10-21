@@ -154,10 +154,12 @@ window.profilOpenEdit = function(index) {
   profilState.originalForm = { Header: item.header, Body: item.body };
   profilState.isDirty = false;
   
+  // 1. RENDER DULU
+  renderProfilEditForm();
+  
+  // 2. BARU push state
   if (typeof pushView === 'function') {
     pushView('content-profil-edit', { item: item });
-  } else {
-    renderProfilEditForm();
   }
 };
 
@@ -289,10 +291,12 @@ window.profilOpenAdd = function() {
   profilState.originalForm = { Header: '', Body: '' };
   profilState.isDirty = false;
   
+  // 1. RENDER DULU
+  renderProfilAddForm();
+  
+  // 2. BARU push state
   if (typeof pushView === 'function') {
     pushView('content-profil-add', {});
-  } else {
-    renderProfilAddForm();
   }
 };
 

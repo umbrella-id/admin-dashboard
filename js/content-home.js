@@ -189,4 +189,28 @@ window.initContentTab = function() {
   renderContentHome();
 };
 
+// ==========================================
+// AUTO-INIT — trigger saat tab terlihat
+// (backup untuk swipe navigation)
+// ==========================================
+document.addEventListener('DOMContentLoaded', function() {
+  const tabPage = document.getElementById('tab-content-page');
+  if (!tabPage) {
+    console.warn('[CONTENT] tab-content-page not found in DOM');
+    return;
+  }
+  
+  const observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting && !tabPage.dataset.contentInit) {
+        console.log('👁️ [CONTENT] Tab terlihat, auto-init');
+        tabPage.dataset.contentInit = 'true';
+        window.initContentTab();
+      }
+    });
+  }, { threshold: 0.3 });
+  
+  observer.observe(tabPage);
+});
+
 console.log('✅ content-home.js loaded');

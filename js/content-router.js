@@ -16,7 +16,6 @@ window.handleContentView = function(viewName, data) {
       }
       return true;
     
-    // BARU — Gallery
     case 'content-gallery-edit':
       if (typeof window.renderGalleryEditForm === 'function') {
         window.renderGalleryEditForm();
@@ -26,6 +25,12 @@ window.handleContentView = function(viewName, data) {
     case 'content-gallery-add':
       if (typeof window.renderGalleryAddForm === 'function') {
         window.renderGalleryAddForm();
+      }
+      return true;
+    
+    case 'content-webinternal':
+      if (typeof window.renderWebInternalView === 'function') {
+        window.renderWebInternalView();
       }
       return true;
     

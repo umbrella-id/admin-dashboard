@@ -143,7 +143,10 @@ function routeToView(viewName, data) {
     // Render sesuai view
     switch (viewName) {
         case 'dashboard':
-            // Base, tidak perlu render
+            // Base — reset content tab ke home (kalau sub-view masih terbuka)
+            if (typeof window.contentResetToHome === 'function') {
+                window.contentResetToHome();
+            }
             break;
         
         case 'chat':

@@ -1,16 +1,26 @@
 /**
  * content-home.js — Render halaman utama tab konten
- * Fase D: skeleton, data placeholder
+ * Fase E: banner publish real + menu count
  */
 
-// State
 let contentHomeData = {
-  allContent: [],       // dari getAllContent
-  publishStatus: {
-    pending: false,
-    lastPublishAt: 0
-  }
+  allContent: null,
+  publishStatus: { pending: false, lastPublishAt: 0 }
 };
+
+// ==========================================
+// HELPER: FORMAT RELATIVE TIME
+// ==========================================
+function formatRelativeTime(ms) {
+  if (!ms || ms === 0) return 'Belum pernah';
+  const diff = Date.now() - ms;
+  if (diff < 60000) return 'Baru saja';
+  if (diff < 3600000) return Math.floor(diff / 60000) + ' menit lalu';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + ' jam lalu';
+  if (diff < 604800000) return Math.floor(diff / 86400000) + ' hari lalu';
+  const d = new Date(ms);
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
 // ==========================================
 // RENDER HOME
@@ -20,203 +30,253 @@ window.renderContentHome = async function() {
   
   const homeView = document.getElementById('content-view-home');
   const subView = document.getElementById('content-view-sub');
+  if (!homeView || !subView) return;
   
-  if (!homeView || !subView) {
-    console.error('❌ content-view-home atau content-view-sub tidak ada');
-    return;
-  }
-  
-  // Tampilkan home, sembunyikan sub
   homeView.style.display = 'flex';
   subView.style.display = 'none';
   
-  // Render banner (placeholder dulu)
   renderPublishBanner();
+  refreshPublishBanner();
   
-  // Render preview
   await renderPreviewStage();
-  
-  // Render menu
   await renderMenuCards();
 };
 
 // ==========================================
-// RENDER BANNER PUBLISH
+// BANNER PUBLISH
 // ==========================================
 function renderPublishBanner() {
   const banner = document.getElementById('publish-status-banner');
   if (!banner) return;
-  
-  // Fase D: placeholder — nanti diisi dari getPublishStatus
-  banner.className = 'publish-status-banner idle';
-  banner.innerHTML = `
-    <div class="publish-banner-text">
-      <strong><i class="fas fa-check-circle"></i> Siap</strong>
-      <small>Data status akan dimuat di Fase E</small>
-    </div>
-  `;
+  banner.className = 'publish-status-banner';
+  banner.innerHTML = '<div class="publish-banner-loading">Memuat status...</div>';
 }
 
+window.refreshPublishBanner = async function() {
+  const banner = document.getElementById('publish-status-banner');
+  if (!banner) return;
+  
+  try {
+    const url = new URL(window.GAS_ADMIN_URL);
+    url.searchParams.set('action', 'getPublishStatus');
+    url.searchParams.set('adminId', currentAdmin.id);
+    const res = await fetch(url.toString());
+    const data = await res.json();
+    
+    if (data.status !== 'success') throw new Error(data.message);
+    
+    contentHomeData.publishStatus = {
+      pending: data.pending === true,
+      lastPublishAt: data.lastPublishAt || 0
+    };
+    
+    if (data.pending) {
+      banner.className = 'publish-status-banner pending';
+      banner.innerHTML = 
+        '<div class="publish-banner-text">' +
+        '  <strong>⚠️ Ada perubahan belum tayang</strong>' +
+        '  <small>Terakhir terbit: ' + formatRelativeTime(data.lastPublishAt) + '</small>' +
+        '</div>' +
+        '<button class="btn-publish-now" onclick="window.contentPublishNow()">' +
+        '  <i class="fas fa-rocket"></i> PUBLISH NOW' +
+        '</button>';
+    } else {
+      banner.className = 'publish-status-banner idle';
+      banner.innerHTML = 
+        '<div class="publish-banner-text">' +
+        '  <strong>✅ Semua konten sudah tayang</strong>' +
+        '  <small>Terakhir terbit: ' + formatRelativeTime(data.lastPublishAt) + '</small>' +
+        '</div>';
+    }
+  } catch (e) {
+    console.error('[CONTENT] getPublishStatus error:', e);
+    banner.className = 'publish-status-banner pending';
+    banner.innerHTML = '<div class="publish-banner-text"><strong>⚠️ Gagal memuat status</strong><small>Periksa koneksi</small></div>';
+  }
+};
+
+window.contentPublishNow = async function() {
+  const choice = await window.contentModal.show({
+    title: 'Terbitkan Konten?',
+    desc: 'Semua perubahan akan langsung tayang ke publik sekarang.',
+    buttons: [
+      { label: '🚀 Ya, Terbitkan', style: 'success', value: 'yes' },
+      { label: 'Batal', style: 'cancel', value: 'cancel' }
+    ]
+  });
+  
+  if (choice !== 'yes') return;
+  
+  window.showToast('⏳ Menerbitkan...');
+  
+  try {
+    const url = new URL(window.GAS_ADMIN_URL);
+    url.searchParams.set('action', 'refreshContentCache');
+    url.searchParams.set('adminId', currentAdmin.id);
+    const res = await fetch(url.toString());
+    const data = await res.json();
+    
+    if (data.status === 'success') {
+      window.showToast('✅ Konten tayang ke publik');
+      contentHomeData.allContent = null;
+      await refreshPublishBanner();
+      await renderMenuCards();
+    } else {
+      window.showToast('❌ ' + (data.message || 'Gagal'), true);
+    }
+  } catch (e) {
+    console.error('[CONTENT] publish error:', e);
+    window.showToast('❌ Koneksi gagal', true);
+  }
+};
+
 // ==========================================
-// RENDER PREVIEW STAGE
+// PREVIEW STAGE
 // ==========================================
 async function renderPreviewStage() {
   const stage = document.getElementById('content-preview-stage');
   if (!stage) return;
   
-  // Fase D: preview pakai bg default + overlay ornamen
-  // Fase F: bg diambil dari bg.json (aktif) atau default
   const bgUrl = 'https://umbrella-id.github.io/Assets/Background.webp';
   const overlayUrl = 'Assets/preview-overlay.webp';
   
-  stage.innerHTML = `
-    <img class="preview-bg" 
-         src="${bgUrl}" 
-         alt="Preview Background"
-         onerror="this.style.display='none'">
-    <img class="preview-overlay-img" 
-         src="${overlayUrl}" 
-         alt=""
-         onerror="this.style.display='none'">
-    <button class="preview-edit-btn" onclick="window.contentPreviewEdit()">
-      <i class="fas fa-edit"></i> Edit
-    </button>
-  `;
+  stage.innerHTML = 
+    '<img class="preview-bg" src="' + bgUrl + '" alt="Preview" onerror="this.style.display=\'none\'">' +
+    '<img class="preview-overlay-img" src="' + overlayUrl + '" alt="" onerror="this.style.display=\'none\'">' +
+    '<button class="preview-edit-btn" onclick="window.contentPreviewEdit()">' +
+    '  <i class="fas fa-edit"></i> Edit' +
+    '</button>';
 }
 
 window.contentPreviewEdit = function() {
-  // Fase D: placeholder
-  window.showToast('Fitur edit preview akan hadir di Fase F', true);
-};
-
-window.contentPreviewEdit = function() {
-  // Fase D: placeholder
   window.showToast('Fitur edit preview akan hadir di Fase F', true);
 };
 
 // ==========================================
-// RENDER MENU CARDS
+// MENU CARDS
 // ==========================================
 async function renderMenuCards() {
   const grid = document.getElementById('content-menu-grid');
   if (!grid) return;
   
-  // Placeholder count — nanti diisi dari data getAllContent
+  // Fetch semua konten untuk count
+  let all = contentHomeData.allContent;
+  if (!all) {
+    try {
+      const url = new URL(window.GAS_ADMIN_URL);
+      url.searchParams.set('action', 'getAllContent');
+      url.searchParams.set('adminId', currentAdmin.id);
+      const res = await fetch(url.toString());
+      const data = await res.json();
+      if (data.status === 'success') {
+        all = data.data || [];
+        contentHomeData.allContent = all;
+      }
+    } catch (e) {
+      console.error('[CONTENT] count error:', e);
+      all = [];
+    }
+  }
+  
+  function countBy(id) {
+    return all.filter(function(x) { 
+      return x.ID && x.ID.toString().toLowerCase() === id; 
+    }).length;
+  }
+  
   const cards = [
-    { id: 'profil', icon: 'fa-address-card', label: 'Profil', count: 0 },
-    { id: 'info', icon: 'fa-bullhorn', label: 'Informasi', count: 0 },
-    { id: 'gallery', icon: 'fa-images', label: 'Gallery', count: 0 }
+    { id: 'profil', icon: 'fa-address-card', label: 'Profil', count: countBy('profil') },
+    { id: 'info', icon: 'fa-bullhorn', label: 'Informasi', count: 
+      countBy('headline') + countBy('openmember') + countBy('running_text') 
+    },
+    { id: 'gallery', icon: 'fa-images', label: 'Gallery', count: countBy('gallery') }
   ];
   
-  // Tambah Web Internal hanya untuk leader
   if (currentAdmin && currentAdmin.role1 === 'leader') {
     cards.push({ id: 'webinternal', icon: 'fa-lock', label: 'Web Internal', count: 0 });
   }
   
   let html = '';
-  for (const card of cards) {
-    html += `
-      <div class="content-menu-card" onclick="window.contentOpenCategory('${card.id}')">
-        <div class="content-menu-card-icon">
-          <i class="fas ${card.icon}"></i>
-        </div>
-        <div class="content-menu-card-title">${card.label}</div>
-        <div class="content-menu-card-count">${card.count} item</div>
-      </div>
-    `;
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i];
+    html += 
+      '<div class="content-menu-card" onclick="window.contentOpenCategory(\'' + c.id + '\')">' +
+      '  <div class="content-menu-card-icon"><i class="fas ' + c.icon + '"></i></div>' +
+      '  <div class="content-menu-card-title">' + c.label + '</div>' +
+      '  <div class="content-menu-card-count">' + c.count + ' item</div>' +
+      '</div>';
   }
-  
   grid.innerHTML = html;
 }
 
 // ==========================================
-// BUKA KATEGORI
+// NAVIGASI
 // ==========================================
 window.contentOpenCategory = function(category) {
-  console.log('📂 [CONTENT] buka kategori:', category);
-  
+  console.log('📂 buka kategori:', category);
   if (typeof pushView === 'function') {
-    pushView('content-sub', { category });
+    pushView('content-sub', { category: category });
   } else {
-    // Fallback kalau admin-router.js belum load
     renderContentSub(category);
   }
 };
 
-// ==========================================
-// RENDER SUB-VIEW (placeholder Fase D)
-// ==========================================
 window.renderContentSub = function(category) {
+  if (category === 'profil' && typeof window.renderProfilList === 'function') {
+    window.renderProfilList();
+    return;
+  }
+  
+  // Placeholder untuk kategori lain (Fase E lanjutan)
   const homeView = document.getElementById('content-view-home');
   const subView = document.getElementById('content-view-sub');
-  
   if (!homeView || !subView) return;
-  
   homeView.style.display = 'none';
   subView.style.display = 'flex';
   
-  const titles = {
-    profil: 'Profil',
-    info: 'Informasi',
-    gallery: 'Gallery',
-    webinternal: 'Web Internal'
-  };
-  
+  const titles = { info: 'Informasi', gallery: 'Gallery', webinternal: 'Web Internal' };
   const title = titles[category] || category;
   
-  subView.innerHTML = `
-    <div class="content-sub-header">
-      <button class="content-sub-back-btn" onclick="window.contentBackFromSub()">
-        <i class="fas fa-arrow-left"></i>
-      </button>
-      <div class="content-sub-title">${title}</div>
-    </div>
-    
-    <div class="content-sub-body">
-      <div class="content-placeholder">
-        <i class="fas fa-tools"></i>
-        <p><strong>${title}</strong></p>
-        <p>Sub-view ini akan diimplementasikan di Fase E</p>
-      </div>
-    </div>
-  `;
+  subView.innerHTML = 
+    '<div class="content-sub-header">' +
+    '  <button class="content-sub-back-btn" onclick="window.contentBackFromSub()">' +
+    '    <i class="fas fa-arrow-left"></i>' +
+    '  </button>' +
+    '  <div class="content-sub-title">' + title + '</div>' +
+    '</div>' +
+    '<div class="content-sub-body">' +
+    '  <div class="content-placeholder">' +
+    '    <i class="fas fa-tools"></i>' +
+    '    <p><strong>' + title + '</strong></p>' +
+    '    <p>Akan diimplementasikan di fase berikutnya</p>' +
+    '  </div>' +
+    '</div>';
 };
 
-// ==========================================
-// BACK DARI SUB-VIEW
-// ==========================================
 window.contentBackFromSub = function() {
   if (typeof closeCurrentView === 'function') {
     closeCurrentView();
   } else {
-    // Fallback
     renderContentHome();
   }
 };
 
-// ==========================================
-// INIT — dipanggil saat tab konten dibuka
-// ==========================================
 window.initContentTab = function() {
-  console.log('🚀 [CONTENT] init tab konten');
+  console.log('🚀 init tab konten');
   renderContentHome();
 };
 
 // ==========================================
-// AUTO-INIT — trigger saat tab terlihat
-// (backup untuk swipe navigation)
+// AUTO-INIT VIA INTERSECTION
 // ==========================================
 document.addEventListener('DOMContentLoaded', function() {
   const tabPage = document.getElementById('tab-content-page');
-  if (!tabPage) {
-    console.warn('[CONTENT] tab-content-page not found in DOM');
-    return;
-  }
+  if (!tabPage) return;
   
   const observer = new IntersectionObserver(function(entries) {
     entries.forEach(function(entry) {
       if (entry.isIntersecting && !tabPage.dataset.contentInit) {
-        console.log('👁️ [CONTENT] Tab terlihat, auto-init');
+        console.log('👁️ Tab terlihat, auto-init');
         tabPage.dataset.contentInit = 'true';
         window.initContentTab();
       }
@@ -226,4 +286,4 @@ document.addEventListener('DOMContentLoaded', function() {
   observer.observe(tabPage);
 });
 
-console.log('✅ content-home.js loaded');
+console.log('✅ content-home.js loaded (Fase E)');

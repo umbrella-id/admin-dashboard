@@ -226,7 +226,6 @@ window.renderContentSub = function(category) {
   homeView.style.display = 'none';
   subView.style.display = 'flex';
   
-  // Route ke handler spesifik
   if (category === 'profil' && typeof window.renderProfilList === 'function') {
     window.renderProfilList();
     return;
@@ -237,6 +236,10 @@ window.renderContentSub = function(category) {
   }
   if (category === 'gallery' && typeof window.renderGalleryList === 'function') {
     window.renderGalleryList();
+    return;
+  }
+  if (category === 'webinternal' && typeof window.renderWebInternalView === 'function') {
+    window.renderWebInternalView();
     return;
   }
   

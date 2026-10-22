@@ -7,7 +7,7 @@
    01. HOME            — preview + menu (portrait / landscape / HP / PC)
    02. PROFIL          — list (portrait + HP landscape single-line)
    03. INFORMASI       — WYSIWYG, running text
-   04. GALLERY         — grid + edit split
+   04. GALLERY         — grid konsisten + edit split
    05. RESPONSIVE      — global portrait tweak
    
    MEDIA QUERY STRATEGY:
@@ -18,6 +18,12 @@
        and (orientation: landscape)→ COMPACT (HP)
    • (min-width: 1200px)
        and (orientation: landscape)→ LARGE (PC)
+   
+   CATATAN:
+   • Gallery grid memakai minmax(140px) di SEMUA mode
+     → card size konsisten saat rotasi layar
+   • Modal tombol: ungu (approve) / abu (cancel)
+     → tidak ada merah/hijau
    ================================================ */
 
 
@@ -206,6 +212,7 @@
 .content-modal-overlay.open { display: flex; }
 
 .content-modal-box {
+    position: relative;
     background: var(--bg-solid-form);
     border: 1px solid var(--border-line);
     border-radius: 16px;
@@ -220,25 +227,104 @@
     from { opacity: 0; transform: translateY(20px) scale(0.96); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-.content-modal-title { font-size: 1rem; font-weight: 600; color: white; margin-bottom: 8px; }
+
+/* 🎯 X CLOSE BUTTON */
+.content-modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 30px;
+    height: 30px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 10;
+    font-family: inherit;
+    padding: 0;
+}
+.content-modal-close:hover {
+    color: var(--color-primary);
+    background: rgba(168, 85, 247, 0.1);
+    border-color: var(--border-line);
+}
+.content-modal-close:active {
+    transform: scale(0.9);
+}
+
+.content-modal-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 8px;
+    padding-right: 36px;
+}
 .content-modal-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; }
-.content-modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+.content-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+/* 🎯 BUTTON COLORS — Purple (approve) / Gray (cancel) */
 .content-modal-actions button {
     padding: 10px 20px;
     border-radius: 8px;
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    border: none;
+    border: 1px solid transparent;
     font-family: inherit;
     transition: all 0.2s;
     min-width: 80px;
 }
 .content-modal-actions button:active { transform: scale(0.97); }
-.content-modal-actions .btn-confirm { background: var(--color-primary); color: white; }
-.content-modal-actions .btn-confirm.danger { background: #ef4444; }
-.content-modal-actions .btn-confirm.success { background: #22c55e; }
-.content-modal-actions .btn-cancel { background: rgba(100, 116, 139, 0.3); color: var(--text-muted); }
+
+/* Primary action (approve / save / yes) */
+.content-modal-actions .btn-confirm {
+    background: var(--color-primary);
+    color: white;
+}
+.content-modal-actions .btn-confirm:hover {
+    filter: brightness(1.1);
+}
+
+/* Destructive action (delete / reset) — outline purple, visual distinct tapi warna tetap ungu */
+.content-modal-actions .btn-confirm.danger {
+    background: transparent;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+.content-modal-actions .btn-confirm.danger:hover {
+    background: rgba(168, 85, 247, 0.15);
+}
+
+/* Success action (publish) — ungu solid (unified dengan primary) */
+.content-modal-actions .btn-confirm.success {
+    background: var(--color-primary);
+    color: white;
+}
+.content-modal-actions .btn-confirm.success:hover {
+    filter: brightness(1.1);
+}
+
+/* Cancel / reject — abu-abu */
+.content-modal-actions .btn-cancel {
+    background: rgba(100, 116, 139, 0.35);
+    color: #cbd5e1;
+}
+.content-modal-actions .btn-cancel:hover {
+    background: rgba(100, 116, 139, 0.5);
+    color: white;
+}
 
 /* ──── CONTENT FORM ──── */
 .content-form { display: flex; flex-direction: column; gap: 12px; }
@@ -275,7 +361,6 @@
    01. HOME
    ================================================ */
 
-/* ──── BASE (portrait) ──── */
 .home-landscape-wrapper {
     display: flex;
     flex-direction: column;
@@ -386,15 +471,10 @@
 .content-menu-card-title { font-size: 0.85rem; font-weight: 600; color: white; }
 .content-menu-card-count { font-size: 0.7rem; color: var(--text-muted); }
 
-/* ──── LANDSCAPE UNIVERSAL — SPLIT VIEW ──── */
+/* ──── LANDSCAPE UNIVERSAL — HOME SPLIT ──── */
 @media (orientation: landscape) and (min-aspect-ratio: 4/3) {
 
-    /* 🎯 FIX: hapus gap bawaan content-view */
-    #content-view-home {
-        gap: 10px;
-        flex: 1;
-        min-height: 0;
-    }
+    #content-view-home { gap: 10px; flex: 1; min-height: 0; }
 
     .home-landscape-wrapper {
         display: grid;
@@ -423,22 +503,16 @@
     .home-menu-side::-webkit-scrollbar-thumb { background: var(--border-line); border-radius: 2px; }
 
     #content-menu-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-
     #content-view-home .content-menu-title { display: none; }
 
-    /* 🎯 FIX GAP SUB-VIEW: hapus gap, pakai margin-bottom saja */
-    #content-view-sub {
-        gap: 0;
-    }
-    .content-sub-header {
-        margin-bottom: 12px;
-    }
+    /* FIX GAP SUB-VIEW */
+    #content-view-sub { gap: 0; }
+    .content-sub-header { margin-bottom: 12px; }
 }
 
-/* ──── HP LANDSCAPE — COMPACT ──── */
+/* ──── HP LANDSCAPE — HOME COMPACT ──── */
 @media (max-height: 500px) and (orientation: landscape) {
 
-    /* ─── Chrome minimal ─── */
     #tab-content-page { padding: 6px 8px; }
 
     #publish-status-banner {
@@ -472,10 +546,7 @@
         flex-shrink: 0;
     }
 
-    /* 🎯 FIX: sub-header super compact + gap dihilangkan total */
-    #content-view-sub {
-        gap: 0;
-    }
+    #content-view-sub { gap: 0; }
     .content-sub-header {
         padding-bottom: 4px;
         margin-bottom: 4px;
@@ -483,23 +554,12 @@
         flex-wrap: nowrap;
         min-height: 0;
     }
-    .content-sub-back-btn {
-        width: 26px;
-        height: 26px;
-        font-size: 0.7rem;
-        border-radius: 6px;
-    }
+    .content-sub-back-btn { width: 26px; height: 26px; font-size: 0.7rem; border-radius: 6px; }
     .content-sub-title { font-size: 0.76rem; }
-    .content-sub-btn {
-        padding: 3px 10px;
-        font-size: 0.66rem;
-        height: 26px;
-        border-radius: 6px;
-    }
+    .content-sub-btn { padding: 3px 10px; font-size: 0.66rem; height: 26px; border-radius: 6px; }
 
     .content-sub-body { padding: 0; padding-right: 2px; }
 
-    /* ─── HOME compact split ─── */
     #content-view-home { gap: 6px; }
     .home-landscape-wrapper { gap: 8px; }
     #content-menu-grid { gap: 6px; }
@@ -525,7 +585,7 @@
     }
 }
 
-/* ──── PC LANDSCAPE — LARGE ──── */
+/* ──── PC LANDSCAPE — HOME LARGE ──── */
 @media (min-width: 1200px) and (orientation: landscape) {
 
     .tab-page[data-tab="manage-content"] > * { max-width: 1400px; }
@@ -614,7 +674,6 @@
 .profil-icon-btn.danger:hover { background: #ef4444; color: white; }
 .profil-icon-btn:active { transform: scale(0.95); }
 
-/* ─── HP Landscape: single-line compact ─── */
 @media (max-height: 500px) and (orientation: landscape) {
     .profil-list { gap: 4px; }
     .profil-item {
@@ -677,7 +736,6 @@
     font-size: 0.75rem;
 }
 
-/* WYSIWYG */
 .wysiwyg-wrapper { position: relative; }
 .wysiwyg-container {
     position: relative;
@@ -767,7 +825,6 @@
     backdrop-filter: blur(2px);
 }
 
-/* Running text */
 .running-text-list { display: flex; flex-direction: column; gap: 6px; }
 .running-text-item {
     display: flex;
@@ -795,14 +852,12 @@
 .running-text-input::placeholder { color: var(--text-muted); opacity: 0.5; }
 .running-text-item .profil-icon-btn { flex-shrink: 0; width: 28px; height: 28px; font-size: 0.7rem; }
 
-/* ─── Landscape universal Info tuning ─── */
 @media (orientation: landscape) and (min-aspect-ratio: 4/3) {
     .wysiwyg-editor { min-height: 240px; padding: 16px 18px 56px 18px; }
     .info-section { padding: 18px; gap: 12px; }
     .wysiwyg-upload-btn { width: 42px; height: 42px; font-size: 1rem; bottom: 12px; right: 12px; }
 }
 
-/* ─── HP landscape Info compact ─── */
 @media (max-height: 500px) and (orientation: landscape) {
     .info-section { padding: 10px 12px; gap: 8px; margin-bottom: 6px; border-radius: 8px; }
     .info-section-header { padding-bottom: 6px; gap: 6px; }
@@ -837,7 +892,6 @@
     .running-text-item .profil-icon-btn { width: 26px; height: 26px; font-size: 0.6rem; }
 }
 
-/* ─── PC landscape Info large ─── */
 @media (min-width: 1200px) and (orientation: landscape) {
     .info-section { padding: 22px; gap: 14px; }
     .wysiwyg-editor { min-height: 280px; padding: 18px 20px 60px 20px; font-size: 0.92rem; line-height: 1.75; }
@@ -847,11 +901,18 @@
 
 /* ================================================
    04. GALLERY
+   ================================================
+   
+   Grid size KONSISTEN di semua orientasi:
+   minmax(140px, 1fr) → saat rotasi layar, card hanya
+   reflow jumlah kolom, UKURAN CARD TETAP SAMA.
+   
+   Yang berubah antar mode: hanya GAP (density).
    ================================================ */
 
 .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 12px;
 }
 .gallery-card {
@@ -923,7 +984,7 @@
 .gallery-card-btn:hover { filter: brightness(1.2); transform: scale(1.1); }
 .gallery-card-btn:active { transform: scale(0.95); }
 
-/* Edit form base (portrait) */
+/* Edit form base */
 .gallery-edit-form { display: flex; flex-direction: column; gap: 12px; }
 .gallery-edit-preview-col { display: flex; flex-direction: column; }
 .gallery-edit-fields-col { display: flex; flex-direction: column; }
@@ -994,11 +1055,8 @@
     backdrop-filter: blur(2px);
 }
 
-/* Landscape universal — Gallery split */
+/* Landscape universal — EDIT FORM SPLIT (grid tidak diubah) */
 @media (orientation: landscape) and (min-aspect-ratio: 4/3) {
-
-    .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-
     .gallery-edit-form {
         display: grid;
         grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
@@ -1014,10 +1072,11 @@
     .gallery-edit-fields-col .content-form-textarea { flex: 1; min-height: 100px; }
 }
 
-/* HP landscape Gallery compact */
+/* HP landscape — COMPACT (gap lebih rapat, grid TETAP 140px) */
 @media (max-height: 500px) and (orientation: landscape) {
-    .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
-    .gallery-card { aspect-ratio: 4 / 3; border-radius: 6px; }
+    .gallery-grid { gap: 6px; }
+
+    .gallery-card { border-radius: 6px; }
     .gallery-card-overlay { padding: 4px 8px; gap: 4px; }
     .gallery-card-title { font-size: 0.65rem; }
     .gallery-card-btn { width: 22px; height: 22px; font-size: 0.55rem; border-radius: 4px; }
@@ -1030,13 +1089,18 @@
     .gallery-edit-fields-col .content-form-textarea { min-height: 70px; }
 }
 
-/* PC landscape Gallery large */
+/* PC landscape — LARGE (gap lebih longgar, grid TETAP 140px) */
 @media (min-width: 1200px) and (orientation: landscape) {
-    .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+    .gallery-grid { gap: 14px; }
+
     .gallery-edit-form { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 24px; }
     .gallery-edit-preview { min-height: 320px; }
     .gallery-edit-fields-col .content-form { gap: 14px; }
     .gallery-edit-fields-col .content-form-textarea { min-height: 160px; }
+}
+
+@media (min-width: 1200px) and (orientation: landscape) {
+    .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 }
 
 
@@ -1054,7 +1118,8 @@
 
     .content-sub-title { font-size: 0.9rem; }
 
-    .gallery-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    /* Grid TETAP 140px — hanya gap yang dirapatkan */
+    .gallery-grid { gap: 8px; }
 
     .profil-item { padding: 10px 12px; }
     .profil-item-header { font-size: 0.8rem; }

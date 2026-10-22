@@ -481,41 +481,6 @@
 }
 
 /* ==========================================
-   DESKTOP / TABLET LANDSCAPE (PC)
-   ========================================== */
-@media (min-width: 768px) and (orientation: landscape) {
-    /* KUNCI: JANGAN pakai display:flex !important agar JS bisa menyembunyikan Home */
-    #content-view-home {
-        flex-direction: row !important; /* Memaksa kiri-kanan */
-        flex-wrap: wrap !important;
-        align-content: flex-start !important;
-        gap: 20px !important;
-    }
-    
-    #publish-status-banner {
-        width: 100% !important;
-        flex: 0 0 100% !important; /* Banner selebar layar */
-    }
-    
-    #content-preview-stage {
-        width: 55% !important;
-        flex: 0 0 55% !important; /* Preview di Kiri */
-        height: auto !important;
-        aspect-ratio: 533 / 330 !important;
-    }
-    
-    #content-menu-grid {
-        width: 40% !important;
-        flex: 0 0 40% !important; /* Menu di Kanan */
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 16px !important;
-        align-content: flex-start !important;
-    }
-    
-    #content-view-home .content-menu-title { display: none !important; }
-}
-
-/* ==========================================
    MOBILE LANDSCAPE (HP)
    ========================================== */
 @media (max-height: 500px) and (orientation: landscape) {

@@ -481,17 +481,15 @@
 }
 
 /* ==========================================
-   1. DESKTOP / TABLET LANDSCAPE (PC)
+   DESKTOP / TABLET LANDSCAPE (PC)
    ========================================== */
 @media (min-width: 768px) and (orientation: landscape) {
-    /* Pakai !important agar mengalahkan settingan inline dari JS */
+    /* KUNCI: JANGAN pakai display:flex !important agar JS bisa menyembunyikan Home */
     #content-view-home {
-        display: flex !important;
-        flex-direction: row !important; 
+        flex-direction: row !important; /* Memaksa kiri-kanan */
         flex-wrap: wrap !important;
         align-content: flex-start !important;
         gap: 20px !important;
-        height: 100% !important;
     }
     
     #publish-status-banner {
@@ -500,34 +498,31 @@
     }
     
     #content-preview-stage {
-        flex: 0 0 55% !important; /* Preview di Kiri */
         width: 55% !important;
+        flex: 0 0 55% !important; /* Preview di Kiri */
         height: auto !important;
         aspect-ratio: 533 / 330 !important;
     }
     
     #content-menu-grid {
-        flex: 0 0 40% !important; /* Menu di Kanan */
         width: 40% !important;
+        flex: 0 0 40% !important; /* Menu di Kanan */
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 16px !important;
         align-content: flex-start !important;
     }
     
-    #content-view-home .content-menu-title {
-        display: none !important; 
-    }
+    #content-view-home .content-menu-title { display: none !important; }
 }
 
 /* ==========================================
-   2. MOBILE LANDSCAPE (HP)
+   MOBILE LANDSCAPE (HP)
    ========================================== */
 @media (max-height: 500px) and (orientation: landscape) {
     #tab-content-page { padding: 8px 10px; }
     
-    /* HOME VIEW (Split Kiri-Kanan) */
+    /* HOME VIEW (Split Kiri-Kanan tanpa merusak Sub-view) */
     #content-view-home {
-        display: flex !important;
         flex-direction: row !important;
         flex-wrap: wrap !important;
         align-content: flex-start !important;
@@ -545,17 +540,16 @@
     .publish-banner-text small { display: none !important; }
     .btn-publish-now { padding: 5px 12px !important; font-size: 0.65rem !important; }
     
+    /* KUNCI: Preview pakai tinggi fix, biarkan lebar mengikuti sisa ruang */
     #content-preview-stage {
-        flex: 0 0 auto !important;
-        width: auto !important;
-        height: 100% !important;
-        max-height: 160px !important; /* Batasi tinggi agar muat di HP */
-        aspect-ratio: 533 / 330 !important;
+        flex: 1.2 !important;
+        height: 130px !important; 
+        aspect-ratio: auto !important;
+        max-height: 130px !important;
     }
     
     #content-menu-grid {
-        flex: 1 !important; /* Ambil sisa ruang di kanan */
-        width: auto !important;
+        flex: 1 !important; 
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 6px !important;
         align-content: flex-start !important;
@@ -569,22 +563,22 @@
     
     /* SUB-VIEW FULLSCREEN */
     #content-view-sub {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        gap: 6px;
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        gap: 6px !important;
     }
-    .content-sub-header { padding-bottom: 4px; margin-bottom: 4px; gap: 6px; flex-shrink: 0; }
-    .content-sub-back-btn { width: 26px; height: 26px; font-size: 0.7rem; }
-    .content-sub-title { font-size: 0.8rem; }
-    .content-sub-btn { padding: 4px 10px; font-size: 0.65rem; height: 26px; }
+    .content-sub-header { padding-bottom: 4px !important; margin-bottom: 4px !important; gap: 6px !important; flex-shrink: 0 !important; }
+    .content-sub-back-btn { width: 26px !important; height: 26px !important; font-size: 0.7rem !important; }
+    .content-sub-title { font-size: 0.8rem !important; }
+    .content-sub-btn { padding: 4px 10px !important; font-size: 0.65rem !important; height: 26px !important; }
     
     .content-sub-body {
-        flex: 1;
-        min-height: 0;
-        overflow-y: auto;
-        padding-bottom: 8px;
-        padding-right: 2px;
+        flex: 1 !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        padding-bottom: 8px !important;
+        padding-right: 2px !important;
     }
     
     /* Profil List Compact */
@@ -605,14 +599,13 @@
     .wysiwyg-editor { min-height: 100px; padding: 8px 10px 36px 10px; font-size: 0.78rem; resize: vertical; }
     .wysiwyg-upload-btn { width: 26px; height: 26px; font-size: 0.65rem; bottom: 6px; right: 6px; }
     
-    /* Gallery Grid (Lebih Besar) */
+    /* Gallery Grid & Split View Edit */
     .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
     .gallery-card { aspect-ratio: 4 / 3; border-radius: 6px; }
     .gallery-card-overlay { padding: 4px 6px; }
     .gallery-card-title { font-size: 0.65rem; }
     .gallery-card-btn { width: 22px; height: 22px; font-size: 0.55rem; }
     
-    /* Gallery Edit Form (Split Kiri-Kanan) */
     .gallery-edit-form { display: flex; flex-direction: row; gap: 12px; height: 100%; min-height: 0; }
     .gallery-edit-preview-col { flex: 1.2; display: flex; flex-direction: column; }
     .gallery-edit-fields-col { flex: 1; display: flex; flex-direction: column; min-height: 0; }

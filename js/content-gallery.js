@@ -290,22 +290,29 @@
         '</div>';
     }
     
+    // STRUKTUR BARU: DIBAGI JADI 2 KOLOM (PREVIEW & FORM)
     return '<div class="gallery-edit-form">' +
-      '<div class="gallery-edit-preview" id="gallery-preview">' +
-      '  ' + previewHtml +
-      '  <div class="gallery-edit-preview-overlay">' +
-      '    <button id="gallery-upload-btn" type="button" onclick="window.galleryTriggerUpload()">' +
-      '      <i class="fas fa-upload"></i> ' + (hasImage ? 'Ganti' : 'Upload') +
-      '    </button>' +
-      '  </div>' +
-      '  <div class="gallery-edit-loading" id="gallery-upload-loading" style="display:none;">' +
-      '    <i class="fas fa-spinner fa-spin"></i> Memproses...' +
+      '<div class="gallery-edit-preview-col">' +
+      '  <div class="gallery-edit-preview" id="gallery-preview">' +
+      '    ' + previewHtml +
+      '    <div class="gallery-edit-preview-overlay">' +
+      '      <button id="gallery-upload-btn" type="button" onclick="window.galleryTriggerUpload()">' +
+      '        <i class="fas fa-upload"></i> ' + (hasImage ? 'Ganti' : 'Upload') +
+      '      </button>' +
+      '    </div>' +
+      '    <div class="gallery-edit-loading" id="gallery-upload-loading" style="display:none;">' +
+      '      <i class="fas fa-spinner fa-spin"></i> Memproses...' +
+      '    </div>' +
       '  </div>' +
       '</div>' +
-      '<label class="content-form-label">Judul</label>' +
-      '<input type="text" id="gallery-input-header" class="content-form-input" placeholder="Judul foto">' +
-      '<label class="content-form-label">Deskripsi / Caption</label>' +
-      '<textarea id="gallery-input-caption" class="content-form-textarea" rows="3" placeholder="Keterangan singkat..."></textarea>' +
+      '<div class="gallery-edit-fields-col">' +
+      '  <div class="content-form">' +
+      '    <label class="content-form-label">Judul</label>' +
+      '    <input type="text" id="gallery-input-header" class="content-form-input" placeholder="Judul foto">' +
+      '    <label class="content-form-label">Deskripsi / Caption</label>' +
+      '    <textarea id="gallery-input-caption" class="content-form-textarea" rows="5" placeholder="Keterangan singkat..."></textarea>' +
+      '  </div>' +
+      '</div>' +
       '</div>';
   }
   

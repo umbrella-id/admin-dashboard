@@ -1106,38 +1106,59 @@
         transition: all 0.4s ease;
     }
     
-    /* ===== HOME VIEW — SPLIT LAYOUT ===== */
-    #content-view-home {
-        display: grid !important;
-        grid-template-columns: 55% 45%;
-        grid-template-rows: auto 1fr;
-        gap: 8px;
-        flex-direction: unset !important;
+/* ==========================================
+   LANDSCAPE MOBILE — TAB KONTEN (FIXED)
+   ========================================== */
+
+@media (max-height: 500px) and (orientation: landscape) {
+    
+    /* 1. TAB PAGE PADDING */
+    #tab-content-page {
+        padding: 8px 10px;
     }
     
-    #publish-status-banner {
-        grid-column: 1 / -1;
+    /* 2. BANNER PUBLISH */
+    .publish-status-banner {
+        padding: 6px 10px;
+        font-size: 0.7rem;
+        border-radius: 8px;
+        flex-wrap: nowrap;
+        gap: 8px;
     }
+    .publish-banner-text strong { font-size: 0.7rem; margin-bottom: 0; }
+    .publish-banner-text small { display: none; }
+    .btn-publish-now { padding: 5px 12px; font-size: 0.65rem; white-space: nowrap; }
+    
+    /* 3. HOME VIEW SPLIT LAYOUT */
+    /* HAPUS !important agar JS bisa menyembunyikan home saat masuk sub-view */
+    #content-view-home {
+        display: grid;
+        grid-template-columns: 55% 45%;
+        grid-template-rows: auto auto;
+        gap: 8px;
+        height: 100%;
+        align-content: start;
+    }
+    
+    #publish-status-banner { grid-column: 1 / -1; }
     
     #content-preview-stage {
         grid-column: 1;
+        grid-row: 2;
         aspect-ratio: 533 / 330;
-        height: auto;
         max-height: none;
+        width: 100%;
         align-self: start;
     }
     
-    /* Menu title + grid menyatu di kolom kanan */
     #content-view-home .content-menu-title {
-        grid-column: 2;
-        margin: 0;
-        font-size: 0.65rem;
-        padding-left: 4px;
+        display: none; /* Sembunyikan judul menu agar hemat ruang */
     }
     
     #content-menu-grid {
         grid-column: 2;
-        grid-template-columns: repeat(2, 1fr) !important;
+        grid-row: 2;
+        grid-template-columns: repeat(2, 1fr);
         gap: 6px;
         align-self: start;
     }
@@ -1148,29 +1169,17 @@
         gap: 4px;
         border-radius: 8px;
     }
+    .content-menu-card-icon { font-size: 1.2rem; }
+    .content-menu-card-title { font-size: 0.7rem; }
+    .content-menu-card-count { font-size: 0.6rem; }
+    .preview-edit-btn { padding: 4px 10px; font-size: 0.65rem; bottom: 6px; right: 6px; }
     
-    .content-menu-card-icon {
-        font-size: 1.2rem;
-    }
-    
-    .content-menu-card-title {
-        font-size: 0.7rem;
-    }
-    
-    .content-menu-card-count {
-        font-size: 0.6rem;
-    }
-    
-    /* Tombol Edit preview lebih kecil di landscape */
-    .preview-edit-btn {
-        padding: 4px 10px;
-        font-size: 0.65rem;
-        bottom: 6px;
-        right: 6px;
-    }
-    
-    /* ===== SUB-VIEW — FULLSCREEN, FIX OVERFLOW ===== */
-    .content-view {
+    /* 4. SUB-VIEW FULLSCREEN (MENGATASI LIST TANPA STYLE) */
+    /* Wajib flex column dan height 100% agar body bisa scroll di dalamnya */
+    #content-view-sub {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         gap: 6px;
     }
     
@@ -1180,207 +1189,80 @@
         gap: 8px;
         flex-shrink: 0;
     }
+    .content-sub-back-btn { width: 30px; height: 30px; font-size: 0.75rem; }
+    .content-sub-title { font-size: 0.85rem; }
+    .content-sub-btn { padding: 6px 10px; font-size: 0.7rem; }
     
-    .content-sub-back-btn {
-        width: 30px;
-        height: 30px;
-        font-size: 0.75rem;
-    }
-    
-    .content-sub-title {
-        font-size: 0.85rem;
-    }
-    
-    .content-sub-btn {
-        padding: 6px 10px;
-        font-size: 0.7rem;
-    }
-    
-    /* ⚠️ FIX UTAMA: min-height 0 wajib agar flex bisa scroll */
+    /* FIX SCROLL: min-height: 0 agar container bisa scroll */
     .content-sub-body {
+        flex: 1;
         min-height: 0;
+        overflow-y: auto;
         padding-bottom: 8px;
         padding-right: 2px;
     }
     
-    /* ===== PROFIL LIST COMPACT ===== */
+    /* 5. PROFIL LIST COMPACT */
+    .profil-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
     .profil-item {
         padding: 8px 10px;
         gap: 8px;
         border-radius: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
-    
+    .profil-item-main { flex: 1; min-width: 0; }
     .profil-item-header {
         font-size: 0.78rem;
         margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    
     .profil-item-preview {
         font-size: 0.65rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
+    .profil-icon-btn { width: 28px; height: 28px; font-size: 0.65rem; }
     
-    .profil-icon-btn {
-        width: 28px;
-        height: 28px;
-        font-size: 0.65rem;
-    }
+    /* 6. INFO SECTION COMPACT */
+    .info-section { padding: 10px; gap: 6px; margin-bottom: 8px; }
+    .info-section-title { font-size: 0.75rem; }
+    .content-form-label { font-size: 0.62rem; }
+    .content-form-input { padding: 6px 10px; font-size: 0.75rem; }
+    .content-form-textarea { padding: 6px 10px; font-size: 0.75rem; min-height: 60px; }
+    .wysiwyg-editor { min-height: 100px; max-height: 180px; padding: 8px 10px 36px 10px; font-size: 0.78rem; }
     
-    /* ===== INFO SECTION COMPACT ===== */
-    .info-section {
-        padding: 10px;
-        gap: 6px;
-        margin-bottom: 8px;
-    }
+    /* 7. GALLERY GRID */
+    .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+    .gallery-card { aspect-ratio: 4 / 3; border-radius: 6px; }
+    .gallery-card-overlay { padding: 4px 6px; }
+    .gallery-card-title { font-size: 0.65rem; }
+    .gallery-card-btn { width: 22px; height: 22px; font-size: 0.55rem; }
+    .gallery-edit-preview { aspect-ratio: 4 / 3; }
     
-    .info-section-title {
-        font-size: 0.75rem;
-    }
+    /* 8. MODAL & NAVBAR */
+    .content-modal-box { padding: 16px; max-height: 85vh; }
+    .content-modal-title { font-size: 0.9rem; }
+    .content-modal-desc { font-size: 0.72rem; margin-bottom: 12px; }
+    .content-modal-actions button { padding: 8px 14px; font-size: 0.72rem; }
     
-    .info-section-desc {
-        font-size: 0.65rem !important;
-        margin-bottom: 4px !important;
-    }
+    .bottom-nav { padding: 4px 0; }
+    .nav-item { padding: 6px 0; gap: 0; font-size: 0; }
+    .nav-item i { font-size: 1.1rem; padding: 2px 0; }
+    .nav-item span { display: none; }
+    .nav-item.active::after { left: 30%; width: 40%; height: 2px; }
     
-    .content-form-label {
-        font-size: 0.62rem;
-    }
-    
-    .content-form-input {
-        padding: 6px 10px;
-        font-size: 0.75rem;
-    }
-    
-    .content-form-textarea {
-        padding: 6px 10px;
-        font-size: 0.75rem;
-        min-height: 60px;
-    }
-    
-    /* WYSIWYG di landscape — sesuai permintaan Q5 (tetap ukuran sekarang) */
-    .wysiwyg-editor {
-        min-height: 100px;
-        max-height: 180px;
-        padding: 8px 10px 36px 10px;
-        font-size: 0.78rem;
-    }
-    
-    .wysiwyg-upload-btn {
-        width: 26px;
-        height: 26px;
-        font-size: 0.65rem;
-        bottom: 6px;
-        right: 6px;
-    }
-    
-    /* Running text item compact */
-    .running-text-item {
-        padding: 5px 8px;
-        gap: 6px;
-    }
-    
-    .running-text-input {
-        font-size: 0.72rem;
-    }
-    
-    /* ===== GALLERY GRID ===== */
-    .gallery-grid {
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-        gap: 6px;
-    }
-    
-    .gallery-card {
-        aspect-ratio: 4 / 3;
-        border-radius: 6px;
-    }
-    
-    .gallery-card-overlay {
-        padding: 4px 6px;
-    }
-    
-    .gallery-card-title {
-        font-size: 0.65rem;
-    }
-    
-    .gallery-card-btn {
-        width: 22px;
-        height: 22px;
-        font-size: 0.55rem;
-    }
-    
-    .gallery-edit-preview {
-        aspect-ratio: 4 / 3;
-    }
-    
-    /* ===== MODAL ===== */
-    .content-modal-box {
-        padding: 16px;
-        max-height: 85vh;
-    }
-    
-    .content-modal-title {
-        font-size: 0.9rem;
-    }
-    
-    .content-modal-desc {
-        font-size: 0.72rem;
-        margin-bottom: 12px;
-    }
-    
-    .content-modal-actions button {
-        padding: 8px 14px;
-        font-size: 0.72rem;
-    }
-}
-
-/* ==========================================
-   BOTTOM NAV — LANDSCAPE COMPACT (icon only)
-   ========================================== */
-
-@media (max-height: 500px) and (orientation: landscape) {
-    .bottom-nav {
-        padding: 4px 0;
-    }
-    
-    .nav-item {
-        padding: 6px 0;
-        gap: 0;
-        font-size: 0;
-    }
-    
-    .nav-item i {
-        font-size: 1.1rem;
-        padding: 2px 0;
-    }
-    
-    .nav-item span {
-        display: none;
-    }
-    
-    .nav-item.active::after {
-        left: 30%;
-        width: 40%;
-        height: 2px;
-    }
-    
-    /* Header admin compact */
-    .admin-header {
-        padding: 8px 14px;
-    }
-    
-    .admin-name {
-        font-size: 0.8rem;
-    }
-    
-    .admin-role {
-        font-size: 0.55rem;
-    }
-    
-    .settings-btn {
-        font-size: 1rem;
-    }
-    
-    /* Tab page padding umum */
-    .tab-page {
-        padding: 10px;
-    }
+    .admin-header { padding: 8px 14px; }
+    .admin-name { font-size: 0.8rem; }
+    .admin-role { font-size: 0.55rem; }
+    .settings-btn { font-size: 1rem; }
+    .tab-page { padding: 10px; }
 }

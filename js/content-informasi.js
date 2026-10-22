@@ -8,7 +8,8 @@
     loaded: false,
     headline: { timestamp: 0, header: '', body: '', originalHeader: '', originalBody: '' },
     openmember: { timestamp: 0, header: '', body: '', originalHeader: '', originalBody: '' },
-    runningText: [],  // [{ body, originalBody }] — order: newest first
+    runningText: [], 
+    originalRunningSnapshot: [],
     wysiwygHeadline: null,
     wysiwygOpenmember: null
   };
@@ -70,17 +71,20 @@
       };
     }
     
-    // Running text — sort by timestamp ASC, then reverse for display (newest first)
+    // Running text — hanya ambil yang ada isinya, urut terlama di atas (ASC)
     const rt = all
-      .filter(function(x) { return x.ID && x.ID.toLowerCase() === 'running_text'; })
+      .filter(function(x) { 
+        return x.ID && x.ID.toLowerCase() === 'running_text' && 
+               x.Body && x.Body.toString().trim() !== ''; 
+      })
       .sort(function(a, b) {
         const ta = new Date(a.Timestamp).getTime() || 0;
         const tb = new Date(b.Timestamp).getTime() || 0;
         return ta - tb;
       })
-      .map(function(x) { return (x.Body || '').toString(); });
+      .map(function(x) { return (x.Body || '').toString().trim(); });
     
-    rt.reverse();  // newest first
+    state.originalRunningSnapshot = rt.slice(); // Simpan patokan awal
     state.runningText = rt.map(function(b) { return { body: b, originalBody: b }; });
     
     state.loaded = true;
@@ -380,7 +384,7 @@
   
   window.infoAddRunningText = function() {
     if (state.runningText.length >= 10) return;
-    state.runningText.unshift({ body: '', originalBody: '' });
+    state.runningText.push({ body: '', originalBody: '' });
     renderRunningTextList();
     updateRunningTextCount();
     checkRunningTextDirty();
@@ -408,17 +412,12 @@
   };
   
   function checkRunningTextDirty() {
-    // Build current non-empty bodies
     const current = state.runningText
       .map(function(x) { return (x.body || '').trim(); })
       .filter(function(x) { return x !== ''; });
+      
+    const original = state.originalRunningSnapshot;
     
-    // Build original non-empty bodies
-    const original = state.runningText
-      .map(function(x) { return (x.originalBody || '').trim(); })
-      .filter(function(x) { return x !== ''; });
-    
-    // Simple compare: order + content
     const dirty = JSON.stringify(current) !== JSON.stringify(original);
     
     const btn = document.getElementById('runningtext-save-btn');
@@ -449,11 +448,17 @@
       
       if (result.status === 'success') {
         window.showToast('✅ Running text tersimpan (' + bodies.length + ' item)');
-        // Update originalBody
-        state.runningText.forEach(function(x) {
-          x.originalBody = (x.body || '').trim();
+        
+        // REBUILD STATE (Hapus slot yang kosong dari memori)
+        state.originalRunningSnapshot = bodies.slice();
+        state.runningText = bodies.map(function(b) { 
+            return { body: b, originalBody: b }; 
         });
-        if (label) label.textContent = 'Tersimpan';
+        
+        renderRunningTextList();
+        updateRunningTextCount();
+        checkRunningTextDirty();
+        
         if (typeof window.refreshPublishBanner === 'function') window.refreshPublishBanner();
       } else {
         window.showToast('❌ ' + (result.message || 'Gagal'), true);

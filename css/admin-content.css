@@ -459,8 +459,9 @@
 }
 
 /* ==========================================
-   LANDSCAPE MOBILE — TAB KONTEN
+   LANDSCAPE MOBILE — TAB KONTEN (FIXED V3)
    ========================================== */
+
 @media (max-height: 500px) and (orientation: landscape) {
     #tab-content-page { padding: 8px 10px; }
     
@@ -469,26 +470,45 @@
     .publish-banner-text small { display: none; }
     .btn-publish-now { padding: 5px 12px; font-size: 0.65rem; white-space: nowrap; }
     
-    /* Home Split Layout */
-    #content-view-home {
-        display: grid;
-        grid-template-columns: 55% 45%;
-        grid-template-rows: auto auto;
-        gap: 8px;
-        height: 100%;
-        align-content: start;
+    /* HOME VIEW SPLIT LAYOUT */
+    .home-landscape-wrapper {
+        display: flex;
+        flex-direction: row;
+        gap: 10px;
+        flex: 1;
+        min-height: 0;
+        margin-top: 8px;
     }
-    #publish-status-banner { grid-column: 1 / -1; }
-    #content-preview-stage { grid-column: 1; grid-row: 2; aspect-ratio: 533 / 330; max-height: none; width: 100%; align-self: start; }
-    #content-view-home .content-menu-title { display: none; }
-    #content-menu-grid { grid-column: 2; grid-row: 2; grid-template-columns: repeat(2, 1fr); gap: 6px; align-self: start; }
+    
+    #content-preview-stage {
+        flex: 1.2;
+        aspect-ratio: 533 / 330;
+        max-height: none;
+        width: 100%;
+        align-self: flex-start;
+    }
+    
+    .home-menu-side {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    
+    .content-menu-title { display: none; }
+    
+    #content-menu-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+    }
+    
     .content-menu-card { padding: 10px 6px; min-height: 70px; gap: 4px; border-radius: 8px; }
     .content-menu-card-icon { font-size: 1.2rem; }
     .content-menu-card-title { font-size: 0.7rem; }
     .content-menu-card-count { font-size: 0.6rem; }
     .preview-edit-btn { padding: 4px 10px; font-size: 0.65rem; bottom: 6px; right: 6px; }
     
-    /* Sub-view Fullscreen */
+    /* SUB-VIEW FULLSCREEN */
     #content-view-sub {
         display: flex;
         flex-direction: column;
@@ -500,7 +520,6 @@
     .content-sub-title { font-size: 0.85rem; }
     .content-sub-btn { padding: 6px 10px; font-size: 0.7rem; }
     
-    /* FIX SCROLL */
     .content-sub-body {
         flex: 1;
         min-height: 0;

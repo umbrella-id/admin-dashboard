@@ -41,6 +41,7 @@
         }
         
         body.innerHTML = 
+          '<button class="content-modal-close" type="button" aria-label="Tutup">✕</button>' +
           '<div class="content-modal-title">' + title + '</div>' +
           (desc ? '<div class="content-modal-desc">' + desc + '</div>' : '') +
           '<div class="content-modal-actions">' + buttonsHtml + '</div>';
@@ -48,7 +49,13 @@
         activeResolve = resolve;
         overlay.classList.add('open');
         
-        // Wire tombol
+        // Wire X button
+        const xBtn = body.querySelector('.content-modal-close');
+        if (xBtn) {
+          xBtn.onclick = function() { close('cancel'); };
+        }
+        
+        // Wire tombol actions
         body.querySelectorAll('.content-modal-actions button').forEach(function(btn) {
           btn.onclick = function() {
             const val = btn.getAttribute('data-value');

@@ -380,7 +380,7 @@
 .wysiwyg-wrapper { position: relative; }
 .wysiwyg-container { position: relative; background: var(--bg-dark); border: 1px solid var(--border-line); border-radius: 8px; transition: border-color 0.2s; }
 .wysiwyg-container:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15); }
-.wysiwyg-editor { min-height: 180px; max-height: 400px; overflow-y: auto; padding: 12px 14px 44px 14px; color: white; font-size: 0.85rem; line-height: 1.6; outline: none; word-break: break-word; }
+.wysiwyg-editor { min-height: 180px;  resize: vertical; overflow-y: auto; padding: 12px 14px 44px 14px; color: white; font-size: 0.85rem; line-height: 1.6; outline: none; word-break: break-word; }
 .wysiwyg-editor:empty::before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.5; pointer-events: none; }
 .wysiwyg-editor img { max-width: 100%; border-radius: 8px; margin: 8px 0; display: block; }
 .wysiwyg-editor p { margin: 0 0 8px 0; }
@@ -557,7 +557,7 @@
     .content-form-label { font-size: 0.62rem; }
     .content-form-input { padding: 6px 10px; font-size: 0.75rem; }
     .content-form-textarea { padding: 6px 10px; font-size: 0.75rem; min-height: 60px; }
-    .wysiwyg-editor { min-height: 100px; max-height: 180px; padding: 8px 10px 36px 10px; font-size: 0.78rem; }
+    .wysiwyg-editor { min-height: 100px;  resize: vertical; padding: 8px 10px 36px 10px; font-size: 0.78rem; }
     .wysiwyg-upload-btn { width: 26px; height: 26px; font-size: 0.65rem; bottom: 6px; right: 6px; }
     
     /* Gallery Grid */

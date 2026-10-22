@@ -153,8 +153,7 @@
         : 'Saat ini menggunakan background default.',
       buttons: [
         { label: '📤 Upload Baru', style: 'confirm', value: 'upload' },
-        { label: '↺ Reset ke Default', style: 'cancel', value: 'default' },
-        { label: 'Batal', style: 'cancel', value: 'cancel' }
+        { label: '↺ Reset ke Default', style: 'danger', value: 'default' }
       ]
     });
     

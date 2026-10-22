@@ -85,6 +85,16 @@
     transform: scale(0.97);
 }
 
+/* Animasi untuk notif hijau auto-hide */
+.publish-status-banner.idle.auto-hiding {
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    margin-bottom: -60px; /* Menarik elemen di bawahnya ke atas */
+    transition: all 0.4s ease;
+    overflow: hidden;
+}
+
 /* ===== PREVIEW STAGE ===== */
 .content-preview-stage {
     position: relative;
@@ -628,46 +638,91 @@
     }
 }
 
-
 /* ==========================================
-   DESKTOP / TABLET LANDSCAPE — SPLIT VIEW
+   1. TAMPILAN HOME: PC / DESKTOP LANDSCAPE
    ========================================== */
 @media (min-width: 768px) and (orientation: landscape) {
-    /* Home Layout */
+    /* Pakai !important agar mengalahkan settingan inline dari JS */
     #content-view-home {
-        display: grid;
-        grid-template-columns: 60% 40%; /* Preview 60%, Menu 40% */
-        grid-template-rows: auto 1fr;
-        gap: 20px;
-        align-items: start;
+        display: flex !important;
+        flex-direction: row !important; 
+        flex-wrap: wrap !important;
+        align-content: flex-start !important;
+        gap: 20px !important;
+        height: 100% !important;
     }
     
     #publish-status-banner {
-        grid-column: 1 / -1;
+        width: 100% !important;
+        flex: 0 0 100% !important; /* Banner selebar layar */
     }
     
     #content-preview-stage {
-        grid-column: 1;
-        grid-row: 2;
-        max-height: none; /* Biarkan full sesuai aspect ratio */
-        width: 100%;
+        flex: 0 0 55% !important; /* Preview di Kiri */
+        width: 55% !important;
+        height: auto !important;
+        aspect-ratio: 533 / 330 !important;
     }
     
-    .content-menu-side {
-        grid-column: 2;
-        grid-row: 2;
-    }
-    
-    /* Jika Anda belum membungkus menu dalam .content-menu-side, gunakan trik ini: */
     #content-menu-grid {
-        grid-column: 2;
-        grid-row: 2;
-        margin-top: 0;
+        flex: 0 0 40% !important; /* Menu di Kanan */
+        width: 40% !important;
         grid-template-columns: repeat(2, 1fr) !important;
-        gap: 12px;
+        gap: 16px !important;
+        align-content: flex-start !important;
     }
     
-    .content-menu-title {
-        display: none; /* Sembunyikan judul menu agar hemat ruang */
+    /* Sembunyikan teks "Pilih Kategori" agar hemat ruang */
+    #content-view-home .content-menu-title {
+        display: none !important; 
     }
+}
+
+/* ==========================================
+   2. TAMPILAN HOME: HP LANDSCAPE (Layar Sempit)
+   ========================================== */
+@media (max-height: 500px) and (orientation: landscape) {
+    #content-view-home {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-content: flex-start !important;
+        gap: 8px !important;
+    }
+    
+    #publish-status-banner {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        padding: 6px 10px !important;
+        font-size: 0.7rem !important;
+    }
+    .publish-banner-text strong { font-size: 0.7rem !important; margin-bottom: 0 !important; }
+    .publish-banner-text small { display: none !important; }
+    .btn-publish-now { padding: 5px 12px !important; font-size: 0.65rem !important; }
+    
+    #content-preview-stage {
+        /* KUNCI: Biarkan tinggi yang menentukan lebar (auto), agar tidak menciut */
+        flex: 0 0 auto !important;
+        width: auto !important;
+        height: 100% !important;
+        max-height: 180px !important; /* Batasi tinggi agar muat di HP */
+        aspect-ratio: 533 / 330 !important;
+    }
+    
+    #content-menu-grid {
+        flex: 1 !important; /* Ambil sisa ruang di kanan */
+        width: auto !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 6px !important;
+        align-content: flex-start !important;
+    }
+    
+    #content-view-home .content-menu-title {
+        display: none !important;
+    }
+    
+    .content-menu-card { padding: 8px 4px !important; min-height: 60px !important; gap: 4px !important; }
+    .content-menu-card-icon { font-size: 1.1rem !important; }
+    .content-menu-card-title { font-size: 0.65rem !important; }
+    .content-menu-card-count { font-size: 0.55rem !important; }
 }

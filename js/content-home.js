@@ -85,7 +85,7 @@ window.refreshPublishBanner = async function() {
         '  <i class="fas fa-rocket"></i> PUBLISH NOW' +
         '</button>';
     } else {
-      // HIJAU — auto-hide di landscape setelah 3 detik
+      // HIJAU — auto-hide setelah 3 detik di semua device
       banner.className = 'publish-status-banner idle';
       banner.innerHTML = 
         '<div class="publish-banner-text">' +
@@ -93,15 +93,10 @@ window.refreshPublishBanner = async function() {
         '  <small>Terakhir terbit: ' + formatRelativeTime(data.lastPublishAt) + '</small>' +
         '</div>';
       
-      // Auto-hide hanya di landscape (cek orientasi + tinggi)
-      const isLandscapeMobile = 
-        window.matchMedia('(max-height: 500px) and (orientation: landscape)').matches;
-      
-      if (isLandscapeMobile) {
-        setTimeout(function() {
-          banner.classList.add('auto-hiding');
-        }, 3000);
-      }
+      // Auto-hide menggunakan transisi CSS
+      setTimeout(function() {
+        banner.classList.add('auto-hiding');
+      }, 3000);
     }
   } catch (e) {
     console.error('[CONTENT] getPublishStatus error:', e);

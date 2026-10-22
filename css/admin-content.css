@@ -1,6 +1,57 @@
-/* ==========================================
-   ADMIN-CONTENT.CSS — Tab Konten (Final Fix)
-   ========================================== */
+/* ================================================
+   ADMIN-CONTENT.CSS — Tab Konten Web Admin
+   ================================================
+   
+   STRUKTUR FILE:
+   ─────────────────────────────────────────────────
+   00. GLOBAL
+       • View wrapper, publish banner
+       • Sub-view header & body
+       • Placeholder / loading
+       • Modal reusable
+       • Content form (shared)
+   
+   01. HOME
+       • Portrait (default, stacked)
+       • Landscape universal (SPLIT VIEW)
+       • HP Landscape (compact split)
+       • PC Landscape (large split)
+   
+   02. PROFIL
+       • Base only (no modes)
+   
+   03. INFORMASI
+       • Sections (headline, openmember, running text)
+       • WYSIWYG editor (perbaikan kenyamanan edit)
+       • Portrait + landscape tuning
+   
+   04. GALLERY
+       • Grid list (auto-fill)
+       • Portrait (edit: stacked)
+       • Landscape (edit: SPLIT VIEW)
+       • HP Landscape (compact split)
+       • PC Landscape (large split)
+   
+   05. RESPONSIVE GLOBAL PORTRAIT
+       • Padding & font tweak untuk layar kecil
+   
+   ─────────────────────────────────────────────────
+   MEDIA QUERY STRATEGY:
+   ─────────────────────────────────────────────────
+   • Default (portrait) → stacked layout
+   • (orientation: landscape) and (min-aspect-ratio: 4/3)
+       → SPLIT VIEW aktif
+         (PC, laptop, tablet landscape, HP diputar)
+   • (max-height: 500px) and (orientation: landscape)
+       → COMPACT density (hanya HP landscape)
+   • (min-width: 1200px) and (orientation: landscape)
+       → LARGE spacing (PC wide)
+   ================================================ */
+
+
+/* ================================================
+   00. GLOBAL
+   ================================================ */
 
 /* ===== VIEW WRAPPER ===== */
 #tab-content-page {
@@ -12,9 +63,10 @@
     flex-direction: column;
     gap: 16px;
     height: 100%;
+    min-height: 0;
 }
 
-/* ===== BANNER PUBLISH STATUS ===== */
+/* ===== PUBLISH STATUS BANNER ===== */
 .publish-status-banner {
     padding: 12px 16px;
     border-radius: 12px;
@@ -25,6 +77,7 @@
     gap: 12px;
     flex-wrap: wrap;
     transition: all 0.2s;
+    flex-shrink: 0;
 }
 
 .publish-status-banner.idle {
@@ -39,19 +92,30 @@
     color: #fbbf24;
 }
 
-/* Animasi auto-hide notif hijau */
 .publish-status-banner.idle.auto-hiding {
     opacity: 0;
     transform: translateY(-10px);
     pointer-events: none;
-    margin-top: -50px; /* Trik agar ruang di bawahnya naik */
+    margin-top: -50px;
     transition: all 0.4s ease;
     overflow: hidden;
 }
 
-.publish-banner-text { flex: 1; min-width: 200px; }
-.publish-banner-text strong { color: white; display: block; margin-bottom: 2px; }
-.publish-banner-text small { opacity: 0.8; font-size: 0.7rem; }
+.publish-banner-text {
+    flex: 1;
+    min-width: 200px;
+}
+
+.publish-banner-text strong {
+    color: white;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.publish-banner-text small {
+    opacity: 0.8;
+    font-size: 0.7rem;
+}
 
 .btn-publish-now {
     background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
@@ -67,11 +131,297 @@
     gap: 6px;
     transition: all 0.2s;
     white-space: nowrap;
+    flex-shrink: 0;
 }
-.btn-publish-now:hover { filter: brightness(1.1); transform: translateY(-1px); }
-.btn-publish-now:active { transform: scale(0.97); }
 
-/* ===== PREVIEW STAGE ===== */
+.btn-publish-now:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+.btn-publish-now:active {
+    transform: scale(0.97);
+}
+
+/* ===== SUB-VIEW HEADER ===== */
+.content-sub-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-line);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.content-sub-back-btn {
+    background: transparent;
+    border: 1px solid var(--border-line);
+    color: var(--text-muted);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.content-sub-back-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.content-sub-back-btn:active {
+    transform: scale(0.95);
+}
+
+.content-sub-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    flex: 1;
+    min-width: 100px;
+}
+
+.content-sub-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.content-sub-btn {
+    background: rgba(168, 85, 247, 0.15);
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.content-sub-btn:hover {
+    background: var(--color-primary);
+    color: white;
+}
+
+.content-sub-btn:active {
+    transform: scale(0.97);
+}
+
+.content-sub-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.content-sub-btn.primary {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: white;
+    border: none;
+}
+
+/* ===== SUB-VIEW BODY ===== */
+.content-sub-body {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+    min-height: 0;
+}
+
+/* ===== PLACEHOLDER / LOADING ===== */
+.content-placeholder {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.content-placeholder i {
+    font-size: 2rem;
+    color: var(--color-primary);
+    opacity: 0.3;
+    margin-bottom: 12px;
+    display: block;
+}
+
+/* ===== PREVIEW LOADING OVERLAY (shared) ===== */
+.preview-loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 4;
+    backdrop-filter: blur(3px);
+    border-radius: 12px;
+}
+
+.preview-loading-overlay i {
+    color: var(--color-primary);
+    font-size: 1rem;
+}
+
+/* ===== MODAL REUSABLE ===== */
+.content-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(6px);
+    z-index: 11000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.content-modal-overlay.open {
+    display: flex;
+}
+
+.content-modal-box {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 420px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: contentModalIn 0.25s ease;
+}
+
+@keyframes contentModalIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.content-modal-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 8px;
+}
+
+.content-modal-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+.content-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.content-modal-actions button {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    transition: all 0.2s;
+    min-width: 80px;
+}
+
+.content-modal-actions button:active {
+    transform: scale(0.97);
+}
+
+.content-modal-actions .btn-confirm { background: var(--color-primary); color: white; }
+.content-modal-actions .btn-confirm.danger { background: #ef4444; }
+.content-modal-actions .btn-confirm.success { background: #22c55e; }
+.content-modal-actions .btn-cancel { background: rgba(100, 116, 139, 0.3); color: var(--text-muted); }
+
+/* ===== CONTENT FORM (shared) ===== */
+.content-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.content-form-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: -4px;
+}
+
+.content-form-input,
+.content-form-textarea {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: white;
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.content-form-input:focus,
+.content-form-textarea:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15);
+}
+
+.content-form-textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.5;
+}
+
+
+/* ================================================
+   01. HOME — Preview Stage + Menu Grid
+   ================================================
+   
+   Layout:
+   • Portrait       → stack vertical (preview atas, menu bawah)
+   • Landscape      → SPLIT VIEW (preview kiri, menu kanan)
+   • HP Landscape   → compact split (smaller gap, smaller cards)
+   • PC Landscape   → large split (larger preview, larger cards)
+   ================================================ */
+
+/* ===== BASE (PORTRAIT) — stack vertical ===== */
+.home-landscape-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    min-height: 0;
+}
+
+.home-menu-side {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
 .content-preview-stage {
     position: relative;
     width: 100%;
@@ -104,10 +454,20 @@
     z-index: 2;
 }
 
-.content-preview-stage .preview-edit-btn { z-index: 3; }
+.preview-loading {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
-.preview-loading { color: var(--text-muted); font-size: 0.85rem; display: flex; align-items: center; gap: 8px; }
-.preview-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 40%); pointer-events: none; }
+.preview-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 40%);
+    pointer-events: none;
+}
 
 .preview-edit-btn {
     position: absolute;
@@ -127,11 +487,12 @@
     backdrop-filter: blur(8px);
     z-index: 3;
 }
+
 .preview-edit-btn:hover { background: var(--color-primary); }
 .preview-edit-btn:active { transform: scale(0.95); }
 .preview-edit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ===== MENU GRID (4 CARD) ===== */
+/* Menu Grid (base) */
 .content-menu-title {
     font-size: 0.75rem;
     color: var(--text-muted);
@@ -145,10 +506,6 @@
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
-}
-
-@media (min-width: 768px) {
-    .content-menu-grid { grid-template-columns: repeat(4, 1fr); }
 }
 
 .content-menu-card {
@@ -166,342 +523,941 @@
     position: relative;
     min-height: 100px;
 }
-.content-menu-card:hover { border-color: var(--color-primary); background: rgba(168, 85, 247, 0.08); transform: translateY(-2px); }
-.content-menu-card:active { transform: translateY(0) scale(0.98); }
 
-.content-menu-card-icon { font-size: 1.8rem; color: var(--color-primary); line-height: 1; }
-.content-menu-card-title { font-size: 0.85rem; font-weight: 600; color: white; }
-.content-menu-card-count { font-size: 0.7rem; color: var(--text-muted); }
+.content-menu-card:hover {
+    border-color: var(--color-primary);
+    background: rgba(168, 85, 247, 0.08);
+    transform: translateY(-2px);
+}
 
-/* ===== SUB-VIEW HEADER ===== */
-.content-sub-header {
+.content-menu-card:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.content-menu-card-icon {
+    font-size: 1.8rem;
+    color: var(--color-primary);
+    line-height: 1;
+}
+
+.content-menu-card-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+}
+
+.content-menu-card-count {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* ===== LANDSCAPE UNIVERSAL — SPLIT VIEW =====
+   Berlaku untuk: PC, laptop, tablet landscape, HP diputar
+   ================================================ */
+@media (orientation: landscape) and (min-aspect-ratio: 4/3) {
+
+    #content-view-home {
+        gap: 12px;
+        flex: 1;
+        min-height: 0;
+    }
+
+    /* WRAPPER jadi grid 2 kolom */
+    .home-landscape-wrapper {
+        display: grid;
+        grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+        gap: 16px;
+        flex: 1;
+        min-height: 0;
+    }
+
+    /* Preview — responsive, aspect terjaga, terpusat */
+    #content-preview-stage {
+        width: min(100%, calc((100vh - 220px) * 533 / 330));
+        aspect-ratio: 533 / 330;
+        max-height: 100%;
+        place-self: center;
+        border-radius: 12px;
+    }
+
+    /* Menu — scroll jika card lebih dari container */
+    .home-menu-side {
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        min-height: 0;
+        padding-right: 4px;
+    }
+
+    .home-menu-side::-webkit-scrollbar { width: 4px; }
+    .home-menu-side::-webkit-scrollbar-thumb {
+        background: var(--border-line);
+        border-radius: 2px;
+    }
+
+    #content-menu-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    /* Judul kategori disembunyikan di landscape (space saving) */
+    #content-view-home .content-menu-title {
+        display: none;
+    }
+}
+
+/* ===== HP LANDSCAPE — COMPACT DENSITY =====
+   Hanya adjust ukuran (gap, padding, font).
+   Layout split sudah ditangani media query di atas.
+   ================================================ */
+@media (max-height: 500px) and (orientation: landscape) {
+
+    #tab-content-page { padding: 8px 10px; }
+
+    #publish-status-banner {
+        padding: 6px 10px;
+        font-size: 0.7rem;
+        flex-wrap: nowrap;
+    }
+    .publish-banner-text strong { font-size: 0.7rem; margin-bottom: 0; }
+    .publish-banner-text small { display: none; }
+    .btn-publish-now { padding: 5px 12px; font-size: 0.65rem; }
+
+    /* Wrapper gap lebih rapat */
+    .home-landscape-wrapper { gap: 8px; }
+    #content-menu-grid { gap: 6px; }
+
+    /* Preview ukuran lebih pas untuk HP landscape */
+    #content-preview-stage {
+        width: min(100%, calc((100vh - 120px) * 533 / 330));
+    }
+
+    /* Card menu lebih kecil */
+    .content-menu-card {
+        padding: 8px 4px;
+        min-height: 60px;
+        gap: 4px;
+        border-radius: 8px;
+    }
+    .content-menu-card-icon { font-size: 1.1rem; }
+    .content-menu-card-title { font-size: 0.65rem; }
+    .content-menu-card-count { font-size: 0.55rem; }
+
+    /* Preview edit button lebih kecil */
+    .preview-edit-btn {
+        bottom: 6px;
+        right: 6px;
+        padding: 4px 10px;
+        font-size: 0.6rem;
+    }
+}
+
+/* ===== PC LANDSCAPE — LARGE SPACING =====
+   Layar lebar → preview lebih besar, card lebih lega
+   ================================================ */
+@media (min-width: 1200px) and (orientation: landscape) {
+
+    /* Override global max-width 1000px untuk tab konten */
+    .tab-page[data-tab="manage-content"] > * {
+        max-width: 1400px;
+    }
+
+    .home-landscape-wrapper {
+        grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+        gap: 24px;
+    }
+
+    #content-preview-stage {
+        width: min(100%, calc((100vh - 200px) * 533 / 330));
+    }
+
+    /* Judul kategori muncul di PC (lebih informatif) */
+    #content-view-home .content-menu-title {
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    #content-menu-grid { gap: 14px; }
+
+    .content-menu-card {
+        min-height: 120px;
+        padding: 20px 14px;
+    }
+    .content-menu-card-icon { font-size: 2rem; }
+    .content-menu-card-title { font-size: 0.9rem; }
+    .content-menu-card-count { font-size: 0.75rem; }
+}
+
+
+/* ================================================
+   02. PROFIL — List & Items
+   ================================================
+   No modes needed (list scroll, form stack).
+   ================================================ */
+
+.profil-list {
     display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.profil-item {
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
     gap: 12px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border-line);
-    margin-bottom: 16px;
-    flex-wrap: wrap;
+    transition: border-color 0.2s;
 }
 
-.content-sub-back-btn {
-    background: transparent;
-    border: 1px solid var(--border-line);
+.profil-item:hover {
+    border-color: var(--color-primary);
+}
+
+.profil-item-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.profil-item-header {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profil-item-preview {
+    font-size: 0.7rem;
     color: var(--text-muted);
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profil-item-actions {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
+    gap: 6px;
     flex-shrink: 0;
 }
-.content-sub-back-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.content-sub-back-btn:active { transform: scale(0.95); }
 
-.content-sub-title { font-size: 1rem; font-weight: 600; color: white; flex: 1; min-width: 100px; }
-.content-sub-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
-.content-sub-btn {
+.profil-icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     background: rgba(168, 85, 247, 0.15);
     border: 1px solid var(--color-primary);
     color: var(--color-primary);
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 0.75rem;
-    font-weight: 600;
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s;
-    font-family: inherit;
-}
-.content-sub-btn:hover { background: var(--color-primary); color: white; }
-.content-sub-btn:active { transform: scale(0.97); }
-.content-sub-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.content-sub-btn.primary { background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark)); color: white; border: none; }
-
-/* ===== SUB-VIEW BODY ===== */
-.content-sub-body {
-    flex: 1;
-    overflow-y: auto;
-    padding-right: 4px;
-    min-height: 0;
-}
-
-.content-placeholder { padding: 60px 20px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
-.content-placeholder i { font-size: 2rem; color: var(--color-primary); opacity: 0.3; margin-bottom: 12px; display: block; }
-
-/* ===== MODAL REUSABLE ===== */
-.content-modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(6px);
-    z-index: 11000;
+    display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    transition: all 0.2s;
+    font-size: 0.75rem;
 }
-.content-modal-overlay.open { display: flex; }
 
-.content-modal-box {
+.profil-icon-btn:hover {
+    background: var(--color-primary);
+    color: white;
+}
+
+.profil-icon-btn.danger {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.profil-icon-btn.danger:hover {
+    background: #ef4444;
+    color: white;
+}
+
+.profil-icon-btn:active {
+    transform: scale(0.95);
+}
+
+
+/* ================================================
+   03. INFORMASI — Headline, Openmember, Running Text
+   ================================================
+   Fokus: kenyamanan edit WYSIWYG (image + text).
+   Perbaikan:
+   • Upload button lebih terlihat
+   • Image punya frame visual (hover glow)
+   • Editor lebih tinggi di landscape
+   ================================================ */
+
+/* ===== INFO SECTION (wrapper per blok) ===== */
+.info-section {
     background: var(--bg-solid-form);
     border: 1px solid var(--border-line);
-    border-radius: 16px;
-    padding: 24px;
-    max-width: 420px;
-    width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
-    animation: contentModalIn 0.25s ease;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-@keyframes contentModalIn { from { opacity: 0; transform: translateY(20px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.info-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-line);
+    flex-wrap: wrap;
+}
 
-.content-modal-title { font-size: 1rem; font-weight: 600; color: white; margin-bottom: 8px; }
-.content-modal-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; }
-.content-modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
-.content-modal-actions button { padding: 10px 20px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: all 0.2s; min-width: 80px; }
-.content-modal-actions button:active { transform: scale(0.97); }
-.content-modal-actions .btn-confirm { background: var(--color-primary); color: white; }
-.content-modal-actions .btn-confirm.danger { background: #ef4444; }
-.content-modal-actions .btn-confirm.success { background: #22c55e; }
-.content-modal-actions .btn-cancel { background: rgba(100, 116, 139, 0.3); color: var(--text-muted); }
+.info-section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
 
-/* ==========================================
-   PROFIL LIST (Global)
-   ========================================== */
-.profil-list { display: flex; flex-direction: column; gap: 8px; }
-.profil-item { background: var(--bg-solid-form); border: 1px solid var(--border-line); border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; transition: border-color 0.2s; }
-.profil-item:hover { border-color: var(--color-primary); }
-.profil-item-main { flex: 1; min-width: 0; }
-.profil-item-header { font-size: 0.85rem; font-weight: 600; color: white; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.profil-item-preview { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.profil-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.info-section-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
 
-.profil-icon-btn { width: 32px; height: 32px; border-radius: 8px; background: rgba(168, 85, 247, 0.15); border: 1px solid var(--color-primary); color: var(--color-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 0.75rem; }
-.profil-icon-btn:hover { background: var(--color-primary); color: white; }
-.profil-icon-btn.danger { background: rgba(239, 68, 68, 0.15); border-color: #ef4444; color: #ef4444; }
-.profil-icon-btn.danger:hover { background: #ef4444; color: white; }
-.profil-icon-btn:active { transform: scale(0.95); }
+.info-section-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #f87171;
+    font-size: 0.75rem;
+}
 
-/* ===== CONTENT FORM ===== */
-.content-form { display: flex; flex-direction: column; gap: 12px; }
-.content-form-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: -4px; }
-.content-form-input, .content-form-textarea { width: 100%; background: var(--bg-dark); border: 1px solid var(--border-line); border-radius: 8px; padding: 10px 12px; color: white; font-family: inherit; font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
-.content-form-input:focus, .content-form-textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15); }
-.content-form-textarea { resize: vertical; min-height: 120px; line-height: 1.5; }
+/* ===== WYSIWYG EDITOR (base portrait) ===== */
+.wysiwyg-wrapper {
+    position: relative;
+}
 
-/* ==========================================
-   INFO SECTION
-   ========================================== */
-.info-section { background: var(--bg-solid-form); border: 1px solid var(--border-line); border-radius: 12px; padding: 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
-.info-section-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border-line); flex-wrap: wrap; }
-.info-section-title { font-size: 0.85rem; font-weight: 700; color: var(--color-primary); letter-spacing: 1px; text-transform: uppercase; }
-.info-section-error { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 10px 12px; color: #f87171; font-size: 0.75rem; }
+.wysiwyg-container {
+    position: relative;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-line);
+    border-radius: 8px;
+    transition: border-color 0.2s;
+}
 
-/* ==========================================
-   WYSIWYG
-   ========================================== */
-.wysiwyg-wrapper { position: relative; }
-.wysiwyg-container { position: relative; background: var(--bg-dark); border: 1px solid var(--border-line); border-radius: 8px; transition: border-color 0.2s; }
-.wysiwyg-container:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15); }
-.wysiwyg-editor { min-height: 180px; overflow-y: auto; padding: 12px 14px 44px 14px; color: white; font-size: 0.85rem; line-height: 1.6; outline: none; word-break: break-word; resize: vertical; }
-.wysiwyg-editor:empty::before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.5; pointer-events: none; }
-.wysiwyg-editor img { max-width: 100%; border-radius: 8px; margin: 8px 0; display: block; }
+.wysiwyg-container:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15);
+}
+
+.wysiwyg-editor {
+    min-height: 200px;
+    overflow-y: auto;
+    padding: 14px 16px 52px 16px;
+    color: white;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    outline: none;
+    word-break: break-word;
+}
+
+.wysiwyg-editor:empty::before {
+    content: attr(data-placeholder);
+    color: var(--text-muted);
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 .wysiwyg-editor p { margin: 0 0 8px 0; }
-.wysiwyg-editor ul, .wysiwyg-editor ol { padding-left: 20px; margin: 0 0 8px 0; }
+.wysiwyg-editor ul,
+.wysiwyg-editor ol { padding-left: 20px; margin: 0 0 8px 0; }
 .wysiwyg-editor a { color: var(--color-primary); }
-.wysiwyg-upload-btn { position: absolute; bottom: 8px; right: 8px; width: 32px; height: 32px; border-radius: 8px; background: rgba(168, 85, 247, 0.15); border: 1px solid var(--color-primary); color: var(--color-primary); cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0.35; transition: all 0.2s; font-size: 0.8rem; z-index: 2; }
-.wysiwyg-upload-btn:hover { opacity: 1; background: var(--color-primary); color: white; }
-.wysiwyg-upload-btn:disabled { cursor: not-allowed; }
-.wysiwyg-loading { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.7); border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; color: white; font-size: 0.85rem; z-index: 5; backdrop-filter: blur(2px); }
 
-/* ==========================================
-   RUNNING TEXT
-   ========================================== */
-.running-text-list { display: flex; flex-direction: column; gap: 6px; }
-.running-text-item { display: flex; gap: 8px; align-items: center; background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 8px 10px; border-left: 3px solid var(--color-primary); }
-.running-text-content { flex: 1; min-width: 0; }
-.running-text-input { width: 100%; background: transparent; border: none; outline: none; color: white; font-size: 0.8rem; font-family: inherit; padding: 4px 0; border-bottom: 1px dashed transparent; transition: border-color 0.2s; }
-.running-text-input:focus { border-bottom-color: var(--color-primary); }
-.running-text-input::placeholder { color: var(--text-muted); opacity: 0.5; }
-.running-text-item .profil-icon-btn { flex-shrink: 0; width: 28px; height: 28px; font-size: 0.7rem; }
+/* 🎯 IMAGE — visual frame untuk kenyamanan edit */
+.wysiwyg-editor img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 8px 0;
+    display: block;
+    box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.25);
+    transition: box-shadow 0.2s;
+}
 
-/* ==========================================
-   GALLERY GRID
-   ========================================== */
-.gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-@media (max-width: 900px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }
+.wysiwyg-editor img:hover {
+    box-shadow: 0 0 0 2px var(--color-primary), 0 4px 12px rgba(168, 85, 247, 0.3);
+}
 
-.gallery-card { position: relative; background: var(--bg-solid-form); border: 1px solid var(--border-line); border-radius: 10px; overflow: hidden; cursor: pointer; transition: border-color 0.2s, transform 0.15s; aspect-ratio: 1; }
-.gallery-card:hover { border-color: var(--color-primary); transform: translateY(-2px); }
-.gallery-card:active { transform: translateY(0) scale(0.98); }
-.gallery-card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.gallery-card-img-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 2rem; opacity: 0.3; background: rgba(0, 0, 0, 0.2); }
-.gallery-card.img-error { background: rgba(239, 68, 68, 0.1); }
+/* 🎯 UPLOAD BUTTON — lebih terlihat */
+.wysiwyg-upload-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: rgba(168, 85, 247, 0.25);
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.75;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
 
-.gallery-card-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 10px; background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.5) 60%, transparent); display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; pointer-events: none; }
-.gallery-card-title { color: white; font-size: 0.75rem; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
-.gallery-card-actions { display: flex; gap: 4px; flex-shrink: 0; pointer-events: auto; }
-.gallery-card-btn { width: 26px; height: 26px; border-radius: 6px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: white; transition: all 0.2s; }
+.wysiwyg-upload-btn:hover {
+    opacity: 1;
+    background: var(--color-primary);
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+}
+
+.wysiwyg-upload-btn:active {
+    transform: scale(0.95);
+}
+
+.wysiwyg-upload-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.wysiwyg-loading {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: white;
+    font-size: 0.85rem;
+    z-index: 5;
+    backdrop-filter: blur(2px);
+}
+
+/* ===== RUNNING TEXT ===== */
+.running-text-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.running-text-item {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 8px 10px;
+    border-left: 3px solid var(--color-primary);
+}
+
+.running-text-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.running-text-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: white;
+    font-size: 0.8rem;
+    font-family: inherit;
+    padding: 4px 0;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.2s;
+}
+
+.running-text-input:focus {
+    border-bottom-color: var(--color-primary);
+}
+
+.running-text-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+.running-text-item .profil-icon-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    font-size: 0.7rem;
+}
+
+/* ===== LANDSCAPE UNIVERSAL — Info tuning ===== */
+@media (orientation: landscape) and (min-aspect-ratio: 4/3) {
+
+    /* Editor lebih tinggi — kenyamanan edit di landscape */
+    .wysiwyg-editor {
+        min-height: 240px;
+        padding: 16px 18px 56px 18px;
+    }
+
+    /* Info section padding lebih lega */
+    .info-section {
+        padding: 18px;
+        gap: 12px;
+    }
+
+    /* Upload button lebih prominent di PC */
+    .wysiwyg-upload-btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
+        bottom: 12px;
+        right: 12px;
+    }
+}
+
+/* ===== HP LANDSCAPE — Compact info ===== */
+@media (max-height: 500px) and (orientation: landscape) {
+
+    .info-section {
+        padding: 10px;
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+
+    .info-section-title { font-size: 0.75rem; }
+    .info-section-desc { font-size: 0.68rem; margin-bottom: 4px; }
+
+    .content-form-label { font-size: 0.62rem; }
+    .content-form-input {
+        padding: 6px 10px;
+        font-size: 0.75rem;
+    }
+    .content-form-textarea {
+        padding: 6px 10px;
+        font-size: 0.75rem;
+        min-height: 60px;
+    }
+
+    /* WYSIWYG compact tapi tetap nyaman (bukan 100px seperti sebelumnya) */
+    .wysiwyg-editor {
+        min-height: 140px;
+        padding: 10px 12px 44px 12px;
+        font-size: 0.82rem;
+        line-height: 1.55;
+    }
+
+    .wysiwyg-upload-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.75rem;
+        bottom: 6px;
+        right: 6px;
+    }
+
+    .wysiwyg-editor img {
+        margin: 6px 0;
+        border-radius: 6px;
+    }
+}
+
+/* ===== PC LANDSCAPE — Large info ===== */
+@media (min-width: 1200px) and (orientation: landscape) {
+
+    .info-section {
+        padding: 22px;
+        gap: 14px;
+    }
+
+    .wysiwyg-editor {
+        min-height: 280px;
+        padding: 18px 20px 60px 20px;
+        font-size: 0.92rem;
+        line-height: 1.75;
+    }
+
+    .wysiwyg-upload-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 1.05rem;
+        bottom: 14px;
+        right: 14px;
+    }
+}
+
+
+/* ================================================
+   04. GALLERY — List & Edit
+   ================================================
+   
+   Layout:
+   • Grid list       → auto-fill, tidak perlu mode
+   • Edit portrait   → stack (preview atas, form bawah)
+   • Edit landscape  → SPLIT VIEW (preview kiri, form kanan)
+   ================================================ */
+
+/* ===== GRID LIST (base, auto-fill) ===== */
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.gallery-card {
+    position: relative;
+    background: var(--bg-solid-form);
+    border: 1px solid var(--border-line);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+    aspect-ratio: 1;
+}
+
+.gallery-card:hover {
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+}
+
+.gallery-card:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.gallery-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.gallery-card-img-empty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 2rem;
+    opacity: 0.3;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.gallery-card.img-error {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.gallery-card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 8px 10px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.5) 60%, transparent);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.gallery-card-title {
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+.gallery-card-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    pointer-events: auto;
+}
+
+.gallery-card-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: white;
+    transition: all 0.2s;
+}
+
 .gallery-card-btn.edit { background: rgba(168, 85, 247, 0.9); }
 .gallery-card-btn.delete { background: rgba(239, 68, 68, 0.9); }
+
 .gallery-card-btn:hover { filter: brightness(1.2); transform: scale(1.1); }
 .gallery-card-btn:active { transform: scale(0.95); }
 
-/* ===== GALLERY EDIT FORM ===== */
-.gallery-edit-form { display: flex; flex-direction: column; gap: 12px; }
-.gallery-edit-preview { position: relative; width: 100%; aspect-ratio: 16 / 10; background: #0a0612; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-line); }
-.gallery-edit-preview > img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.gallery-edit-preview-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted); font-size: 0.85rem; flex-direction: column; gap: 8px; opacity: 0.7; }
-.gallery-edit-preview-empty i { font-size: 2rem; opacity: 0.5; }
-.gallery-edit-preview-overlay { position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; z-index: 2; }
-.gallery-edit-preview-overlay button { background: rgba(0, 0, 0, 0.7); border: 1px solid var(--color-primary); color: white; padding: 6px 14px; border-radius: 8px; font-size: 0.7rem; font-weight: 600; cursor: pointer; backdrop-filter: blur(4px); transition: all 0.2s; display: flex; align-items: center; gap: 6px; font-family: inherit; }
-.gallery-edit-preview-overlay button:hover { background: var(--color-primary); }
-.gallery-edit-preview-overlay button:active { transform: scale(0.95); }
-.gallery-edit-preview-overlay button:disabled { opacity: 0.5; cursor: not-allowed; }
-.gallery-edit-loading { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; gap: 8px; color: white; font-size: 0.85rem; z-index: 5; backdrop-filter: blur(2px); }
-
-/* ===== PREVIEW LOADING OVERLAY ===== */
-.preview-loading-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; gap: 10px; color: white; font-size: 0.85rem; font-weight: 500; z-index: 4; backdrop-filter: blur(3px); border-radius: 12px; }
-.preview-loading-overlay i { color: var(--color-primary); font-size: 1rem; }
-
-/* ==========================================
-   RESPONSIVE (MOBILE PORTRAIT)
-   ========================================== */
-@media (max-width: 480px) {
-    #tab-content-page { padding: 12px; }
-    .content-menu-grid { gap: 8px; }
-    .content-menu-card { padding: 12px 8px; min-height: 88px; }
-    .content-menu-card-icon { font-size: 1.5rem; }
-    .content-menu-card-title { font-size: 0.75rem; }
-    .content-sub-title { font-size: 0.9rem; }
-    .gallery-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+/* ===== GALLERY EDIT FORM — base (portrait) ===== */
+.gallery-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-/* ==========================================
-   MOBILE LANDSCAPE — TAB KONTEN (FIXED FINAL)
-   ========================================== */
+.gallery-edit-preview-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.gallery-edit-fields-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.gallery-edit-preview {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    background: #0a0612;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border-line);
+}
+
+.gallery-edit-preview > img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.gallery-edit-preview-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0.7;
+}
+
+.gallery-edit-preview-empty i {
+    font-size: 2rem;
+    opacity: 0.5;
+}
+
+.gallery-edit-preview-overlay {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    gap: 8px;
+    z-index: 2;
+}
+
+.gallery-edit-preview-overlay button {
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid var(--color-primary);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+}
+
+.gallery-edit-preview-overlay button:hover {
+    background: var(--color-primary);
+}
+
+.gallery-edit-preview-overlay button:active {
+    transform: scale(0.95);
+}
+
+.gallery-edit-preview-overlay button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.gallery-edit-loading {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: white;
+    font-size: 0.85rem;
+    z-index: 5;
+    backdrop-filter: blur(2px);
+}
+
+/* ===== LANDSCAPE UNIVERSAL — Gallery SPLIT VIEW ===== */
+@media (orientation: landscape) and (min-aspect-ratio: 4/3) {
+
+    /* Gallery grid lebih banyak kolom di landscape */
+    .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+
+    /* EDIT FORM — split horizontal */
+    .gallery-edit-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+        gap: 16px;
+        align-items: stretch;
+        min-height: 0;
+        height: 100%;
+    }
+
+    .gallery-edit-preview-col {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .gallery-edit-fields-col {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    /* Preview tinggi mengikuti container (bukan aspect ratio) */
+    .gallery-edit-preview {
+        aspect-ratio: auto;
+        flex: 1;
+        height: 100%;
+        min-height: 200px;
+    }
+
+    /* Form mengisi tinggi kolom */
+    .gallery-edit-fields-col .content-form {
+        gap: 10px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Textarea caption mengisi sisa tinggi */
+    .gallery-edit-fields-col .content-form-textarea {
+        flex: 1;
+        min-height: 100px;
+    }
+}
+
+/* ===== HP LANDSCAPE — Gallery compact ===== */
 @media (max-height: 500px) and (orientation: landscape) {
-    #tab-content-page { padding: 8px 10px; }
-    
-    /* === HOME VIEW: SPLIT KIRI-KANAN === */
-    /* KUNCI: JANGAN gunakan display: flex !important di sini */
-    #content-view-home {
-        flex-direction: row !important;
-        flex-wrap: wrap !important;
-        align-content: flex-start !important;
-        gap: 8px !important;
+
+    .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 6px;
     }
-    
-    #publish-status-banner {
-        width: 100% !important;
-        flex: 0 0 100% !important;
-        padding: 6px 10px !important;
-        font-size: 0.7rem !important;
-        flex-wrap: nowrap !important;
+
+    .gallery-card {
+        aspect-ratio: 4 / 3;
+        border-radius: 6px;
     }
-    .publish-banner-text strong { font-size: 0.7rem !important; margin-bottom: 0 !important; }
-    .publish-banner-text small { display: none !important; }
-    .btn-publish-now { padding: 5px 12px !important; font-size: 0.65rem !important; }
-    
-    /* Preview Kiri (Tinggi fix, lebar fleksibel) */
-    #content-preview-stage {
-        flex: 1.2 !important;
-        height: 130px !important; 
-        aspect-ratio: auto !important;
-        max-height: 130px !important;
-        width: auto !important;
-    }
-    
-    /* Menu Kanan */
-    #content-menu-grid {
-        flex: 1 !important; 
-        width: auto !important;
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 6px !important;
-        align-content: flex-start !important;
-    }
-    
-    #content-view-home .content-menu-title { display: none !important; }
-    .content-menu-card { padding: 8px 4px !important; min-height: 60px !important; gap: 4px !important; border-radius: 8px !important; }
-    .content-menu-card-icon { font-size: 1.1rem !important; }
-    .content-menu-card-title { font-size: 0.65rem !important; }
-    .content-menu-card-count { font-size: 0.55rem !important; }
-    
-    /* === SUB-VIEW: FULLSCREEN (Tidak menumpuk) === */
-    #content-view-sub {
-        display: flex !important;
-        flex-direction: column !important;
-        height: 100% !important;
-        gap: 6px !important;
-    }
-    .content-sub-header { padding-bottom: 4px !important; margin-bottom: 4px !important; gap: 6px !important; flex-shrink: 0 !important; }
-    .content-sub-back-btn { width: 26px !important; height: 26px !important; font-size: 0.7rem !important; }
-    .content-sub-title { font-size: 0.8rem !important; }
-    .content-sub-btn { padding: 4px 10px !important; font-size: 0.65rem !important; height: 26px !important; }
-    
-    .content-sub-body {
-        flex: 1 !important;
-        min-height: 0 !important;
-        overflow-y: auto !important;
-        padding-bottom: 8px !important;
-        padding-right: 2px !important;
-    }
-    
-    /* Profil List Compact */
-    .profil-list { display: flex; flex-direction: column; gap: 6px; }
-    .profil-item { padding: 8px 10px; gap: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
-    .profil-item-main { flex: 1; min-width: 0; }
-    .profil-item-header { font-size: 0.78rem; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .profil-item-preview { font-size: 0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .profil-icon-btn { width: 28px; height: 28px; font-size: 0.65rem; }
-    
-    /* Info Section Compact */
-    .info-section { padding: 10px; gap: 6px; margin-bottom: 8px; }
-    .info-section-title { font-size: 0.75rem; }
-    .content-form-label { font-size: 0.62rem; }
-    .content-form-input { padding: 6px 10px; font-size: 0.75rem; }
-    .content-form-textarea { padding: 6px 10px; font-size: 0.75rem; min-height: 60px; }
-    
-    .wysiwyg-editor { min-height: 100px; padding: 8px 10px 36px 10px; font-size: 0.78rem; resize: vertical; }
-    .wysiwyg-upload-btn { width: 26px; height: 26px; font-size: 0.65rem; bottom: 6px; right: 6px; }
-    
-    /* Gallery Grid & Split View Edit */
-    .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-    .gallery-card { aspect-ratio: 4 / 3; border-radius: 6px; }
+
     .gallery-card-overlay { padding: 4px 6px; }
     .gallery-card-title { font-size: 0.65rem; }
     .gallery-card-btn { width: 22px; height: 22px; font-size: 0.55rem; }
-    
-    .gallery-edit-form { display: flex; flex-direction: row; gap: 12px; height: 100%; min-height: 0; }
-    .gallery-edit-preview-col { flex: 1.2; display: flex; flex-direction: column; }
-    .gallery-edit-fields-col { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-    .gallery-edit-preview { aspect-ratio: auto !important; flex: 1; min-height: 150px; height: 100%; }
-    .gallery-edit-fields-col .content-form { gap: 6px; height: 100%; }
-    .gallery-edit-fields-col .content-form-textarea { flex: 1; min-height: 80px; }
-    
-    /* Modal & Navbar */
-    .content-modal-box { padding: 16px; max-height: 85vh; }
-    .content-modal-title { font-size: 0.9rem; }
-    .content-modal-desc { font-size: 0.72rem; margin-bottom: 12px; }
-    .content-modal-actions button { padding: 8px 14px; font-size: 0.72rem; }
-    
-    .bottom-nav { padding: 4px 0; }
-    .nav-item { padding: 6px 0; gap: 0; font-size: 0; }
-    .nav-item i { font-size: 1.1rem; padding: 2px 0; }
-    .nav-item span { display: none; }
-    .nav-item.active::after { left: 30%; width: 40%; height: 2px; }
-    
-    .admin-header { padding: 8px 14px; }
-    .admin-name { font-size: 0.8rem; }
-    .admin-role { font-size: 0.55rem; }
-    .settings-btn { font-size: 1rem; }
-    .tab-page { padding: 10px; }
+
+    /* Edit split lebih compact */
+    .gallery-edit-form { gap: 10px; }
+    .gallery-edit-preview { min-height: 140px; border-radius: 8px; }
+    .gallery-edit-preview-overlay button {
+        padding: 4px 10px;
+        font-size: 0.65rem;
+    }
+    .gallery-edit-fields-col .content-form { gap: 6px; }
+    .gallery-edit-fields-col .content-form-textarea { min-height: 80px; }
+    .content-form-input {
+        padding: 6px 10px;
+        font-size: 0.75rem;
+    }
+}
+
+/* ===== PC LANDSCAPE — Gallery large ===== */
+@media (min-width: 1200px) and (orientation: landscape) {
+
+    .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 14px;
+    }
+
+    .gallery-edit-form {
+        grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+        gap: 24px;
+    }
+
+    .gallery-edit-preview { min-height: 320px; }
+
+    .gallery-edit-fields-col .content-form {
+        gap: 14px;
+    }
+
+    .gallery-edit-fields-col .content-form-textarea {
+        min-height: 160px;
+    }
+}
+
+
+/* ================================================
+   05. RESPONSIVE GLOBAL PORTRAIT
+   ================================================
+   Tweak padding & font untuk layar kecil (portrait).
+   ================================================ */
+@media (max-width: 480px) and (orientation: portrait) {
+
+    #tab-content-page { padding: 12px; }
+
+    .content-menu-grid { gap: 8px; }
+    .content-menu-card {
+        padding: 12px 8px;
+        min-height: 88px;
+    }
+    .content-menu-card-icon { font-size: 1.5rem; }
+    .content-menu-card-title { font-size: 0.75rem; }
+
+    .content-sub-title { font-size: 0.9rem; }
+
+    .gallery-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .profil-item { padding: 10px 12px; }
+    .profil-item-header { font-size: 0.8rem; }
+    .profil-item-preview { font-size: 0.65rem; }
+    .profil-icon-btn { width: 28px; height: 28px; font-size: 0.7rem; }
+
+    .info-section { padding: 12px; gap: 8px; }
+    .wysiwyg-editor {
+        min-height: 160px;
+        padding: 12px 14px 46px 14px;
+        font-size: 0.85rem;
+    }
+    .wysiwyg-upload-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 0.8rem;
+    }
 }

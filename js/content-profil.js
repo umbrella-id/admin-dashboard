@@ -49,7 +49,7 @@ async function fetchProfilItems(force) {
     .sort(function(a, b) {
       const ta = new Date(a.Timestamp).getTime() || 0;
       const tb = new Date(b.Timestamp).getTime() || 0;
-      return tb - ta;  // terbaru dulu
+      return ta - tb;  // terbaru dibawah
     })
     .map(function(item) {
       return {

@@ -1,6 +1,16 @@
 /**
- * admin.js — Core Admin Dashboard
- * V5: Bersih dari fungsi tab Admin lama (sudah merge ke tab Member)
+ * admin-core.js — Core Admin Runtime
+ *
+ * Fondasi seluruh web admin:
+ * - Utility: escapeHtml, sanitizeHtml
+ * - UI: showToast, closeModal, showConfirmModal
+ * - Auth: doLogin, checkSession, validateSession, logout
+ * - Presence: sendPresence, standby heartbeat
+ * - Notification: browser notif + sound
+ * - Layout: renderBottomNav, setupDashboard
+ * - Bootstrap: checkSession() di bottom
+ *
+ * Load SETELAH admin-router.js, SEBELUM modul lain.
  */
 
 window.GAS_ADMIN_URL = "https://script.google.com/macros/s/AKfycbx1VqwGfC0Bz_tXNacdEe6s3Lu7USX9uRy7JbrOet4qu_bjA6PR9r780Ne7LP73UwUs/exec";
@@ -48,6 +58,33 @@ function escapeHtml(str) {
         if (m === "'") return '&#39;';
         return m;
     });
+}
+
+function sanitizeHtml(html) {
+    if (!html) return '';
+    
+    let cleaned = String(html);
+    
+    // 1. Hapus elemen berbahaya (script, iframe, embed, object, form)
+    cleaned = cleaned.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    cleaned = cleaned.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+    cleaned = cleaned.replace(/<embed\b[^>]*>/gi, '');
+    cleaned = cleaned.replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '');
+    cleaned = cleaned.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '');
+    
+    // 2. Hapus event handler (onclick=, onerror=, onload=, ...)
+    cleaned = cleaned.replace(/\son\w+\s*=\s*"[^"]*"/gi, '');
+    cleaned = cleaned.replace(/\son\w+\s*=\s*'[^']*'/gi, '');
+    cleaned = cleaned.replace(/\son\w+\s*=\s*[^\s>]+/gi, '');
+    
+    // 3. Netralkan javascript: URL di href/src
+    cleaned = cleaned.replace(/(href|src)\s*=\s*(['"])\s*javascript:[^'"]*\2/gi, '$1=$2#$2');
+    
+    // 4. Hapus <style> dan <link> yang bisa inject CSS global
+    cleaned = cleaned.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    cleaned = cleaned.replace(/<link\b[^>]*>/gi, '');
+    
+    return cleaned;
 }
 
 // ==========================================
@@ -839,6 +876,7 @@ window.logoutWithConfirm = logoutWithConfirm;
 window.closeModal = closeModal;
 window.showToast = showToast;
 window.escapeHtml = escapeHtml;
+window.sanitizeHtml = sanitizeHtml;
 window.formatRoleDisplay = formatRoleDisplay;
 window.toggleNotificationSetting = toggleNotificationSetting;
 window.openChangePasskey = openChangePasskey;
@@ -848,4 +886,4 @@ window.renderSettingsModalInternal = renderSettingsModalInternal;
 window.renderChangePasskeyInternal = renderChangePasskeyInternal;
 
 checkSession();
-console.log("✅ admin.js loaded (V5 — Bersih dari fungsi tab Admin lama)");
+console.log("✅ admin-core.js loaded (V5 — Bersih dari fungsi tab Admin lama)");

@@ -31,13 +31,6 @@
     return res.json();
   }
   
-  function escapeHtml(s) {
-    if (!s) return '';
-    return String(s).replace(/[&<>"']/g, function(m) {
-      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m];
-    });
-  }
-  
   // ==========================================
   // FETCH SETTINGS
   // ==========================================

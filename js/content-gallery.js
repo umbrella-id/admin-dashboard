@@ -31,22 +31,6 @@
     return res.json();
   }
   
-  function escapeHtml(s) {
-    if (!s) return '';
-    return String(s).replace(/[&<>"']/g, function(m) {
-      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m];
-    });
-  }
-  
-  // ==========================================
-  // BODY HELPERS
-  // ==========================================
-  function extractImageUrl(body) {
-    if (!body) return '';
-    const match = body.toString().match(/<img[^>]*src=["']([^"']+)["']/i);
-    return match ? match[1] : '';
-  }
-  
   function extractCaption(body) {
     if (!body) return '';
     const tmp = document.createElement('div');

@@ -125,7 +125,7 @@ function renderProfilListHTML() {
     html += 
       '<div class="profil-item">' +
       '  <div class="profil-item-main">' +
-      '    <div class="profil-item-header">' + escapeProfil(item.header || '(tanpa judul)') + '</div>' +
+      '    <div class="profil-item-header">' + escapeHtml(item.header || '(tanpa judul)') + '</div>' +
       '    <div class="profil-item-preview">' + (preview || '(kosong)') + '</div>' +
       '  </div>' +
       '  <div class="profil-item-actions">' +
@@ -405,7 +405,7 @@ window.profilOpenDelete = async function(index) {
   if (!item) return;
   
   const choice = await window.contentModal.show({
-    title: 'Hapus "' + escapeProfil(item.header || 'item') + '"?',
+    title: 'Hapus "' + escapeHtml(item.header || 'item') + '"?',
     desc: 'Tindakan ini tidak bisa dibatalkan. Item akan dihapus dari sheet, tapi belum tayang sampai Anda klik PUBLISH.',
     buttons: [
       { label: 'Ya, Hapus', style: 'danger', value: 'yes' },
@@ -430,20 +430,5 @@ window.profilOpenDelete = async function(index) {
     window.showToast('❌ Koneksi gagal', true);
   }
 };
-
-// ==========================================
-// HELPER: ESCAPE HTML
-// ==========================================
-function escapeProfil(str) {
-  if (!str) return '';
-  return String(str).replace(/[&<>"']/g, function(m) {
-    if (m === '&') return '&amp;';
-    if (m === '<') return '&lt;';
-    if (m === '>') return '&gt;';
-    if (m === '"') return '&quot;';
-    if (m === "'") return '&#39;';
-    return m;
-  });
-}
 
 console.log('✅ content-profil.js loaded');

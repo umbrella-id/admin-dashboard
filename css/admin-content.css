@@ -1365,3 +1365,60 @@
   border-color: #ef4444;
   color: #ff8888;
 }
+
+/* ==========================================
+   CRYSTA — Type section & SVG icon scaling
+   ========================================== */
+
+.crysta-type-section {
+  margin-bottom: 20px;
+}
+
+.crysta-type-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-line);
+}
+
+.crysta-type-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.crysta-type-title svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.crysta-type-count {
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.68rem;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+/* SVG icon scaling in chain cards & nodes */
+.crysta-chain-icon svg.crysta-svg-icon,
+.crysta-chain-node-icon svg.crysta-svg-icon {
+  width: 100% !important;
+  height: 100% !important;
+  filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.3));
+}
+
+/* Menu card icon — scale up SVG dari ciHeader() */
+.content-menu-card-icon svg.crysta-svg-icon {
+  width: 1.8rem !important;
+  height: 1.8rem !important;
+  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.4));
+}

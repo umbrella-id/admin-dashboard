@@ -51,6 +51,12 @@ window.handleContentView = function(viewName, data) {
         window.renderProfilAddForm();
       }
       return true;
+
+    case 'content-crysta-batch':
+      if (typeof window.renderCrystaBatchImportForm === 'function') {
+        window.renderCrystaBatchImportForm();
+      }
+      return true;
     
     default:
       return false;

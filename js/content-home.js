@@ -211,9 +211,16 @@ async function renderMenuCards() {
   let html = '';
   for (let i = 0; i < cards.length; i++) {
     const c = cards[i];
+    let cardIconHtml;
+    if (c.id === 'crysta' && typeof window.ciHeader === 'function') {
+      cardIconHtml = window.ciHeader();
+    } else {
+      cardIconHtml = '<i class="fas ' + c.icon + '"></i>';
+    }
+    
     html += 
       '<div class="content-menu-card" onclick="window.contentOpenCategory(\'' + c.id + '\')">' +
-      '  <div class="content-menu-card-icon"><i class="fas ' + c.icon + '"></i></div>' +
+      '  <div class="content-menu-card-icon">' + cardIconHtml + '</div>' +
       '  <div class="content-menu-card-title">' + c.label + '</div>' +
       '  <div class="content-menu-card-count">' + c.count + ' item</div>' +
       '</div>';

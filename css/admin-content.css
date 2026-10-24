@@ -1204,3 +1204,164 @@
   color: #c084fc;
   font-weight: 500;
 }
+/* ==========================================
+   CRYSTA — Chain cards & detail
+   ========================================== */
+
+.crysta-chain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.crysta-chain-card {
+  background: var(--bg-solid-form);
+  border: 1px solid var(--border-line);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  transition: all 0.2s;
+}
+
+.crysta-chain-card:hover {
+  border-color: var(--color-primary);
+  background: rgba(168, 85, 247, 0.08);
+  transform: translateY(-2px);
+}
+
+.crysta-chain-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(168, 85, 247, 0.15);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.crysta-chain-body { flex: 1; min-width: 0; }
+
+.crysta-chain-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crysta-chain-meta { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px; }
+
+.crysta-chain-base {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crysta-chain-shared { color: #f59e0b; }
+
+/* Detail view — nodes */
+.crysta-chain-node {
+  background: var(--bg-solid-form);
+  border: 1px solid var(--border-line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.crysta-chain-node-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.crysta-chain-node-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(168, 85, 247, 0.15);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.crysta-chain-node-title {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.crysta-chain-badge {
+  font-size: 0.55rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.crysta-chain-badge.max { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+.crysta-chain-badge.base { background: rgba(100, 116, 139, 0.3); color: #94a3b8; }
+.crysta-chain-badge.shared { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+
+.crysta-chain-node-type { font-size: 0.68rem; color: var(--text-muted); margin-bottom: 4px; }
+
+.crysta-chain-node-stat {
+  font-size: 0.75rem;
+  color: var(--text-main);
+  opacity: 0.85;
+  line-height: 1.4;
+}
+
+.crysta-chain-shared-info {
+  font-size: 0.68rem;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  border-left: 2px solid #f59e0b;
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-top: 6px;
+}
+
+.crysta-chain-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 0;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Danger button (Delete Chain) */
+.content-sub-btn.danger {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  color: #f87171;
+}
+
+.content-sub-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ff8888;
+}

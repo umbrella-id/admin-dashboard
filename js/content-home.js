@@ -188,12 +188,20 @@ async function renderMenuCards() {
     }).length;
   }
   
+  let crystaCount = 0;
+  try {
+    const cRes = await fetch(`${window.GAS_ADMIN_URL}?action=getAllCrysta&adminId=${currentAdmin.id}`);
+    const cData = await cRes.json();
+    if (cData.status === 'success' && Array.isArray(cData.data)) {
+      crystaCount = cData.data.length;
+    }
+  } catch(e) { console.warn('[CONTENT] crysta count error:', e); }
+  
   const cards = [
     { id: 'profil', icon: 'fa-address-card', label: 'Profil', count: countBy('profil') },
-    { id: 'info', icon: 'fa-bullhorn', label: 'Informasi', count: 
-      countBy('headline') + countBy('openmember') + countBy('running_text') 
-    },
-    { id: 'gallery', icon: 'fa-images', label: 'Gallery', count: countBy('gallery') }
+    { id: 'info', icon: 'fa-bullhorn', label: 'Informasi', count: countBy('headline') + countBy('openmember') + countBy('running_text') },
+    { id: 'gallery', icon: 'fa-images', label: 'Gallery', count: countBy('gallery') },
+    { id: 'crysta', icon: 'fa-gem', label: 'Crysta', count: crystaCount }
   ];
   
   if (currentAdmin && currentAdmin.role1 === 'leader') {
@@ -247,6 +255,10 @@ window.renderContentSub = function(category) {
   }
   if (category === 'gallery' && typeof window.renderGalleryList === 'function') {
     window.renderGalleryList();
+    return;
+  }
+  if (category === 'crysta' && typeof window.renderCrystaList === 'function') {
+    window.renderCrystaList();
     return;
   }
   if (category === 'webinternal' && typeof window.renderWebInternalView === 'function') {

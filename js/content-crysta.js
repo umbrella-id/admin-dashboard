@@ -417,7 +417,7 @@
   // ==========================================
   window.crystaOpenBatchImport = function() {
     state.batchPreview = null;
-    renderBatchImportForm();
+    window.renderCrystaBatchImportForm();
     if (typeof pushView === 'function') pushView('content-crysta-batch', {});
   };
   

@@ -33,6 +33,12 @@ window.handleContentView = function(viewName, data) {
         window.renderWebInternalView();
       }
       return true;
+
+    case 'content-crysta-chain':
+      if (typeof window.renderCrystaChainDetail === 'function') {
+        window.renderCrystaChainDetail();
+      }
+      return true;
     
     case 'content-profil-edit':
       if (typeof window.renderProfilEditForm === 'function') {

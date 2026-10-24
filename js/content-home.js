@@ -188,14 +188,26 @@ async function renderMenuCards() {
     }).length;
   }
   
-  let crystaCount = 0;
-  try {
-    const cRes = await fetch(`${window.GAS_ADMIN_URL}?action=getAllCrysta&adminId=${currentAdmin.id}`);
-    const cData = await cRes.json();
-    if (cData.status === 'success' && Array.isArray(cData.data)) {
-      crystaCount = cData.data.length;
-    }
-  } catch(e) { console.warn('[CONTENT] crysta count error:', e); }
+let crystaCount = 0;
+try {
+  const cRes = await fetch(`${window.GAS_ADMIN_URL}?action=getAllCrysta&adminId=${currentAdmin.id}`);
+  const cData = await cRes.json();
+  if (cData.status === 'success' && Array.isArray(cData.data)) {
+    const items = cData.data;
+    const itemWithChild = new Set();
+    items.forEach(function(i) {
+      if (i.upgrade_for && i.upgrade_for !== '') {
+        itemWithChild.add(i.upgrade_for);
+      }
+    });
+    // Count = base + intermediate (skip max/akhir)
+    crystaCount = items.filter(function(i) {
+      const hasParent = i.upgrade_for && i.upgrade_for !== '';
+      const hasChild = itemWithChild.has(i.name);
+      return !hasParent || hasChild;
+    }).length;
+  }
+} catch(e) { console.warn('[CONTENT] crysta count error:', e); }
   
   const cards = [
     { id: 'profil', icon: 'fa-address-card', label: 'Profil', count: countBy('profil') },

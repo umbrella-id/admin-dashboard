@@ -309,6 +309,7 @@
     const map = {};
     items.forEach(function(i) { map[i.name] = i; });
     
+    // Rebuild chain fresh (end → base)
     const chain = [];
     let current = map[maxNodeName];
     const visited = new Set();
@@ -322,23 +323,57 @@
     }
     
     const chainNames = new Set(chain.map(function(c) { return c.name; }));
-    const safe = [];
-    const kept = [];
     
+    // === Step 1: Cari node yang punya outside child (harus keep) ===
+    const mustKeep = new Set();
+    const usedByMap = {};
     for (let i = 0; i < chain.length; i++) {
       const node = chain[i];
       const outside = items.filter(function(x) {
         return x.upgrade_for === node.name && !chainNames.has(x.name);
       });
       if (outside.length > 0) {
-        kept.push({ name: node.name, usedBy: outside.map(function(c) { return c.name; }) });
-      } else {
-        safe.push(node.name);
+        mustKeep.add(node.name);
+        usedByMap[node.name] = outside.map(function(c) { return c.name; });
       }
     }
     
+    // === Step 2: Propagate → semua ancestor dari mustKeep juga harus keep ===
+    const keptSet = new Set();
+    for (let i = 0; i < chain.length; i++) {
+      if (mustKeep.has(chain[i].name)) {
+        // Mark node ini + semua ancestor (parent-side = index lebih besar)
+        for (let j = i; j < chain.length; j++) {
+          keptSet.add(chain[j].name);
+        }
+      }
+    }
+    
+    // === Step 3: Build safe & kept ===
+    const safe = [];
+    const kept = [];
+    for (let i = 0; i < chain.length; i++) {
+      const node = chain[i];
+      if (!keptSet.has(node.name)) {
+        safe.push(node.name);
+        continue;
+      }
+      const ownOutside = usedByMap[node.name] || [];
+      const inChainChild = (i > 0 && keptSet.has(chain[i - 1].name)) ? chain[i - 1].name : null;
+      
+      let reason = '';
+      if (ownOutside.length > 0 && inChainChild) {
+        reason = ownOutside.join(', ') + ', ' + inChainChild;
+      } else if (ownOutside.length > 0) {
+        reason = ownOutside.join(', ');
+      } else if (inChainChild) {
+        reason = inChainChild;
+      }
+      kept.push({ name: node.name, reason: reason });
+    }
+    
     if (safe.length === 0) {
-      window.showToast('⚠️ Semua dipakai chain lain', true);
+      window.showToast('⚠️ Semua dipakai chain lain (tidak ada yang bisa dihapus)', true);
       return;
     }
     
@@ -347,7 +382,7 @@
     if (kept.length > 0) {
       desc += '<br><br><strong>DIPERTAHANKAN (' + kept.length + '):</strong><br>' +
         kept.map(function(k) {
-          return '• ' + window.escapeHtml(k.name) + ' <em>(dipakai: ' + window.escapeHtml(k.usedBy.join(', ')) + ')</em>';
+          return '• ' + window.escapeHtml(k.name) + ' <em>(dibutuhkan: ' + window.escapeHtml(k.reason) + ')</em>';
         }).join('<br>');
     }
     

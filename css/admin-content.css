@@ -1130,3 +1130,77 @@
     .wysiwyg-editor { min-height: 160px; padding: 12px 14px 46px 14px; font-size: 0.85rem; }
     .wysiwyg-upload-btn { width: 34px; height: 34px; font-size: 0.8rem; }
 }
+
+
+/* Crysta list */
+.crysta-group {
+  margin-bottom: 16px;
+  border: 1px solid var(--border-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.crysta-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(168, 85, 247, 0.1);
+  border-bottom: 1px solid var(--border-line);
+  font-weight: 600;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+}
+.crysta-group-count {
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+.crysta-group-list { padding: 4px 0; }
+.crysta-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.2s;
+}
+.crysta-item:last-child { border-bottom: none; }
+.crysta-item:hover { background: rgba(168, 85, 247, 0.05); }
+.crysta-item-main { flex: 1; min-width: 0; }
+.crysta-item-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+.crysta-item-stat {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.crysta-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.crysta-badge-base {
+  font-size: 0.6rem;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: rgba(100, 116, 139, 0.3);
+  color: #94a3b8;
+  font-weight: 500;
+}
+.crysta-badge-upgrade {
+  font-size: 0.6rem;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  font-weight: 500;
+}

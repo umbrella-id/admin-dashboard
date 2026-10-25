@@ -30,6 +30,12 @@
     const res = await fetch(url.toString());
     return res.json();
   }
+
+  function extractImageUrl(body) {
+    if (!body) return '';
+    const match = html.toString().match(/<img[^>]*src=["']([^"']+)["']/i);
+    return match ? match[1] : '';
+  }
   
   function extractCaption(body) {
     if (!body) return '';

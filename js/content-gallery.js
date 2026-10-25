@@ -33,7 +33,7 @@
 
   function extractImageUrl(body) {
     if (!body) return '';
-    const match = html.toString().match(/<img[^>]*src=["']([^"']+)["']/i);
+    const match = body.toString().match(/<img[^>]*src=["']([^"']+)["']/i);
     return match ? match[1] : '';
   }
   

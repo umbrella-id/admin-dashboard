@@ -60,6 +60,11 @@ function escapeHtml(str) {
     });
 }
 
+function escapeJs(str) {
+    if (str === undefined || str === null) return '';
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
+
 function sanitizeHtml(html) {
     if (!html) return '';
     
@@ -876,6 +881,7 @@ window.logoutWithConfirm = logoutWithConfirm;
 window.closeModal = closeModal;
 window.showToast = showToast;
 window.escapeHtml = escapeHtml;
+window.escapeJs = escapeJs;
 window.sanitizeHtml = sanitizeHtml;
 window.formatRoleDisplay = formatRoleDisplay;
 window.toggleNotificationSetting = toggleNotificationSetting;

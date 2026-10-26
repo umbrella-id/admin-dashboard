@@ -1,11 +1,10 @@
 /**
- * admin-chat.js - Chat Widget (V3 — With Router)
+ * admin-chat.js - Chat Widget (V4 — XSS Fix + Legacy UID)
  * 
- * Perubahan dari V2:
- * - Integrasi dengan admin-router.js
- * - Fix double push state saat buka/tutup chat
- * - Modal mute push view 'chat-mute'
- * - Delete chat pakai timestamp (sudah benar dari V2)
+ * Perubahan V4:
+ * - 🛡️ Fix XSS di 3 onclick (deleteChatMessage, toggleMute, executeMute)
+ * - 🔄 isMyMessage(): dukung legacy UID (ADMN_x / ADMIN_x → ADM-xxxx)
+ * - 🎯 Bubble admin muncul di sisi "me" walau UID lama
  */
 
 let activeInterval = null;
@@ -15,6 +14,44 @@ let adminData = null;
 let currentChatTab = 'chat';
 let isSending = false;
 let onlineUsersCount = 0;
+
+// ==========================================
+// 🎯 LEGACY UID HELPER
+// ==========================================
+function normalizeDigits(s) {
+    var d = String(s || '').replace(/\D/g, '');
+    return d.replace(/^0+/, '') || '';
+}
+
+function isMyMessage(msgUid, adminData) {
+    if (!msgUid || !adminData) return false;
+
+    // 1. Exact match — UID saat ini
+    if (msgUid === adminData.id) return true;
+
+    // 2. Explicit legacy list (future-proof)
+    if (Array.isArray(adminData.legacyIds) && adminData.legacyIds.indexOf(msgUid) !== -1) {
+        return true;
+    }
+
+    // 3. Heuristic: digit match untuk migrasi ADMN_x / ADMIN_x → ADM-xxxx
+    var currentDigits = normalizeDigits(adminData.id);
+    if (!currentDigits) return false;
+
+    var msgDigits = normalizeDigits(msgUid);
+    if (!msgDigits || msgDigits !== currentDigits) return false;
+
+    var msgStr = String(msgUid);
+    var legacyPrefixes = ['ADMN_', 'ADMN-', 'ADMIN_', 'ADMIN-', 'ADM_'];
+    for (var i = 0; i < legacyPrefixes.length; i++) {
+        if (msgStr.indexOf(legacyPrefixes[i]) === 0) {
+            console.log('🔄 Legacy UID match:', msgUid, '→', adminData.id);
+            return true;
+        }
+    }
+
+    return false;
+}
 
 function getLastChatStamp() {
     return localStorage.getItem('umbrella_last_chat_stamp') || '';
@@ -34,7 +71,7 @@ function initChat(admin) {
 window.isChatOpen = () => isChatOpen;
 
 // ==========================================
-// TOGGLE CHAT WIDGET (DENGAN ROUTER)
+// TOGGLE CHAT WIDGET
 // ==========================================
 window.toggleChatWidget = async function() {
     if (!adminData) { 
@@ -62,7 +99,6 @@ window.toggleChatWidget = async function() {
         const input = document.getElementById('admin-chat-input');
         if (input) input.focus();
         
-        // Push view 1x saja (bukan 2x seperti versi lama)
         if (typeof pushView === 'function') {
             pushView('chat');
         }
@@ -73,7 +109,6 @@ window.toggleChatWidget = async function() {
         stopAllTimers();
         if (typeof window.sendPresence === 'function') await window.sendPresence('standby');
         
-        // Pakai router — konsisten dengan tombol back
         if (typeof closeCurrentView === 'function') {
             closeCurrentView();
         }
@@ -171,7 +206,6 @@ async function loadChatMessages() {
     const container = document.getElementById('admin-chat-logs');
     if (!container) return;
     
-    // Cek cache dulu
     const cached = sessionStorage.getItem('umbrella_cached_chat_logs');
     if (cached) {
         try {
@@ -219,7 +253,6 @@ function renderChatLogs(logs, container) {
         let isSystem = false;
         let displayText = msgText;
         
-        // Konversi command MUTE/UNMUTE jadi pesan sistem
         if (msgType === 'command') {
             if (msgText.startsWith('MUTE_')) {
                 const parts = msgText.split('_');
@@ -240,7 +273,9 @@ function renderChatLogs(logs, container) {
         if (msgType !== 'msg' && !isSystem) continue;
         
         const isDeleted = (msgType === 'msg' && msgText === '[deleted by admin]');
-        const isMe = msg.uid === adminData.id;
+        
+        // 🎯 FIX: pakai isMyMessage untuk dukung legacy UID
+        const isMe = isMyMessage(msg.uid, adminData);
         
         if (isSystem) {
             html += `<div class="chat-row system-message"><div class="system-text">${displayText}</div></div>`;
@@ -252,18 +287,20 @@ function renderChatLogs(logs, container) {
             continue;
         }
         
-        // Pesan biasa
         const username = escapeHtml(msg.username || 'Anonim');
         const message = escapeHtml(msg.message || '');
         const timestamp = msg.timestamp;
         const uid = msg.uid;
+
+        // 🛡️ FIX XSS: escapeJs untuk uid di onclick
+        const safeUid = (typeof escapeJs === 'function') ? escapeJs(uid) : String(uid).replace(/'/g, "\\'");
         
         html += `
             <div class="chat-row ${isMe ? 'me' : 'other'}">
                 <b>${username}</b>
                 <div class="chat-message-wrapper">
                     <div class="msg-text">${message}</div>
-                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${timestamp}, '${uid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${timestamp}, '${safeUid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
                 </div>
             </div>
         `;
@@ -286,8 +323,8 @@ async function fetchOnlineUsers() {
         const data = await res.json();
         let users = data.onlineUsers || [];
         
-        const admins = users.filter(u => u.uid && u.uid.includes('ADM-'));
-        const regulars = users.filter(u => u.uid && !u.uid.includes('ADM-'));
+        const admins = users.filter(u => u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0));
+        const regulars = users.filter(u => !(u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0)));
         onlineUsersCount = users.length;
         
         const onlineCountSpan = document.getElementById('online-count');
@@ -302,7 +339,7 @@ async function fetchOnlineUsers() {
         if (admins.length) {
             html += '<div style="margin-bottom:8px;"><span style="font-size:0.65rem;color:var(--color-primary);">👑 ADMIN ONLINE</span></div>';
             for (const u of admins) {
-                html += `<div class="online-user-item admin-item"><div><i class="fas fa-crown" style="color:#f59e0b;"></i> ${escapeHtml(u.ign)}<div style="font-size:0.6rem;">${u.uid}</div></div><div style="width:50px;"></div></div>`;
+                html += `<div class="online-user-item admin-item"><div><i class="fas fa-crown" style="color:#f59e0b;"></i> ${escapeHtml(u.ign)}<div style="font-size:0.6rem;">${escapeHtml(u.uid)}</div></div><div style="width:50px;"></div></div>`;
             }
         }
         
@@ -310,7 +347,13 @@ async function fetchOnlineUsers() {
             if (admins.length) html += '<div style="margin:12px 0 8px;"><span style="font-size:0.65rem;">👥 USER ONLINE</span></div>';
             for (const u of regulars) {
                 const muted = u.isMuted === true;
-                html += `<div class="online-user-item"><div><strong>${escapeHtml(u.ign)}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}<div style="font-size:0.6rem;">${u.uid}</div></div><button class="${muted ? 'unmute-btn' : 'mute-btn'}" onclick="window.toggleMute('${u.uid}', '${escapeHtml(u.ign)}', ${muted})">${muted ? 'BUKA BISU' : 'BISUKAN'}</button></div>`;
+
+                // 🛡️ FIX XSS: escapeJs untuk uid
+                const safeUid = (typeof escapeJs === 'function') ? escapeJs(u.uid) : String(u.uid).replace(/'/g, "\\'");
+                const safeIgn = escapeHtml(u.ign);
+                const safeIgnJs = (typeof escapeJs === 'function') ? escapeJs(u.ign) : String(u.ign).replace(/'/g, "\\'");
+
+                html += `<div class="online-user-item"><div><strong>${safeIgn}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}<div style="font-size:0.6rem;">${safeIgn}</div></div><button class="${muted ? 'unmute-btn' : 'mute-btn'}" onclick="window.toggleMute('${safeUid}', '${safeIgnJs}', ${muted})">${muted ? 'BUKA BISU' : 'BISUKAN'}</button></div>`;
             }
         }
         
@@ -397,17 +440,21 @@ window.toggleMute = function(uid, ign, isCurrentlyMuted) {
 };
 
 // ==========================================
-// MUTE MODAL (DENGAN ROUTER)
+// MUTE MODAL
 // ==========================================
 window.showMuteModal = function(uid, ign) {
     renderMuteModalInternal(uid, ign);
     if (typeof pushView === 'function') {
-        pushView('chat-mute', { uid, ign });
+        pushView('chat-mute', { uid: uid, ign: ign });
     }
 };
 
 function renderMuteModalInternal(uid, ign) {
     const modal = document.getElementById('modal-overlay');
+
+    // 🛡️ FIX XSS: escapeJs untuk uid di onclick
+    const safeUid = (typeof escapeJs === 'function') ? escapeJs(uid) : String(uid).replace(/'/g, "\\'");
+
     modal.innerHTML = `
         <div class="modal-content">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
@@ -419,7 +466,7 @@ function renderMuteModalInternal(uid, ign) {
                 <option value="60">60 menit</option>
             </select>
             <div class="modal-buttons">
-                <button onclick="window.executeMute('${uid}', document.getElementById('mute-duration').value, '${escapeHtml(ign)}')" style="background:var(--color-primary);">BISUKAN</button>
+                <button onclick="window.executeMute('${safeUid}', document.getElementById('mute-duration').value, '${escapeHtml(ign)}')" style="background:var(--color-primary);">BISUKAN</button>
                 <button onclick="window.closeModal()" style="background:#333;">Batal</button>
             </div>
         </div>
@@ -432,7 +479,7 @@ window.executeMute = async function(targetUid, duration, ign) {
     window.showToast(`⏳ Membisukan ${ign}...`);
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=executeMute&adminId=${adminData.id}&targetUid=${targetUid}&duration=${duration}&targetIgn=${encodeURIComponent(ign)}`);
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=executeMute&adminId=${adminData.id}&targetUid=${encodeURIComponent(targetUid)}&duration=${encodeURIComponent(duration)}&targetIgn=${encodeURIComponent(ign)}`);
         const data = await res.json();
         if (data.status === 'success') {
             window.showToast(`✅ ${ign} dibisukan ${duration} menit`);
@@ -452,7 +499,7 @@ window.executeUnmute = async function(targetUid, ign) {
     window.showToast(`⏳ Membuka bisuan ${ign}...`);
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=executeUnmute&adminId=${adminData.id}&targetUid=${targetUid}&targetIgn=${encodeURIComponent(ign)}`);
+        const res = await fetch(`${window.GAS_ADMIN_URL}?action=executeUnmute&adminId=${adminData.id}&targetUid=${encodeURIComponent(targetUid)}&targetIgn=${encodeURIComponent(ign)}`);
         const data = await res.json();
         if (data.status === 'success') {
             window.showToast(`✅ Bisuan ${ign} dibuka`);
@@ -474,5 +521,6 @@ window.initChat = initChat;
 window.loadChatMessages = loadChatMessages;
 window.fetchOnlineUsers = fetchOnlineUsers;
 window.renderMuteModalInternal = renderMuteModalInternal;
+window.isMyMessage = isMyMessage;
 
-console.log("✅ admin-chat.js loaded (V3 — With Router)");
+console.log("✅ admin-chat.js loaded (V4 — XSS Fix + Legacy UID)");

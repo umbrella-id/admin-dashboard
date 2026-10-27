@@ -63,7 +63,7 @@ window.refreshPublishBanner = async function() {
     const url = new URL(window.GAS_ADMIN_URL);
     url.searchParams.set('action', 'getPublishStatus');
     url.searchParams.set('adminId', currentAdmin.id);
-    const res = await fetch(url.toString());
+    const res = await adminFetch(url.toString());
     const data = await res.json();
     
     if (data.status !== 'success') throw new Error(data.message);
@@ -124,7 +124,7 @@ window.contentPublishNow = async function() {
     const url = new URL(window.GAS_ADMIN_URL);
     url.searchParams.set('action', 'refreshContentCache');
     url.searchParams.set('adminId', currentAdmin.id);
-    const res = await fetch(url.toString());
+    const res = await adminFetch(url.toString());
     const data = await res.json();
     
     if (data.status === 'success') {
@@ -170,7 +170,7 @@ async function renderMenuCards() {
       const url = new URL(window.GAS_ADMIN_URL);
       url.searchParams.set('action', 'getAllContent');
       url.searchParams.set('adminId', currentAdmin.id);
-      const res = await fetch(url.toString());
+      const res = await adminFetch(url.toString());
       const data = await res.json();
       if (data.status === 'success') {
         all = data.data || [];
@@ -190,7 +190,7 @@ async function renderMenuCards() {
   
 let crystaCount = 0;
 try {
-  const cRes = await fetch(`${window.GAS_ADMIN_URL}?action=getAllCrysta&adminId=${currentAdmin.id}`);
+  const cRes = await adminFetch(`${window.GAS_ADMIN_URL}?action=getAllCrysta&adminId=${currentAdmin.id}`);
   const cData = await cRes.json();
   if (cData.status === 'success' && Array.isArray(cData.data)) {
     const items = cData.data;

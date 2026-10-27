@@ -135,7 +135,7 @@ async function loadKasDashboard(forceRefresh = false) {
         const needsBreakdown = currentAdmin?.webUid;
         
         const [kasResponse, breakdownResponse] = await Promise.all([
-            fetch(`${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`)
+            adminFetch(`${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`)
                 .then(r => r.json()),
             needsBreakdown 
                 ? fetchKasBreakdownData()   // fungsi baru, return raw breakdown
@@ -618,7 +618,7 @@ function renderKasDashboard() {
 // ==========================================
 async function openKasNotification() {
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getKasNotifications&adminId=${currentAdmin.id}`);
+        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=getKasNotifications&adminId=${currentAdmin.id}`);
         const data = await res.json();
         
         if (data.status === 'success' && data.data && data.data.length > 0) {
@@ -631,7 +631,7 @@ async function openKasNotification() {
             return;
         }
         
-        await fetch(`${window.GAS_ADMIN_URL}?action=clearKasNotifications&adminId=${currentAdmin.id}`);
+        await adminFetch(`${window.GAS_ADMIN_URL}?action=clearKasNotifications&adminId=${currentAdmin.id}`);
         kasData.unreadNotifCount = 0;
         updateNotifBadge();
     } catch(e) {
@@ -686,7 +686,7 @@ async function submitSetoran() {
     const isNewMember = !isListMode;
     
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=addSetoran&adminId=${currentAdmin.id}&ign=${encodeURIComponent(memberName)}&spina=${spina}&notes=${encodeURIComponent(notes)}&adm=${encodeURIComponent(currentAdmin.nama)}&isNewMember=${isNewMember}`);
+        const response = await adminFetch(`${window.GAS_ADMIN_URL}?action=addSetoran&adminId=${currentAdmin.id}&ign=${encodeURIComponent(memberName)}&spina=${spina}&notes=${encodeURIComponent(notes)}&adm=${encodeURIComponent(currentAdmin.nama)}&isNewMember=${isNewMember}`);
         const data = await response.json();
         
         if (data.status === 'success') {
@@ -737,7 +737,7 @@ async function submitTransferRequest() {
     
     try {
         // 🎯 Kirim toId (UID) + toName (display)
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=requestTransfer&adminId=${currentAdmin.id}&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toId=${encodeURIComponent(toId)}&toName=${encodeURIComponent(toName)}&amount=${amount}&notes=${encodeURIComponent(notes)}`);
+        const response = await adminFetch(`${window.GAS_ADMIN_URL}?action=requestTransfer&adminId=${currentAdmin.id}&fromId=${currentAdmin.id}&fromName=${encodeURIComponent(currentAdmin.nama)}&toId=${encodeURIComponent(toId)}&toName=${encodeURIComponent(toName)}&amount=${amount}&notes=${encodeURIComponent(notes)}`);
         const data = await response.json();
         
         if (data.status === 'success') {
@@ -794,7 +794,7 @@ async function submitPengeluaran() {
     btn.disabled = true;
     
     try {
-        const response = await fetch(`${window.GAS_ADMIN_URL}?action=addPengeluaran&adminId=${currentAdmin.id}&adm=${encodeURIComponent(currentAdmin.nama)}&spina=${spina}&notes=${encodeURIComponent(notes)}&keterangan=${encodeURIComponent(keterangan)}`);
+        const response = await adminFetch(`${window.GAS_ADMIN_URL}?action=addPengeluaran&adminId=${currentAdmin.id}&adm=${encodeURIComponent(currentAdmin.nama)}&spina=${spina}&notes=${encodeURIComponent(notes)}&keterangan=${encodeURIComponent(keterangan)}`);
         const data = await response.json();
         
         if (data.status === 'success') {
@@ -829,7 +829,7 @@ async function submitPengeluaran() {
 async function approveTransferRequest(requestId) {
     window.showConfirmModal('Setujui transfer ini?', async () => {
         try {
-            const response = await fetch(`${window.GAS_ADMIN_URL}?action=approveTransfer&adminId=${currentAdmin.id}&requestId=${requestId}&approvedBy=${currentAdmin.id}&approvedByName=${encodeURIComponent(currentAdmin.nama)}`);
+            const response = await adminFetch(`${window.GAS_ADMIN_URL}?action=approveTransfer&adminId=${currentAdmin.id}&requestId=${requestId}&approvedBy=${currentAdmin.id}&approvedByName=${encodeURIComponent(currentAdmin.nama)}`);
             const data = await response.json();
             
             if (data.status === 'success') {
@@ -856,7 +856,7 @@ async function approveTransferRequest(requestId) {
 async function rejectTransferRequest(requestId) {
     window.showConfirmModal('Tolak transfer ini?', async () => {
         try {
-            const response = await fetch(`${window.GAS_ADMIN_URL}?action=rejectTransfer&adminId=${currentAdmin.id}&requestId=${requestId}&rejectedBy=${currentAdmin.id}&rejectedByName=${encodeURIComponent(currentAdmin.nama)}`);
+            const response = await adminFetch(`${window.GAS_ADMIN_URL}?action=rejectTransfer&adminId=${currentAdmin.id}&requestId=${requestId}&rejectedBy=${currentAdmin.id}&rejectedByName=${encodeURIComponent(currentAdmin.nama)}`);
             const data = await response.json();
             
             if (data.status === 'success') {
@@ -883,7 +883,7 @@ async function rejectTransferRequest(requestId) {
 async function cancelTransferRequest(requestId) {
     window.showConfirmModal('Batalkan request transfer ini?', async () => {
         try {
-            const response = await fetch(`${window.GAS_ADMIN_URL}?action=cancelTransfer&adminId=${currentAdmin.id}&requestId=${requestId}&cancelledBy=${currentAdmin.id}`);
+            const response = await adminFetch(`${window.GAS_ADMIN_URL}?action=cancelTransfer&adminId=${currentAdmin.id}&requestId=${requestId}&cancelledBy=${currentAdmin.id}`);
             const data = await response.json();
             
             if (data.status === 'success') {

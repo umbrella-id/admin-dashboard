@@ -46,7 +46,7 @@ async function refreshMailbox() {
     
     try {
         // 🎯 Kirim adminId
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getMailList&adminId=${currentAdmin.id}&filter=${currentMailFilter}`);
+        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=getMailList&adminId=${currentAdmin.id}&filter=${currentMailFilter}`);
         const data = await res.json();
         
         if (data.status === 'success' && data.mails) {
@@ -272,7 +272,7 @@ async function renderMailDetailInternal(mail) {
         renderMailbox(currentMailList);
         
         // 🎯 Kirim adminId + timestamp
-        fetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&adminId=${currentAdmin.id}&timestamp=${mail.timestamp}`)
+        adminFetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&adminId=${currentAdmin.id}&timestamp=${mail.timestamp}`)
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success' && data.feedback) {
@@ -441,7 +441,7 @@ async function renderMailHistoryInternal(uid) {
     
     try {
         // 🎯 Kirim adminId
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getMailHistory&adminId=${currentAdmin.id}&uid=${encodeURIComponent(uid)}`);
+        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=getMailHistory&adminId=${currentAdmin.id}&uid=${encodeURIComponent(uid)}`);
         const data = await res.json();
         
         if (data.status === 'success' && data.history) {
@@ -571,7 +571,7 @@ async function submitMailReply() {
     
     try {
         const url = `${window.GAS_ADMIN_URL}?action=mailReply&adminId=${currentAdmin.id}&timestamp=${timestamp}&adminUid=${encodeURIComponent(adminUid)}&adminIgn=${encodeURIComponent(adminIgn)}&adminReply=${encodeURIComponent(reply)}`;
-        const res = await fetch(url);
+        const res = await adminFetch(url);
         const data = await res.json();
         
         if (data.status === 'success') {
@@ -622,7 +622,7 @@ async function markAsDone(timestamp) {
         renderMailbox(currentMailList);
         
         try {
-            const res = await fetch(`${window.GAS_ADMIN_URL}?action=mailClose&adminId=${currentAdmin.id}&timestamp=${timestamp}`);
+            const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=mailClose&adminId=${currentAdmin.id}&timestamp=${timestamp}`);
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -706,7 +706,7 @@ window.deleteMail = async function(timestamp) {
     window.showConfirmModal('Hapus surat ini?', async () => {
         try {
             window.showToast("⏳ Menghapus...");
-            const res = await fetch(`${window.GAS_ADMIN_URL}?action=deleteMail&adminId=${currentAdmin.id}&timestamp=${timestamp}`);
+            const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=deleteMail&adminId=${currentAdmin.id}&timestamp=${timestamp}`);
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -727,7 +727,7 @@ window.deleteMail = async function(timestamp) {
 async function checkMailboxChanges() {
     try {
         // 🎯 Kirim adminId
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=checkMailboxStatus&adminId=${currentAdmin.id}`);
+        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=checkMailboxStatus&adminId=${currentAdmin.id}`);
         const data = await res.json();
         
         if (data.status !== 'success') return false;

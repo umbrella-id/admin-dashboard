@@ -17,7 +17,6 @@ window.GAS_ADMIN_URL = "https://script.google.com/macros/s/AKfycbx1VqwGfC0Bz_tXN
 window.GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbwqsSUeVxPg4V5hMc9ph92eMQ2cFqTQI7SJZOG9f-FDlPii4IaXGEfOZ7zdRG35zbIhnw/exec";
 window.GAS5_URL = "https://script.google.com/macros/s/AKfycbzTP1-9KuQ2iz4ffTfhujqkSIQqQxXWMXY-BHljCVU_Zzm0Ept8j4AJUCBHqB-ZSZk/exec";
 
-let isLoggingOut = false;
 let currentAdmin = null;
 let standbyInterval = null;
 let isWindowFocused = true;
@@ -854,9 +853,7 @@ async function changeMyPasskey() {
         const data = await res.json();
         if (data.status === 'success') { 
             showToast("Passkey berhasil diubah!");
-            // Device ini tetap login (server keep current token via sessionToken)
-            // Tidak perlu reload, cukup close modal
-            setTimeout(() => closeModal(), 1500);
+            setTimeout(() => location.reload(), 1500);
         }
         else showToast(data.message || "Gagal", true);
     } catch(e) { showToast("Gagal koneksi", true); }
@@ -906,6 +903,51 @@ function logout() {
     
     location.reload();
 }
+
+// ==========================================
+// ADMIN FETCH HELPER (BARU)
+// Bungkus fetch agar otomatis inject sessionToken
+// ==========================================
+window.adminFetch = async function(url, options) {
+    const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
+    
+    let finalUrl = url;
+    let finalOptions = options || {};
+    
+    if (session.sessionToken) {
+        if (!finalOptions.method || finalOptions.method === 'GET') {
+            const sep = finalUrl.includes('?') ? '&' : '?';
+            finalUrl = finalUrl + sep + 'sessionToken=' + encodeURIComponent(session.sessionToken);
+        } else {
+            try {
+                const body = JSON.parse(finalOptions.body || '{}');
+                body.sessionToken = session.sessionToken;
+                finalOptions = Object.assign({}, finalOptions, { body: JSON.stringify(body) });
+            } catch(e) {}
+        }
+    }
+    
+    const res = await fetch(finalUrl, finalOptions);
+    
+    // Deteksi "Sesi berakhir" — trigger relogin (sekali saja)
+    if (!window.__reloginPending) {
+        try {
+            const cloned = res.clone();
+            const data = await cloned.json();
+            if (data.status === 'error' && (data.message || '').includes('Sesi berakhir')) {
+                window.__reloginPending = true;
+                if (typeof showToast === 'function') showToast('Sesi berakhir. Login ulang.', true);
+                window.showConfirmModal(
+                    '⚠️ Sesi berakhir. Silakan login ulang.',
+                    () => { if (typeof logout === 'function') logout(); },
+                    () => { window.__reloginPending = false; }
+                );
+            }
+        } catch(e) {}
+    }
+    
+    return res;
+};
 
 // ==========================================
 // LOGIN DENGAN ENTER

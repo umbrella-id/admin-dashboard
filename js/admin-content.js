@@ -157,7 +157,7 @@ async function uploadToGitHub(file, context = 'gallery') {
         mimeType: ext === 'svg' ? 'image/svg+xml' : 'image/webp'
     };
     
-    const res = await fetch(window.GAS_ADMIN_URL, {
+    const res = await adminFetch(window.GAS_ADMIN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
@@ -398,7 +398,7 @@ async function loadContentData() {
     container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i> Memuat data konten...</div>';
     
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=getAllContent&adminId=${currentAdmin.id}`);
+        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=getAllContent&adminId=${currentAdmin.id}`);
         const data = await res.json();
         
         if (data.status === 'success' && data.data) {
@@ -641,7 +641,7 @@ async function loadBackgroundPreview() {
     if (!statusEl || !previewEl) return;
     
     try {
-        const res = await fetch(BG_JSON_URL + '?t=' + Date.now());
+        const res = await adminFetch(BG_JSON_URL + '?t=' + Date.now());
         
         if (!res.ok) {
             statusEl.textContent = 'Default (belum ada bg.json)';
@@ -748,7 +748,7 @@ window.uploadBackground = async function(btn) {
             const version = Date.now();
             
             // 1. Upload binary ke bg-img
-            const imgRes = await fetch(window.GAS_ADMIN_URL, {
+            const imgRes = await adminFetch(window.GAS_ADMIN_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
@@ -764,7 +764,7 @@ window.uploadBackground = async function(btn) {
             }
             
             // 2. Update bg.json
-            const jsonRes = await fetch(window.GAS_ADMIN_URL, {
+            const jsonRes = await adminFetch(window.GAS_ADMIN_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
@@ -808,7 +808,7 @@ window.resetBackground = async function() {
     try {
         window.showToast('⏳ Reset...');
         
-        const res = await fetch(window.GAS_ADMIN_URL, {
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -857,7 +857,7 @@ window.updateAllContent = async function() {
     for (const ts of deletedTimestamps) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=deleteContentItem&adminId=${currentAdmin.id}&timestamp=${ts}`;
-            const res = await fetch(url);
+            const res = await adminFetch(url);
             const data = await res.json();
             if (data.status === 'success') successCount++; else failCount++;
         } catch(e) { failCount++; }
@@ -866,7 +866,7 @@ window.updateAllContent = async function() {
     for (const newItem of newItems) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=addContentItem&adminId=${currentAdmin.id}&category=${newItem.category}&header=${encodeURIComponent(newItem.header)}&body=${encodeURIComponent(newItem.body)}`;
-            const res = await fetch(url);
+            const res = await adminFetch(url);
             const data = await res.json();
             if (data.status === 'success') successCount++; else failCount++;
         } catch(e) { failCount++; }
@@ -875,14 +875,14 @@ window.updateAllContent = async function() {
     for (const change of changes) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=updateContent&adminId=${currentAdmin.id}&timestamp=${change.timestamp}&field=${change.field}&value=${encodeURIComponent(change.value)}`;
-            const res = await fetch(url);
+            const res = await adminFetch(url);
             const data = await res.json();
             if (data.status === 'success') successCount++; else failCount++;
         } catch(e) { failCount++; }
     }
     
     if (successCount > 0) {
-        await fetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache&adminId=${currentAdmin.id}`);
+        await adminFetch(`${window.GAS_ADMIN_URL}?action=refreshContentCache&adminId=${currentAdmin.id}`);
         window.showToast(`✅ ${successCount} item berhasil diperbarui${failCount > 0 ? `, ${failCount} gagal` : ''}`);
         await loadContentData();
         hasUnsavedChanges = false;
@@ -1165,7 +1165,7 @@ window.openGateSettingsModal = async function() {
     // Fetch settings dari GAS 4
     try {
         const url = `${window.GAS_ADMIN_URL}?action=getGateSettings&adminId=${currentAdmin.id}`;
-        const res = await fetch(url);
+        const res = await adminFetch(url);
         const data = await res.json();
         
         if (data.status === 'success' && data.data) {
@@ -1275,7 +1275,7 @@ window.submitGateSettings = async function() {
         url += `&newQuestion=${encodeURIComponent(newQuestion)}`;
         url += `&newCode=${encodeURIComponent(newCode)}`;
         
-        const res = await fetch(url);
+        const res = await adminFetch(url);
         const data = await res.json();
         
         if (data.status === 'success') {

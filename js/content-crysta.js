@@ -47,7 +47,7 @@
         url.searchParams.set(k, params[k]);
       }
     }
-    const res = await fetch(url.toString());
+    const res = await adminFetch(url.toString());
     return res.json();
   }
   

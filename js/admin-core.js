@@ -24,6 +24,9 @@ let isWindowFocused = true;
 let notificationEnabled = localStorage.getItem('umbrella_notif_enabled') !== 'false';
 let toastTimeout = null;
 
+let lastRefreshAt = 0;
+const REFRESH_THROTTLE_MS = 30 * 1000;
+
 // ==========================================
 // UTILITY
 // ==========================================
@@ -523,7 +526,8 @@ async function doLogin() {
             currentAdmin = data.admin;
             localStorage.setItem('umbrella_admin_session', JSON.stringify({
                 admin: currentAdmin,
-                adminPasskey: passkey,
+                sessionToken: data.sessionToken,      // ← BARU
+                expiresAt: data.expiresAt,            // ← BARU
                 loggedInAt: Date.now()
             }));
             
@@ -533,6 +537,9 @@ async function doLogin() {
                 localStorage.setItem('u_ign', currentAdmin.nama);
                 console.log('✅ Admin juga member:', currentAdmin.webUid);
             }
+            
+            // Reset throttle supaya refresh pertama langsung jalan
+            lastRefreshAt = 0;
             
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('dashboard').style.display = 'flex';
@@ -567,6 +574,25 @@ async function checkSession() {
     
     try {
         const data = JSON.parse(session);
+        
+        // MIGRASI: sesi lama (tanpa sessionToken) → paksa relogin
+        if (!data.sessionToken) {
+            console.log('🔄 Migrasi: sesi lama tanpa token, force relogin');
+            localStorage.removeItem('umbrella_admin_session');
+            loginScreen.style.display = 'flex';
+            dashboard.style.display = 'none';
+            return;
+        }
+        
+        // Cek expiry di client (server tetap validasi di setiap request)
+        if (data.expiresAt && data.expiresAt < Date.now()) {
+            console.log('⏰ Sesi expired (client), force relogin');
+            localStorage.removeItem('umbrella_admin_session');
+            loginScreen.style.display = 'flex';
+            dashboard.style.display = 'none';
+            return;
+        }
+        
         currentAdmin = data.admin;
         
         loginScreen.style.display = 'none';
@@ -574,6 +600,8 @@ async function checkSession() {
         
         setupDashboardAfterLogin();
         
+        // Reset throttle untuk initial refresh setelah page load
+        lastRefreshAt = 0;
         validateSessionInBackground(currentAdmin);
         
     } catch(e) {
@@ -587,42 +615,45 @@ async function checkSession() {
 // VALIDASI SESSION
 // ==========================================
 async function validateSessionInBackground(admin) {
+    // Throttle: skip kalau baru < 30 detik
+    const now = Date.now();
+    if (now - lastRefreshAt < REFRESH_THROTTLE_MS) {
+        return;
+    }
+    lastRefreshAt = now;
+    
     try {
-        const session = JSON.parse(localStorage.getItem('umbrella_admin_session'));
-        const adminPasskey = session.adminPasskey;
+        const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
+        if (!session.sessionToken) return;
         
         const res = await fetch(window.GAS_ADMIN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
-                action: 'validateSession',
-                adminId: admin.id,
-                adminPasskey: adminPasskey
+                action: 'refreshSession',
+                sessionToken: session.sessionToken
             })
         });
         const data = await res.json();
         
-        if (!data.valid) {
-            console.log("🔴 Session tidak valid, logout otomatis");
+        if (data.status !== 'success') {
+            console.log("🔴 Sesi tidak valid:", data.message);
             window.showConfirmModal(
-                '⚠️ Session tidak valid. Silakan login ulang.',
+                '⚠️ Sesi berakhir. Silakan login ulang.',
                 () => { logout(); }
             );
             return;
         }
         
+        // Update expiresAt (sliding session — token diperpanjang 30 hari)
+        session.expiresAt = data.expiresAt;
+        session.loggedInAt = Date.now();
+        
+        // Sinkronisasi nama + role dari server
         if (data.admin && JSON.stringify(data.admin) !== JSON.stringify(currentAdmin)) {
-            console.log("🔄 Update data admin terbaru");
+            console.log("🔄 Update data admin terbaru (nama/role)");
             currentAdmin = data.admin;
-            
-            const oldPasskey = session.adminPasskey;
-            
-            localStorage.setItem('umbrella_admin_session', JSON.stringify({
-                admin: currentAdmin,
-                adminName: currentAdmin.nama, 
-                adminPasskey: oldPasskey,
-                loggedInAt: Date.now()
-            }));
+            session.admin = currentAdmin;
             
             if (currentAdmin.webUid) {
                 localStorage.setItem('u_uid', currentAdmin.webUid);
@@ -635,7 +666,8 @@ async function validateSessionInBackground(admin) {
             renderBottomNav();
         }
         
-        console.log("✅ Session valid");
+        localStorage.setItem('umbrella_admin_session', JSON.stringify(session));
+        console.log("✅ Session valid (expiresAt diperpanjang)");
         
     } catch(e) {
         console.error("Background validation error:", e);
@@ -805,18 +837,26 @@ async function changeMyPasskey() {
     if (newPasskey !== confirmPasskey) { showToast("Passkey baru tidak cocok", true); return; }
     if (newPasskey.length < 6) { showToast("Passkey minimal 6 karakter", true); return; }
     if (/[^a-zA-Z0-9]/.test(newPasskey)) { showToast("Passkey hanya boleh huruf dan angka", true); return; }
+    
+    const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
+    if (!session.sessionToken) {
+        showToast("Sesi berakhir. Login ulang.", true);
+        setTimeout(() => logout(), 1500);
+        return;
+    }
+    
     try {
-        const res = await fetch(`${window.GAS_ADMIN_URL}?action=changeMyPasskey&adminId=${currentAdmin.id}&oldPasskey=${encodeURIComponent(oldPasskey)}&newKey=${encodeURIComponent(newPasskey)}`);
+        const url = `${window.GAS_ADMIN_URL}?action=changeMyPasskey` +
+            `&sessionToken=${encodeURIComponent(session.sessionToken)}` +
+            `&oldPasskey=${encodeURIComponent(oldPasskey)}` +
+            `&newKey=${encodeURIComponent(newPasskey)}`;
+        const res = await fetch(url);
         const data = await res.json();
         if (data.status === 'success') { 
             showToast("Passkey berhasil diubah!");
-            currentAdmin.passkey = newPasskey;
-            localStorage.setItem('umbrella_admin_session', JSON.stringify({ 
-                admin: currentAdmin, 
-                adminPasskey: newPasskey,
-                loggedInAt: Date.now() 
-            }));
-            setTimeout(() => location.reload(), 1500);
+            // Device ini tetap login (server keep current token via sessionToken)
+            // Tidak perlu reload, cukup close modal
+            setTimeout(() => closeModal(), 1500);
         }
         else showToast(data.message || "Gagal", true);
     } catch(e) { showToast("Gagal koneksi", true); }
@@ -837,9 +877,19 @@ function logout() {
     
     if (shouldEnableHeartbeat() && currentAdmin) {
         try {
-            fetch(`${window.GAS_SYNC_URL}?role=admin&uid=${currentAdmin.id}&mode=offline`);
+            fetch(`${window.GAS_SYNC_URL}?role=admin&uid=${currentAdmin.id}&mode=offline`, 
+                  { keepalive: true }).catch(() => {});
         } catch(e) {}
     }
+    
+    // BARU: hapus token di server (fire-and-forget)
+    try {
+        const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
+        if (session.sessionToken) {
+            fetch(`${window.GAS_ADMIN_URL}?action=logout&sessionToken=${encodeURIComponent(session.sessionToken)}`,
+                  { keepalive: true }).catch(() => {});
+        }
+    } catch(e) {}
     
     Object.keys(sessionStorage).forEach(key => {
         if (key.startsWith('umbrella_')) {
@@ -892,4 +942,4 @@ window.renderSettingsModalInternal = renderSettingsModalInternal;
 window.renderChangePasskeyInternal = renderChangePasskeyInternal;
 
 checkSession();
-console.log("✅ admin-core.js loaded (V5 — Bersih dari fungsi tab Admin lama)");
+console.log("✅ admin-core.js loaded");

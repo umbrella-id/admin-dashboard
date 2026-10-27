@@ -94,7 +94,7 @@ async function loadAdminLinkedUids() {
     // Fallback: fetch kalau tidak ada cache (misal user reload page)
     try {
         const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
-        const res = await fetch(url);
+        const res = await adminFetch(url);
         const data = await res.json();
         
         if (data.status === 'success' && data.data) {
@@ -230,7 +230,7 @@ async function loadMemberList(forceRefresh = false) {
     
     try {
         // 🎯 1 request — semua data (members + admins) sekaligus
-        const res = await fetch(window.GAS_ADMIN_URL, {
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -522,7 +522,7 @@ async function submitAddMember() {
     }
     
     try {
-        const res = await fetch(window.GAS_ADMIN_URL, {
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -852,7 +852,7 @@ async function submitEditMember(uid) {
     }
     
     try {
-        const res = await fetch(window.GAS_ADMIN_URL, {
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -1009,7 +1009,7 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
     if (memberIsAdmin) {
         try {
             const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
-            const res = await fetch(url);
+            const res = await adminFetch(url);
             const data = await res.json();
             
             if (data.status === 'success' && data.data) {
@@ -1115,7 +1115,7 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
     if (mode === 'edit' && adminData) {
         try {
             const kasUrl = `${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`;
-            const kasRes = await fetch(kasUrl);
+            const kasRes = await adminFetch(kasUrl);
             const kasData = await kasRes.json();
             
             const saldoEl = document.getElementById('promote-saldo-display');
@@ -1173,7 +1173,7 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
         if (mode === 'promote') {
             // Promote — tetap pakai endpoint lama (sudah atomic)
             const url = `${window.GAS_ADMIN_URL}?action=promoteMemberToAdmin&adminId=${currentAdmin.id}&memberUid=${encodeURIComponent(memberUid)}&role1=${encodeURIComponent(role1)}&role2=${encodeURIComponent(role2)}`;
-            const res = await fetch(url);
+            const res = await adminFetch(url);
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -1204,7 +1204,7 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
                 `&role1=${encodeURIComponent(role1)}` +
                 `&role2=${encodeURIComponent(role2)}`;
             
-            const res = await fetch(url);
+            const res = await adminFetch(url);
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -1240,7 +1240,7 @@ async function syncMemberRoleFromAdmin(memberUid, role1) {
     else if (role1 === 'co-lead') newRole = 'co-lead';
     
     try {
-        await fetch(`${window.GAS_ADMIN_URL}?action=updateMemberRole&adminId=${currentAdmin.id}&uid=${encodeURIComponent(memberUid)}&role=${encodeURIComponent(newRole)}`);
+        await adminFetch(`${window.GAS_ADMIN_URL}?action=updateMemberRole&adminId=${currentAdmin.id}&uid=${encodeURIComponent(memberUid)}&role=${encodeURIComponent(newRole)}`);
     } catch(e) {
         console.error('Sync member role error:', e);
     }
@@ -1363,7 +1363,7 @@ window.handleResetPasskey = async function(adminId, adminNama) {
     
     try {
         const url = `${window.GAS_ADMIN_URL}?action=resetPasskey&adminId=${currentAdmin.id}&targetAdminId=${encodeURIComponent(adminId)}&newKey=${encodeURIComponent(newPasskey)}`;
-        const res = await fetch(url);
+        const res = await adminFetch(url);
         const data = await res.json();
         
         if (data.status === 'success') {
@@ -1463,7 +1463,7 @@ window.openTransferLeadershipModal = async function() {
     
     try {
         const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
-        const res = await fetch(url);
+        const res = await adminFetch(url);
         const data = await res.json();
         
         if (data.status !== 'success' || !data.data) {
@@ -1565,7 +1565,7 @@ window.submitTransferLeadership = async function() {
     
     try {
         const url = `${window.GAS_ADMIN_URL}?action=transferLeadership&adminId=${currentAdmin.id}&passkey=${encodeURIComponent(passkey)}&targetAdminId=${encodeURIComponent(targetAdminId)}`;
-        const res = await fetch(url);
+        const res = await adminFetch(url);
         const data = await res.json();
         
         if (data.status === 'success') {
@@ -1616,7 +1616,7 @@ window.generateActivationCode = async function(memberUid, memberIgn) {
     
     try {
         const url = `${window.GAS_ADMIN_URL}?action=generateActivationCode&adminId=${currentAdmin.id}&uid=${encodeURIComponent(memberUid)}`;
-        const res = await fetch(url);
+        const res = await adminFetch(url);
         const data = await res.json();
         
         if (data.status === 'success') {
@@ -1812,7 +1812,7 @@ window.revokeActivationCode = async function(memberUid, memberIgn) {
     
     try {
         const url = `${window.GAS_ADMIN_URL}?action=revokeActivationCode&adminId=${currentAdmin.id}&uid=${encodeURIComponent(memberUid)}`;
-        const res = await fetch(url);
+        const res = await adminFetch(url);
         const data = await res.json();
         
         if (data.status === 'success') {

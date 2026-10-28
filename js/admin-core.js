@@ -64,7 +64,12 @@ function escapeHtml(str) {
 
 function escapeJs(str) {
     if (str === undefined || str === null) return '';
-    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r');
 }
 
 function sanitizeHtml(html) {

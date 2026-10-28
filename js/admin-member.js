@@ -308,7 +308,7 @@ function renderMemberList(members) {
         
         if (canEditMember(currentAdmin, member)) {
             actionButtons += `
-                <button class="btn-icon" onclick="editMember('${escapeHtml(member.uid)}')" title="Edit">
+                <button class="btn-icon" onclick="editMember('${escapeJs(member.uid)}')" title="Edit">
                     <i class="fas fa-edit"></i>
                 </button>
             `;
@@ -318,7 +318,7 @@ function renderMemberList(members) {
             const isSelf = member.uid === currentAdmin.linkedMemberUid;
             if (!isSelf) {
                 actionButtons += `
-                    <button class="btn-icon btn-icon-warning" onclick="openPromoteAdminModal('${escapeHtml(member.uid)}', '${escapeHtml(member.ign)}')" title="${memberIsAdmin ? 'Ubah Jabatan' : 'Angkat jadi Admin'}">
+                    <button class="btn-icon btn-icon-warning" onclick="openPromoteAdminModal('${escapeJs(member.uid)}', '${escapeJs(member.ign)}')" title="${memberIsAdmin ? 'Ubah Jabatan' : 'Angkat jadi Admin'}">
                         <i class="fas fa-crown"></i>
                     </button>
                 `;
@@ -728,12 +728,12 @@ function renderEditMemberInternal(member) {
                     ✅ VERIFIKASI AKUN
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button onclick="window.generateActivationCode('${escapeHtml(member.uid)}', '${escapeHtml(member.ign)}')" 
+                    <button onclick="window.generateActivationCode('${escapeJs(member.uid)}', '${escapeJs(member.ign)}')" 
                             style="flex: 1; background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; border-radius: 8px; padding: 10px; color: #4ade80; cursor: pointer; font-size: 0.75rem; font-weight: bold;">
                         <i class="fas fa-check-circle"></i> Generate Kode Verifikasi
                     </button>
                     ${member.activationStatus?.hasCode && !member.activationStatus?.used ? `
-                    <button onclick="window.revokeActivationCode('${escapeHtml(member.uid)}', '${escapeHtml(member.ign)}')" 
+                    <button onclick="window.revokeActivationCode('${escapeJs(member.uid)}', '${escapeJs(member.ign)}')" 
                             style="flex: 1; background: rgba(255, 68, 68, 0.2); border: 1px solid #ff4444; border-radius: 8px; padding: 10px; color: #ff8888; cursor: pointer; font-size: 0.75rem;">
                         <i class="fas fa-trash"></i> Revoke
                     </button>
@@ -753,7 +753,7 @@ function renderEditMemberInternal(member) {
             ` : ''}
             
             <div class="modal-buttons" style="margin-top: 20px;">
-                <button onclick="submitEditMember('${escapeHtml(member.uid)}')" 
+                <button onclick="submitEditMember('${escapeJs(member.uid)}')" 
                         style="background:var(--color-primary);">
                     Simpan
                 </button>
@@ -934,8 +934,8 @@ function showAlertModal(title, message, type = 'warning') {
         <div class="modal-content" style="max-width: 350px; text-align: center;">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <div style="font-size: 3rem; margin-bottom: 10px;">${icon}</div>
-            <h3 style="color: ${color}; margin-bottom: 15px;">${title}</h3>
-            <p style="margin-bottom: 20px; color: var(--text-muted);">${message}</p>
+            <h3 style="color: ${color}; margin-bottom: 15px;">${escapeHtml(title)}</h3>
+            <p style="margin-bottom: 20px; color: var(--text-muted);">${escapeHtml(message)}</p>
             <div class="modal-buttons">
                 <button onclick="window.closeModal()" style="background: ${color}; color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer;">
                     Tutup
@@ -1090,7 +1090,7 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
             ` : ''}
             
             <div class="modal-buttons" style="margin-bottom:10px;">
-                <button onclick="submitPromoteAdmin('${escapeHtml(memberUid)}', '${mode}', '${adminData?.id || ''}')" style="background:var(--color-primary); flex:2;">
+                <button onclick="submitPromoteAdmin('${escapeJs(memberUid)}', '${mode}', '${escapeJs(adminData?.id || '')}')" style="background:var(--color-primary); flex:2;">
                     <i class="fas fa-crown"></i> ${mode === 'promote' ? 'ANGKAT' : 'SIMPAN'}
                 </button>
                 <button onclick="window.closeModal()" style="background:#333; flex:1;">Batal</button>
@@ -1098,7 +1098,7 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
             
             ${mode === 'edit' ? `
             <div style="border-top:1px solid var(--border-line); padding-top:12px;">
-                <button onclick="handleResetPasskey('${escapeHtml(adminData?.id || '')}', '${escapeHtml(memberIgn)}')" 
+                <button onclick="handleResetPasskey('${escapeJs(adminData?.id || '')}', '${escapeJs(memberIgn)}')" 
                         style="width:100%; background:rgba(245,158,11,0.15); border:1px solid #f59e0b; border-radius:10px; padding:10px; color:#f59e0b; cursor:pointer; font-size:0.8rem; font-weight:bold;">
                     <i class="fas fa-key"></i> Reset Passkey (Random)
                 </button>
@@ -1261,11 +1261,13 @@ window.renderPromoteSuccessModal = function(data, memberIgn) {
     const roleText = roleParts.join(' + ') || '(no role)';
     
     const infoText = 
-`Admin: ${displayName}
-ID: ${adminId}
-Passkey: ${passkey}
-Role: ${roleText}
-Login: https://umbrella-id.github.io/admin-dashboard`;
+    `Admin: ${displayName}
+    ID: ${adminId}
+    Passkey: ${passkey}
+    Role: ${roleText}
+    Login: https://umbrella-id.github.io/admin-dashboard`;
+
+    window.__promoteInfoText = infoText;
     
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
@@ -1298,7 +1300,7 @@ Login: https://umbrella-id.github.io/admin-dashboard`;
             <div style="background:rgba(74,222,128,0.1); border:1px solid #4ade80; border-radius:10px; padding:16px; margin-bottom:16px; text-align:center;">
                 <div style="font-size:0.65rem; color:#4ade80; letter-spacing:1px; margin-bottom:8px;">PASSKEY</div>
                 <code style="font-size:1.3rem; font-weight:bold; color:#4ade80; letter-spacing:2px; user-select:all; display:block; margin-bottom:12px;" id="promote-passkey-value">${escapeHtml(passkey)}</code>
-                <button onclick="copyPromotePasskey('${escapeHtml(passkey)}')" 
+                <button onclick="copyPromotePasskey('${escapeJs(passkey)}')" 
                         style="background:var(--color-primary); color:white; border:none; border-radius:8px; padding:8px 20px; cursor:pointer; font-size:0.75rem;">
                     <i class="fas fa-copy"></i> Copy Passkey
                 </button>
@@ -1309,7 +1311,7 @@ Login: https://umbrella-id.github.io/admin-dashboard`;
             </p>
             
             <div class="modal-buttons">
-                <button onclick="copyPromoteInfo(\`${escapeHtml(infoText)}\`)" style="background:var(--color-primary); flex:1;">
+                <button onclick="copyPromoteInfo()" style="background:var(--color-primary); flex:1;">
                     <i class="fas fa-clipboard"></i> Copy Info Lengkap
                 </button>
                 <button onclick="window.closeModal()" style="background:#333; flex:1;">Tutup</button>
@@ -1331,8 +1333,9 @@ window.copyPromotePasskey = function(passkey) {
     });
 };
 
-window.copyPromoteInfo = function(infoText) {
-    navigator.clipboard.writeText(infoText).then(() => {
+window.copyPromoteInfo = function() {
+    const text = window.__promoteInfoText || '';
+    navigator.clipboard.writeText(text).then(() => {
         window.showToast('✅ Info lengkap dicopy');
     }).catch(() => {
         window.showToast('❌ Gagal copy', true);
@@ -1420,7 +1423,7 @@ function renderPasskeyResultModal(adminId, adminNama, newPasskey) {
             <div style="background:rgba(245,158,11,0.1); border:1px solid #f59e0b; border-radius:10px; padding:16px; margin-bottom:16px; text-align:center;">
                 <div style="font-size:0.65rem; color:#f59e0b; letter-spacing:1px; margin-bottom:8px;">PASSKEY BARU</div>
                 <code style="font-size:1.3rem; font-weight:bold; color:#f59e0b; letter-spacing:2px; user-select:all; display:block; margin-bottom:12px;" id="reset-passkey-value">${escapeHtml(newPasskey)}</code>
-                <button onclick="copyResetPasskey('${escapeHtml(newPasskey)}')" 
+                <button onclick="copyResetPasskey('${escapeJs(newPasskey)}')" 
                         style="background:var(--color-primary); color:white; border:none; border-radius:8px; padding:8px 20px; cursor:pointer; font-size:0.75rem;">
                     <i class="fas fa-copy"></i> Copy Passkey
                 </button>
@@ -1740,7 +1743,7 @@ function renderActivationCodeModal({ code, uid, ign, expired, isLoading, error }
                 <code id="activation-code-value" style="font-size: 1.8rem; font-weight: bold; color: #f59e0b; letter-spacing: 4px; user-select: all; display: block; margin-bottom: 12px;">
                     ${escapeHtml(code)}
                 </code>
-                <button onclick="window.copyActivationCode('${escapeHtml(code)}')" 
+                <button onclick="window.copyActivationCode('${escapeJs(code)}')" 
                         style="background: var(--color-primary); color: white; border: none; border-radius: 8px; padding: 8px 20px; cursor: pointer; font-size: 0.75rem;">
                     <i class="fas fa-copy"></i> Copy Kode
                 </button>

@@ -659,6 +659,18 @@ async function checkSession() {
             data.expiresAt = freshData.expiresAt;
             localStorage.setItem('umbrella_admin_session', JSON.stringify(data));
             
+            // 🎯 SSO: Simpan Member Token baru ke localStorage
+            if (freshData.memberToken) {
+                localStorage.setItem('umbrella_session_token', freshData.memberToken);
+                console.log('✅ SSO: Member token diperbarui saat refresh');
+            }
+            
+            // 🎯 Pastikan u_uid & u_ign sinkron dengan data server
+            if (freshData.admin.webUid) {
+                localStorage.setItem('u_uid', freshData.admin.webUid);
+                localStorage.setItem('u_ign', freshData.admin.nama);
+            }
+            
             // Reset throttle refresh (karena baru saja refresh)
             lastRefreshAt = Date.now();
             

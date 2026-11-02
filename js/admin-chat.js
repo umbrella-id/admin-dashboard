@@ -53,12 +53,25 @@ function isMyMessage(msgUid, adminData) {
     return false;
 }
 
+// ==========================================
+// 🧹 MIGRASI: Hapus stamp lama dari localStorage
+// (versi lama menyimpan JSON penuh chat — risiko privasi)
+// ==========================================
+(function migrateOldChatStamp() {
+    if (localStorage.getItem('umbrella_last_chat_stamp')) {
+        localStorage.removeItem('umbrella_last_chat_stamp');
+        console.log('🧹 Migrasi: umbrella_last_chat_stamp dihapus dari localStorage');
+    }
+})();
+
+let lastChatStamp = null;
+
 function getLastChatStamp() {
-    return localStorage.getItem('umbrella_last_chat_stamp') || '';
+    return lastChatStamp;
 }
 
 function setLastChatStamp(stamp) {
-    localStorage.setItem('umbrella_last_chat_stamp', stamp);
+    lastChatStamp = stamp;
 }
 
 function initChat(admin) {
@@ -209,8 +222,16 @@ async function loadChatMessages() {
     const cached = sessionStorage.getItem('umbrella_cached_chat_logs');
     if (cached) {
         try {
-            renderChatLogs(JSON.parse(cached), container);
-        } catch(e) { console.error("Cache parse error:", e); }
+            const cachedLogs = JSON.parse(cached);
+            
+            if (lastChatStamp === null) {
+                lastChatStamp = JSON.stringify(cachedLogs);
+            }
+            
+            renderChatLogs(cachedLogs, container);
+        } catch(e) { 
+            console.error("Cache parse error:", e); 
+        }
     }
     
     try {

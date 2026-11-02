@@ -540,7 +540,6 @@ async function doLogin() {
             if (currentAdmin.webUid) {
                 localStorage.setItem('u_uid', currentAdmin.webUid);
                 localStorage.setItem('u_ign', currentAdmin.nama);
-                localStorage.setItem('u_class', 'member'); // Opsional, bisa dihapus nanti
                 
                 // 3. Simpan Tiket Publik (agar tidak perlu login di web publik)
                 if (data.memberToken) {

@@ -1159,42 +1159,37 @@ input:checked + .toggle-slider:before {
 }
 
 /* ==========================================
-   BOOT LOADING OVERLAY — Logo Besar
+   BOOT LOADING — RECOLOR + EFFECT
    ========================================== */
-#boot-loading {
-    position: fixed;
-    inset: 0;
-    background: var(--bg-dark);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
-    z-index: 10001;
-    transition: opacity 0.3s ease;
+
+/* 1. Recolor: bagian gelap → menyatu dengan background */
+#boot-loading .boot-logo [fill="#323232"],
+#boot-loading .boot-logo [fill="#B4B4B4"],
+#boot-loading .boot-logo polygon:not([fill]),
+#boot-loading .boot-logo path:not([fill]) {
+    fill: var(--bg-dark);
 }
 
-#boot-loading.hidden {
-    opacity: 0;
-    pointer-events: none;
-    visibility: hidden;
+/* 2. Recolor: bagian terang → primary color */
+#boot-loading .boot-logo [fill="#DCDCDC"] {
+    fill: var(--color-primary);
 }
 
+/* 3. Ukuran (sesuai tuning Anda) */
 #boot-loading .boot-logo {
     height: min(60vh, 400px);
     width: auto;
     max-width: 70vw;
+    filter: drop-shadow(0 0 16px rgba(168, 85, 247, 0.5));
+    animation: bootGlow 2.2s ease-in-out infinite;
 }
 
-#boot-loading .boot-spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid rgba(168, 85, 247, 0.15);
-    border-top: 2px solid var(--color-primary);
-    border-radius: 50%;
-    animation: bootSpin 0.8s linear infinite;
-}
-
-@keyframes bootSpin {
-    to { transform: rotate(360deg); }
+/* 4. Efek: Glow Pulse */
+@keyframes bootGlow {
+    0%, 100% {
+        filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.35));
+    }
+    50% {
+        filter: drop-shadow(0 0 24px rgba(168, 85, 247, 0.85));
+    }
 }

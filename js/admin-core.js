@@ -269,24 +269,23 @@ async function sendStandbyAndUpdateAll() {
             }
         }
         
-        // 🎯 COLD START: baseline adoption (sekali per device)
+        // COLD START: baseline adoption (sekali per tab)
         if (localLastNotified === 0) {
-            // Ambil baseline dari server ATAU log, mana yang lebih besar
             const baseline = Math.max(lastChatRead, lastTimestamp);
             if (baseline > 0) {
                 localLastNotified = baseline;
-                localStorage.setItem('umbrella_chat_last_notified', baseline.toString());
+                sessionStorage.setItem('umbrella_chat_last_notified', baseline.toString());
+                
                 console.log('🔄 Chat baseline adopted:', new Date(baseline).toISOString(),
                             lastChatRead > 0 ? '(from server)' : '(from log)');
                 
-                // Sync ke server kalau server belum tahu
                 if (lastChatRead === 0 && lastTimestamp > 0) {
                     fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true })
                         .catch(() => {});
                 }
             }
         } 
-        // 🎯 NOTIFY: siklus berikutnya, tidak butuh lastChatRead > 0
+        // NOTIFY
         else if (lastTimestamp > localLastNotified && newestMessage) {
             const sender = newestMessage?.username || 'Guest';
             const message = newestMessage?.message || '';

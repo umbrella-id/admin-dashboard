@@ -640,6 +640,7 @@ async function checkSession() {
     if (!session) {
         loginScreen.style.display = 'flex';
         dashboard.style.display = 'none';
+        cleanupStaleStorage()
         return;
     }
     
@@ -684,7 +685,7 @@ async function checkSession() {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
-                    action: 'refreshSession',
+                    action: 'validateSessionFast',
                     sessionToken: data.sessionToken
                 })
             });
@@ -720,10 +721,14 @@ async function checkSession() {
             data.expiresAt = freshData.expiresAt;
             localStorage.setItem('umbrella_admin_session', JSON.stringify(data));
             
-            // 🎯 SSO: Simpan Member Token baru ke localStorage
+            // 🎯 SSO: Simpan member token (persistent per session, SAMA setiap refresh)
             if (freshData.memberToken) {
                 localStorage.setItem('umbrella_session_token', freshData.memberToken);
-                console.log('✅ SSO: Member token diperbarui saat refresh');
+                console.log('✅ SSO: Member token dari session (persistent)');
+            } else {
+                // Edge case: session lama tanpa memberToken (upgrade)
+                console.log('⏳ Member token null, trigger background refresh (once)');
+                setTimeout(() => refreshMemberTokenBackground(data.sessionToken), 100);
             }
             
             // 🎯 Pastikan u_uid & u_ign sinkron dengan data server
@@ -775,7 +780,7 @@ async function validateSessionInBackground(admin) {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
-                action: 'refreshSession',
+                action: 'validateSessionFast',
                 sessionToken: session.sessionToken
             })
         });
@@ -809,6 +814,10 @@ async function validateSessionInBackground(admin) {
             document.getElementById('admin-name-display').innerText = currentAdmin.nama;
             document.getElementById('admin-role-display').innerText = formatRoleDisplay(currentAdmin);
             renderBottomNav();
+        }
+        // 🎯 Update member token kalau server return (persistent)
+        if (data.memberToken) {
+            localStorage.setItem('umbrella_session_token', data.memberToken);
         }
         
         localStorage.setItem('umbrella_admin_session', JSON.stringify(session));
@@ -1036,12 +1045,6 @@ function logout() {
                   { keepalive: true }).catch(() => {});
         }
     } catch(e) {}
-    
-    // Bersihkan Sesi Publik di Server (jika ada)
-    const memberToken = localStorage.getItem('umbrella_session_token');
-    if (memberToken) {
-        fetch(`${window.GAS5_URL}?action=memberLogout&token=${encodeURIComponent(memberToken)}`, { keepalive: true }).catch(() => {});
-    }
 
     Object.keys(sessionStorage).forEach(key => {
         if (key.startsWith('umbrella_')) {
@@ -1110,6 +1113,27 @@ window.adminFetch = async function(url, options) {
     
     return res;
 };
+
+async function refreshMemberTokenBackground(sessionToken) {
+    try {
+        const res = await fetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'refreshMemberToken',
+                sessionToken: sessionToken
+            })
+        });
+        const data = await res.json();
+        
+        if (data.status === 'success' && data.memberToken) {
+            localStorage.setItem('umbrella_session_token', data.memberToken);
+            console.log('✅ Background: Member token dibuat (fallback)');
+        }
+    } catch(e) {
+        console.warn('❌ Background member token error:', e);
+    }
+}
 
 // ==========================================
 // LOGIN DENGAN ENTER

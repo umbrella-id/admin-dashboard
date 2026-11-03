@@ -611,6 +611,8 @@ async function doLogin() {
             // Reset throttle supaya refresh pertama langsung jalan
             lastRefreshAt = 0;
             
+            const bootLoading = document.getElementById('boot-loading');
+            if (bootLoading) bootLoading.classList.add('hidden');
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('dashboard').style.display = 'flex';
             
@@ -632,54 +634,71 @@ async function doLogin() {
 // CHECK SESSION (FASE 1.5 - SSO Ready)
 // ==========================================
 async function checkSession() {
+    window.__checkSessionRan = true;   // 🎯 untuk fallback timeout
+
     const session = localStorage.getItem('umbrella_admin_session');
     const loginScreen = document.getElementById('login-screen');
     const dashboard = document.getElementById('dashboard');
+    const bootLoading = document.getElementById('boot-loading');
     
-    // 1. Cek keberadaan session
-    if (!session) {
+    // ==========================================
+    // HELPER: state transitions (idempotent)
+    // ==========================================
+    function showGate() {
+        if (bootLoading) bootLoading.classList.add('hidden');
         loginScreen.style.display = 'flex';
         dashboard.style.display = 'none';
-        cleanupStaleStorage()
+    }
+    
+    function showDashboard() {
+        if (bootLoading) bootLoading.classList.add('hidden');
+        loginScreen.style.display = 'none';
+        dashboard.style.display = 'flex';
+    }
+    
+    // ==========================================
+    // 1. NO SESSION → gate langsung (sync, loading tidak pernah ter-paint)
+    // ==========================================
+    if (!session) {
+        cleanupStaleStorage();
+        showGate();
         return;
     }
+    
+    // ==========================================
+    // 2. ADA SESSION → tetap loading, validasi async
+    // ==========================================
+    // bootLoading sudah visible dari CSS default, tidak perlu explicit show
     
     try {
         const data = JSON.parse(session);
         
-        // 2. MIGRASI: Sesi lama (tanpa sessionToken) → force relogin
         if (!data.sessionToken) {
             console.log('🔄 Migrasi: sesi lama tanpa token, force relogin');
             localStorage.removeItem('umbrella_admin_session');
             cleanupStaleStorage();
-            loginScreen.style.display = 'flex';
-            dashboard.style.display = 'none';
+            showGate();
             return;
         }
         
-        // 3. CLIENT-SIDE EXPIRY CHECK (Fail-Fast, hemat request)
         if (data.expiresAt && data.expiresAt < Date.now()) {
             console.log('⏰ Sesi expired (client), force relogin');
             localStorage.removeItem('umbrella_admin_session');
             cleanupStaleStorage();
-            loginScreen.style.display = 'flex';
-            dashboard.style.display = 'none';
+            showGate();
             return;
         }
         
-        // 4. ANTI FAKE LOGIN: cek u_uid ada di lokal
         const localUid = localStorage.getItem('u_uid');
         if (!localUid) {
             console.log('🔄 u_uid tidak ditemukan, force relogin');
             localStorage.removeItem('umbrella_admin_session');
             cleanupStaleStorage();
-            loginScreen.style.display = 'flex';
-            dashboard.style.display = 'none';
+            showGate();
             return;
         }
         
-        // 5. AMBIL DATA SEGAR DARI SERVER (karena profil tidak disimpan di lokal)
-        // Ini menggantikan 'currentAdmin = data.admin' di versi lama
+        // 🎯 Validasi ke server (loading tetap visible selama ini)
         try {
             const res = await fetch(window.GAS_ADMIN_URL, {
                 method: 'POST',
@@ -694,70 +713,60 @@ async function checkSession() {
             if (freshData.status !== 'success' || !freshData.admin) {
                 console.log('🔒 Sesi tidak valid di server:', freshData.message);
                 localStorage.removeItem('umbrella_admin_session');
-                loginScreen.style.display = 'flex';
-                dashboard.style.display = 'none';
+                cleanupStaleStorage();
+                showGate();
                 return;
             }
             
-            // Validasi silang: apakah u_uid di lokal cocok dengan webUid admin?
             const serverWebUid = freshData.admin.webUid;
             if (serverWebUid && serverWebUid !== localUid) {
-                console.log('⚠️ Mismatch: u_uid lokal tidak cocok dengan admin di server. Force relogin.');
-                console.log('  Lokal:', localUid, '| Server:', serverWebUid);
+                console.log('⚠️ Mismatch: u_uid lokal tidak cocok dengan server');
                 localStorage.removeItem('umbrella_admin_session');
                 localStorage.removeItem('u_uid');
                 localStorage.removeItem('u_ign');
-                localStorage.removeItem('u_class');
-                localStorage.removeItem('umbrella_session_token');
-                loginScreen.style.display = 'flex';
-                dashboard.style.display = 'none';
+                cleanupStaleStorage();
+                showGate();
                 return;
             }
             
-            // Set currentAdmin dengan data segar dari server
             currentAdmin = freshData.admin;
-            
-            // Update expiresAt (sliding session)
             data.expiresAt = freshData.expiresAt;
             localStorage.setItem('umbrella_admin_session', JSON.stringify(data));
             
-            // 🎯 SSO: Simpan member token (persistent per session, SAMA setiap refresh)
+            // 🎯 SSO: member token persistent
             if (freshData.memberToken) {
                 localStorage.setItem('umbrella_session_token', freshData.memberToken);
                 console.log('✅ SSO: Member token dari session (persistent)');
             } else {
-                // Edge case: session lama tanpa memberToken (upgrade)
-                console.log('⏳ Member token null, trigger background refresh (once)');
+                console.log('⏳ Member token null, trigger background refresh');
                 setTimeout(() => refreshMemberTokenBackground(data.sessionToken), 100);
             }
             
-            // 🎯 Pastikan u_uid & u_ign sinkron dengan data server
             if (freshData.admin.webUid) {
                 localStorage.setItem('u_uid', freshData.admin.webUid);
                 localStorage.setItem('u_ign', freshData.admin.nama);
             }
             
-            // Reset throttle refresh (karena baru saja refresh)
             lastRefreshAt = Date.now();
             
         } catch(e) {
             console.error("Fetch fresh session error:", e);
-            // Fail-safe: kalau server error, jangan render dashboard
-            loginScreen.style.display = 'flex';
-            dashboard.style.display = 'none';
+            // Network error → jangan kasih akses
+            showGate();
             return;
         }
         
-        // 6. RENDER DASHBOARD (sekarang currentAdmin sudah lengkap)
-        loginScreen.style.display = 'none';
-        dashboard.style.display = 'flex';
-        
+        // ==========================================
+        // 3. SUKSES → dashboard
+        // ==========================================
+        showDashboard();
         setupDashboardAfterLogin();
         
     } catch(e) {
         console.error("Session parse error:", e);
         localStorage.removeItem('umbrella_admin_session');
-        location.reload();
+        cleanupStaleStorage();
+        showGate();
     }
 }
 

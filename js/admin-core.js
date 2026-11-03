@@ -248,8 +248,6 @@ async function sendStandbyAndUpdateAll() {
         
         const logs = data.logs || [];
         const lastChatRead = parseInt(data.lastChatRead) || 0;
-        
-        // 🎯 BARU: per-device baseline (localStorage)
         let localLastNotified = parseInt(localStorage.getItem('umbrella_chat_last_notified') || '0');
         
         const guestMessages = logs.filter(msg => {
@@ -271,21 +269,25 @@ async function sendStandbyAndUpdateAll() {
             }
         }
         
-        // 🎯 Fresh login: adopsi server state sebagai baseline (anti spam lama)
-        if (localLastNotified === 0 && lastChatRead > 0) {
-            localLastNotified = lastChatRead;
-            localStorage.setItem('umbrella_chat_last_notified', localLastNotified.toString());
-            console.log('🔄 Chat baseline adopted from server:', new Date(lastChatRead).toISOString());
-        }
-        
-        // 🎯 Mark read di server (fire and forget, tidak blok)
-        if (lastTimestamp > lastChatRead) {
-            fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true })
-                .catch(() => {});
-        }
-        
-        // 🎯 Notify berdasarkan LOCAL state (per device), bukan server
-        if (lastTimestamp > localLastNotified && lastChatRead > 0 && newestMessage) {
+        // 🎯 COLD START: baseline adoption (sekali per device)
+        if (localLastNotified === 0) {
+            // Ambil baseline dari server ATAU log, mana yang lebih besar
+            const baseline = Math.max(lastChatRead, lastTimestamp);
+            if (baseline > 0) {
+                localLastNotified = baseline;
+                localStorage.setItem('umbrella_chat_last_notified', baseline.toString());
+                console.log('🔄 Chat baseline adopted:', new Date(baseline).toISOString(),
+                            lastChatRead > 0 ? '(from server)' : '(from log)');
+                
+                // Sync ke server kalau server belum tahu
+                if (lastChatRead === 0 && lastTimestamp > 0) {
+                    fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true })
+                        .catch(() => {});
+                }
+            }
+        } 
+        // 🎯 NOTIFY: siklus berikutnya, tidak butuh lastChatRead > 0
+        else if (lastTimestamp > localLastNotified && newestMessage) {
             const sender = newestMessage?.username || 'Guest';
             const message = newestMessage?.message || '';
             const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
@@ -299,10 +301,16 @@ async function sendStandbyAndUpdateAll() {
                 showToast(`💬 Pesan baru dari ${sender}: ${preview}`);
             }
             
-            // Update local setelah notif
             localLastNotified = lastTimestamp;
             localStorage.setItem('umbrella_chat_last_notified', localLastNotified.toString());
         }
+        
+        // Mark read di server (fire-and-forget)
+        if (lastTimestamp > lastChatRead) {
+            fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true })
+                .catch(() => {});
+        }
+        
     } catch(e) { 
         console.error("❌ Check chat error:", e); 
     }

@@ -248,7 +248,7 @@ async function sendStandbyAndUpdateAll() {
         
         const logs = data.logs || [];
         const lastChatRead = parseInt(data.lastChatRead) || 0;
-        let localLastNotified = parseInt(localStorage.getItem('umbrella_chat_last_notified') || '0');
+        let localLastNotified = parseInt(sessionStorage.getItem('umbrella_chat_last_notified') || '0');
         
         const guestMessages = logs.filter(msg => {
             if (msg.type === 'command') return false;
@@ -302,7 +302,7 @@ async function sendStandbyAndUpdateAll() {
             }
             
             localLastNotified = lastTimestamp;
-            localStorage.setItem('umbrella_chat_last_notified', localLastNotified.toString());
+            sessionStorage.setItem('umbrella_chat_last_notified', localLastNotified.toString());
         }
         
         // Mark read di server (fire-and-forget)

@@ -46,8 +46,14 @@ async function refreshMailbox() {
     
     try {
         // 🎯 Kirim adminId
+        console.log('📬 [MAIL] Fetching filter:', currentMailFilter);
         const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=getMailList&adminId=${currentAdmin.id}&filter=${currentMailFilter}`);
         const data = await res.json();
+            console.log('📬 [MAIL] Response:', {
+            status: data.status,
+            mailCount: Array.isArray(data.mails) ? data.mails.length : 'not-array',
+            message: data.message || '-'
+        });
         
         if (data.status === 'success' && data.mails) {
             currentMailList = data.mails;

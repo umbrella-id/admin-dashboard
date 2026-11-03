@@ -1158,6 +1158,9 @@ input:checked + .toggle-slider:before {
     }
 }
 
+/* ==========================================
+   BOOT LOADING OVERLAY — Logo + Spinner
+   ========================================== */
 #boot-loading .boot-logo {
     height: 120px;
     width: auto;

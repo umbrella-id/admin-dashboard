@@ -27,6 +27,36 @@ let lastRefreshAt = 0;
 const REFRESH_THROTTLE_MS = 30 * 1000;
 
 // ==========================================
+// 🧹 CLEANUP STALE STORAGE
+// ==========================================
+function cleanupStaleStorage() {
+  const staleKeys = [
+    // Legacy / deprecated
+    'u_last_verify',              // Pindah ke sessionStorage (Internal)
+    'u_class',                    // Legacy
+    'u_ign_changed_at',           // Legacy
+    'umbrella_member_session',    // Digantikan umbrella_session_token
+    'umbrella_last_chat_stamp',   // Digantikan server state
+    'umbrella_last_chat_timestamp', // Digantikan server state (chat read)
+    'umbrella_last_mail_timestamp', // Akan digantikan server state (0.2b)
+    'umbrella_chat_last_notified' // Pindah ke sessionStorage (0.2c)
+  ];
+  
+  let cleaned = 0;
+  staleKeys.forEach(k => {
+    if (localStorage.getItem(k) !== null) {
+      localStorage.removeItem(k);
+      cleaned++;
+      console.log('🧹 Cleanup stale:', k);
+    }
+  });
+  
+  if (cleaned > 0) {
+    console.log(`✅ Total ${cleaned} stale key dibersihkan`);
+  }
+}
+
+// ==========================================
 // UTILITY
 // ==========================================
 function showToast(msg, isError = false) {
@@ -614,6 +644,7 @@ async function checkSession() {
         if (!data.sessionToken) {
             console.log('🔄 Migrasi: sesi lama tanpa token, force relogin');
             localStorage.removeItem('umbrella_admin_session');
+            cleanupStaleStorage();
             loginScreen.style.display = 'flex';
             dashboard.style.display = 'none';
             return;
@@ -623,6 +654,7 @@ async function checkSession() {
         if (data.expiresAt && data.expiresAt < Date.now()) {
             console.log('⏰ Sesi expired (client), force relogin');
             localStorage.removeItem('umbrella_admin_session');
+            cleanupStaleStorage();
             loginScreen.style.display = 'flex';
             dashboard.style.display = 'none';
             return;
@@ -633,6 +665,7 @@ async function checkSession() {
         if (!localUid) {
             console.log('🔄 u_uid tidak ditemukan, force relogin');
             localStorage.removeItem('umbrella_admin_session');
+            cleanupStaleStorage();
             loginScreen.style.display = 'flex';
             dashboard.style.display = 'none';
             return;
@@ -1020,6 +1053,7 @@ function logout() {
         forceCloseAllModals();
     }
     
+    cleanupStaleStorage();
     location.reload();
 }
 

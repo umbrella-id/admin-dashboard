@@ -39,6 +39,7 @@ function cleanupStaleStorage() {
     'umbrella_last_chat_stamp',   // Digantikan server state
     'umbrella_last_chat_timestamp', // Digantikan server state (chat read)
     'umbrella_last_mail_timestamp', // Akan digantikan server state (0.2b)
+    'umbrella_mail_last_notified',    // Pindah ke sessionStorage (0.2b)
     'umbrella_chat_last_notified' // Pindah ke sessionStorage (0.2c)
   ];
   

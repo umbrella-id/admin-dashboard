@@ -1203,7 +1203,7 @@ input:checked + .toggle-slider:before {
 #boot-loading .boot-logo {
     height: min(60vh, 400px);
     width: auto;
-    max-width: 70vw;
+    max-width: 60vw;
     animation: bootGlow 2.2s ease-in-out infinite;
 }
 

@@ -317,6 +317,18 @@
 <script src="js/content-gallery.js"></script>
 <script src="js/content-crysta.js"></script>
 <script src="js/content-webinternal.js"></script>
+
+<script>
+// Fallback: kalau JS gagal load, paksa tampilkan login setelah 5 detik
+setTimeout(function() {
+    if (!window.__checkSessionRan) {
+        var boot = document.getElementById('boot-loading');
+        var login = document.getElementById('login-screen');
+        if (boot) boot.classList.add('hidden');
+        if (login) login.style.display = 'flex';
+    }
+}, 5000);
+</script>
     
 </body>
 </html>

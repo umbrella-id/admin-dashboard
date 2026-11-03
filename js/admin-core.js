@@ -270,57 +270,45 @@ async function sendStandbyAndUpdateAll() {
         return;
     }
     
-    // CEK CHAT LOG
+    // ========== FETCH SEKALI UNTUK CHAT + MAIL ==========
+    let syncData = null;
     try {
         const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
         const res = await fetch(url);
-        const data = await res.json();
-        
-        const logs = data.logs || [];
-        const lastChatRead = parseInt(data.lastChatRead) || 0;
+        syncData = await res.json();
+    } catch(e) {
+        console.error("❌ Sync fetch error:", e);
+        return;
+    }
+    
+    // ==================== CHAT ====================
+    try {
+        const logs = syncData.logs || [];
+        const lastChatRead = parseInt(syncData.lastChatRead) || 0;
         let localLastNotified = parseInt(sessionStorage.getItem('umbrella_chat_last_notified') || '0');
         
-        const guestMessages = logs.filter(msg => {
-            if (msg.type === 'command') return false;
-            if (msg.uid === currentAdmin.id) return false;
-            return true;
-        });
-        
-        let lastTimestamp = 0;
-        let newestMessage = null;
+        const guestMessages = logs.filter(msg => msg.type !== 'command' && msg.uid !== currentAdmin.id);
+        let lastTimestamp = 0, newestMessage = null;
         
         for (const msg of guestMessages) {
-            let msgTime = typeof msg.timestamp === 'number' 
-                ? msg.timestamp 
-                : new Date(msg.timestamp).getTime();
-            if (msgTime > lastTimestamp) {
-                lastTimestamp = msgTime;
-                newestMessage = msg;
-            }
+            let msgTime = typeof msg.timestamp === 'number' ? msg.timestamp : new Date(msg.timestamp).getTime();
+            if (msgTime > lastTimestamp) { lastTimestamp = msgTime; newestMessage = msg; }
         }
         
-        // COLD START: baseline adoption (sekali per tab)
         if (localLastNotified === 0) {
             const baseline = Math.max(lastChatRead, lastTimestamp);
             if (baseline > 0) {
                 localLastNotified = baseline;
                 sessionStorage.setItem('umbrella_chat_last_notified', baseline.toString());
-                
-                console.log('🔄 Chat baseline adopted:', new Date(baseline).toISOString(),
-                            lastChatRead > 0 ? '(from server)' : '(from log)');
-                
+                console.log('🔄 Chat baseline adopted:', new Date(baseline).toISOString());
                 if (lastChatRead === 0 && lastTimestamp > 0) {
-                    fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true })
-                        .catch(() => {});
+                    fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true }).catch(()=>{});
                 }
             }
-        } 
-        // NOTIFY
-        else if (lastTimestamp > localLastNotified && newestMessage) {
-            const sender = newestMessage?.username || 'Guest';
-            const message = newestMessage?.message || '';
+        } else if (lastTimestamp > localLastNotified && newestMessage) {
+            const sender = newestMessage.username || 'Guest';
+            const message = newestMessage.message || '';
             const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-            
             const isChatActive = window.isChatOpen && window.isChatOpen();
             
             if (!isWindowFocused) {
@@ -334,52 +322,69 @@ async function sendStandbyAndUpdateAll() {
             sessionStorage.setItem('umbrella_chat_last_notified', localLastNotified.toString());
         }
         
-        // Mark read di server (fire-and-forget)
         if (lastTimestamp > lastChatRead) {
-            fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true })
-                .catch(() => {});
+            fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true }).catch(()=>{});
         }
-        
-    } catch(e) { 
-        console.error("❌ Check chat error:", e); 
+    } catch(e) {
+        console.error("❌ Chat check error:", e);
     }
     
-    // CEK MAILBOX
+    // ==================== MAIL ====================
     try {
-        if (typeof window.checkMailboxChanges === 'function') {
-            const hasChanged = await window.checkMailboxChanges();
-            
-            if (hasChanged) {
-                const cached = sessionStorage.getItem('umbrella_mail_all');
-                if (cached) {
-                    const dataMail = JSON.parse(cached);
-                    const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
-                    const lastMailTimestamp = dataMail[0]?.timestamp ? new Date(dataMail[0].timestamp).getTime() : 0;
-                    const isMailTabActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
-                    
-                    if (lastMailTimestamp > savedMailTimestamp && savedMailTimestamp > 0) {
-                        const newestMail = dataMail[0];
-                        const sender = newestMail?.ign || 'Guest';
-                        const subject = newestMail?.category || 'Umum';
-                        const message = newestMail?.message || '';
-                        const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
-                        
-                        if (!isWindowFocused) {
-                            showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview, 'mail');
-                            playNotificationSound();
-                            localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                        } else if (!isMailTabActive) {
-                            showToast(`📬 Surat baru dari ${sender}: ${preview}`);
-                            localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                        } else {
-                            localStorage.setItem('umbrella_last_mail_timestamp', lastMailTimestamp.toString());
-                        }
-                    }
+        const lastIncomingMail = parseInt(syncData.lastIncomingMail) || 0;
+        const lastMailRead = parseInt(syncData.lastMailRead) || 0;
+        let localLastNotified = parseInt(sessionStorage.getItem('umbrella_mail_last_notified') || '0');
+        
+        if (localLastNotified === 0) {
+            const baseline = Math.max(lastMailRead, lastIncomingMail);
+            if (baseline > 0) {
+                localLastNotified = baseline;
+                sessionStorage.setItem('umbrella_mail_last_notified', baseline.toString());
+                console.log('🔄 Mail baseline adopted:', new Date(baseline).toISOString());
+                if (lastMailRead === 0 && lastIncomingMail > 0) {
+                    fetch(`${window.GAS_SYNC_URL}?action=markMailRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastIncomingMail}`, { keepalive: true }).catch(()=>{});
                 }
             }
+        } else if (lastIncomingMail > localLastNotified) {
+            // Extract preview dari cache
+            let sender = 'Guest', subject = 'Umum', preview = 'Ada surat baru masuk';
+            const cached = sessionStorage.getItem('umbrella_mail_all');
+            if (cached) {
+                try {
+                    const mails = JSON.parse(cached);
+                    const newest = mails.find(m => !m.isFromAdmin && new Date(m.timestamp).getTime() === lastIncomingMail);
+                    if (newest) {
+                        sender = newest.ign || 'Guest';
+                        subject = newest.category || 'Umum';
+                        const msg = newest.message || '';
+                        preview = msg.length > 50 ? msg.substring(0, 50) + '...' : msg;
+                    }
+                } catch(e) {}
+            }
+            
+            const isMailTabActive = document.querySelector('.nav-item.active')?.dataset.nav === 'mailbox';
+            
+            if (!isWindowFocused) {
+                showBrowserNotification(`📬 Surat dari ${sender} [${subject}]`, preview, 'mail');
+                playNotificationSound();
+            } else if (!isMailTabActive) {
+                showToast(`📬 Surat baru dari ${sender}: ${preview}`);
+            }
+            
+            localLastNotified = lastIncomingMail;
+            sessionStorage.setItem('umbrella_mail_last_notified', localLastNotified.toString());
+            
+            // Auto-refresh mailbox kalau tab aktif
+            if (isMailTabActive && typeof window.refreshMailbox === 'function') {
+                window.refreshMailbox();
+            }
         }
-    } catch(e) { 
-        console.error("❌ Check mailbox error:", e); 
+        
+        if (lastIncomingMail > lastMailRead) {
+            fetch(`${window.GAS_SYNC_URL}?action=markMailRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastIncomingMail}`, { keepalive: true }).catch(()=>{});
+        }
+    } catch(e) {
+        console.error("❌ Mail check error:", e);
     }
     
     console.log("🟡 [STANDBY] Selesai pengecekan\n");

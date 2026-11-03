@@ -1181,24 +1181,9 @@ input:checked + .toggle-slider:before {
 }
 
 #boot-loading .boot-logo {
-    height: min(75vh, 600px);
+    height: min(60vh, 400px);
     width: auto;
-    max-width: 85vw;
-    filter:
-        drop-shadow(0 0 24px rgba(168, 85, 247, 0.5))
-        brightness(1.5);
-    animation: bootLogoPulse 2.5s ease-in-out infinite;
-}
-
-@keyframes bootLogoPulse {
-    0%, 100% {
-        opacity: 0.92;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 1;
-        transform: scale(1.015);
-    }
+    max-width: 70vw;
 }
 
 #boot-loading .boot-spinner {

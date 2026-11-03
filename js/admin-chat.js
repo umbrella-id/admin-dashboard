@@ -53,14 +53,11 @@ function isMyMessage(msgUid, adminData) {
     return false;
 }
 
-// ==========================================
-// 🧹 MIGRASI: Hapus stamp lama dari localStorage
-// (versi lama menyimpan JSON penuh chat — risiko privasi)
-// ==========================================
-(function migrateOldChatStamp() {
-    if (localStorage.getItem('umbrella_last_chat_stamp')) {
-        localStorage.removeItem('umbrella_last_chat_stamp');
-        console.log('🧹 Migrasi: umbrella_last_chat_stamp dihapus dari localStorage');
+// 🎯 Migrasi : hapus key lama (sekarang disimpan di server per-admin)
+(function migrateChatTimestampToServer() {
+    if (localStorage.getItem('umbrella_last_chat_timestamp')) {
+        localStorage.removeItem('umbrella_last_chat_timestamp');
+        console.log('🧹 Migrasi: umbrella_last_chat_timestamp dihapus (sekarang di server GAS 2)');
     }
 })();
 

@@ -1159,7 +1159,7 @@ input:checked + .toggle-slider:before {
 }
 
 /* ==========================================
-   BOOT LOADING OVERLAY
+   BOOT LOADING OVERLAY — Logo Besar
    ========================================== */
 #boot-loading {
     position: fixed;
@@ -1169,7 +1169,7 @@ input:checked + .toggle-slider:before {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 24px;
+    gap: 20px;
     z-index: 10001;
     transition: opacity 0.3s ease;
 }
@@ -1181,28 +1181,29 @@ input:checked + .toggle-slider:before {
 }
 
 #boot-loading .boot-logo {
-    height: 120px;
+    height: min(75vh, 600px);
     width: auto;
+    max-width: 85vw;
     filter:
-        drop-shadow(0 0 20px rgba(168, 85, 247, 0.45))
+        drop-shadow(0 0 24px rgba(168, 85, 247, 0.5))
         brightness(1.5);
     animation: bootLogoPulse 2.5s ease-in-out infinite;
 }
 
 @keyframes bootLogoPulse {
     0%, 100% {
-        opacity: 0.9;
+        opacity: 0.92;
         transform: scale(1);
     }
     50% {
         opacity: 1;
-        transform: scale(1.03);
+        transform: scale(1.015);
     }
 }
 
 #boot-loading .boot-spinner {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     border: 2px solid rgba(168, 85, 247, 0.15);
     border-top: 2px solid var(--color-primary);
     border-radius: 50%;

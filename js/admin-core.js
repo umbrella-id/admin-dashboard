@@ -247,7 +247,10 @@ async function sendStandbyAndUpdateAll() {
         const data = await res.json();
         
         const logs = data.logs || [];
-        const lastChatRead = parseInt(data.lastChatRead) || 0;   // 🎯 dari server
+        const lastChatRead = parseInt(data.lastChatRead) || 0;
+        
+        // 🎯 BARU: per-device baseline (localStorage)
+        let localLastNotified = parseInt(localStorage.getItem('umbrella_chat_last_notified') || '0');
         
         const guestMessages = logs.filter(msg => {
             if (msg.type === 'command') return false;
@@ -268,14 +271,21 @@ async function sendStandbyAndUpdateAll() {
             }
         }
         
-        // 🎯 Kalau ada pesan baru → tandai sudah dibaca di server (fire-and-forget)
+        // 🎯 Fresh login: adopsi server state sebagai baseline (anti spam lama)
+        if (localLastNotified === 0 && lastChatRead > 0) {
+            localLastNotified = lastChatRead;
+            localStorage.setItem('umbrella_chat_last_notified', localLastNotified.toString());
+            console.log('🔄 Chat baseline adopted from server:', new Date(lastChatRead).toISOString());
+        }
+        
+        // 🎯 Mark read di server (fire and forget, tidak blok)
         if (lastTimestamp > lastChatRead) {
             fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true })
                 .catch(() => {});
         }
         
-        // 🎯 Notifikasi hanya kalau baseline sudah pernah diset (bukan cold start)
-        if (lastTimestamp > lastChatRead && lastChatRead > 0 && newestMessage) {
+        // 🎯 Notify berdasarkan LOCAL state (per device), bukan server
+        if (lastTimestamp > localLastNotified && lastChatRead > 0 && newestMessage) {
             const sender = newestMessage?.username || 'Guest';
             const message = newestMessage?.message || '';
             const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;
@@ -288,6 +298,10 @@ async function sendStandbyAndUpdateAll() {
             } else if (!isChatActive) {
                 showToast(`💬 Pesan baru dari ${sender}: ${preview}`);
             }
+            
+            // Update local setelah notif
+            localLastNotified = lastTimestamp;
+            localStorage.setItem('umbrella_chat_last_notified', localLastNotified.toString());
         }
     } catch(e) { 
         console.error("❌ Check chat error:", e); 

@@ -247,6 +247,7 @@ async function sendStandbyAndUpdateAll() {
         const data = await res.json();
         
         const logs = data.logs || [];
+        const lastChatRead = parseInt(data.lastChatRead) || 0;   // 🎯 dari server
         
         const guestMessages = logs.filter(msg => {
             if (msg.type === 'command') return false;
@@ -267,13 +268,14 @@ async function sendStandbyAndUpdateAll() {
             }
         }
         
-        const savedTimestamp = parseInt(localStorage.getItem('umbrella_last_chat_timestamp') || '0');
-        
-        if (lastTimestamp > savedTimestamp) {
-            localStorage.setItem('umbrella_last_chat_timestamp', lastTimestamp.toString());
+        // 🎯 Kalau ada pesan baru → tandai sudah dibaca di server (fire-and-forget)
+        if (lastTimestamp > lastChatRead) {
+            fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true })
+                .catch(() => {});
         }
         
-        if (lastTimestamp > savedTimestamp && savedTimestamp > 0 && newestMessage) {
+        // 🎯 Notifikasi hanya kalau baseline sudah pernah diset (bukan cold start)
+        if (lastTimestamp > lastChatRead && lastChatRead > 0 && newestMessage) {
             const sender = newestMessage?.username || 'Guest';
             const message = newestMessage?.message || '';
             const preview = message.length > 50 ? message.substring(0, 50) + '...' : message;

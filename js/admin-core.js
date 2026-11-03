@@ -350,7 +350,7 @@ async function sendStandbyAndUpdateAll() {
             const hasChanged = await window.checkMailboxChanges();
             
             if (hasChanged) {
-                const cached = sessionStorage.getItem('umbrella_cached_mailbox');
+                const cached = sessionStorage.getItem('umbrella_mail_all');
                 if (cached) {
                     const dataMail = JSON.parse(cached);
                     const savedMailTimestamp = parseInt(localStorage.getItem('umbrella_last_mail_timestamp') || '0');
@@ -854,6 +854,9 @@ function renderBottomNav() {
             }
             if (tabId === 'kas' && typeof window.loadKasDashboard === 'function') {
                 window.loadKasDashboard();
+            }
+            if (tabId === 'mailbox' && typeof window.refreshMailbox === 'function') {
+                window.refreshMailbox();
             }
             if (tabId === 'member' && typeof window.loadMemberList === 'function') {
                 window.loadMemberList();

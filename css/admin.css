@@ -1157,3 +1157,23 @@ input:checked + .toggle-slider:before {
         height: 2px;
     }
 }
+
+#boot-loading .boot-logo {
+    height: 120px;
+    width: auto;
+    filter:
+        drop-shadow(0 0 20px rgba(168, 85, 247, 0.45))
+        brightness(1.5);
+    animation: bootLogoPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes bootLogoPulse {
+    0%, 100% {
+        opacity: 0.9;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.03);
+    }
+}

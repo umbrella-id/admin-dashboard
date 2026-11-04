@@ -30,9 +30,6 @@
           ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i
       });
   }
-    
-    return tmp.innerHTML;
-  }
   
   function create(containerEl, options) {
     if (!containerEl) return null;

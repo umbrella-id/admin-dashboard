@@ -9,36 +9,27 @@
                         'BLOCKQUOTE','CODE','PRE'];
   
   function sanitize(html) {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    
-    // Remove dangerous elements
-    tmp.querySelectorAll('script, iframe, embed, object, form, input, button, style, link, meta').forEach(function(el) {
-      el.remove();
-    });
-    
-    // Walk all elements, sanitize attributes
-    const toClean = [];
-    const walker = document.createTreeWalker(tmp, NodeFilter.SHOW_ELEMENT);
-    while (walker.nextNode()) toClean.push(walker.currentNode);
-    
-    toClean.forEach(function(el) {
-      Array.from(el.attributes).forEach(function(attr) {
-        const name = attr.name.toLowerCase();
-        const val = (attr.value || '').toLowerCase().trim();
-        
-        if (name.startsWith('on')) {
-          el.removeAttribute(attr.name);
-        } else if ((name === 'href' || name === 'src') && val.startsWith('javascript:')) {
-          el.removeAttribute(attr.name);
-        } else if (name === 'style') {
-          // Strip style attributes with dangerous content
-          if (val.indexOf('expression') !== -1 || val.indexOf('javascript:') !== -1) {
-            el.removeAttribute(attr.name);
-          }
-        }
+      if (!html) return '';
+      if (typeof DOMPurify === 'undefined') {
+          console.warn('⚠️ DOMPurify tidak ter-load, WYSIWYG pakai fallback');
+          // Fallback minimal: strip semua tag (jadi plain text)
+          const tmp = document.createElement('div');
+          tmp.textContent = html;
+          return tmp.innerHTML;
+      }
+      return DOMPurify.sanitize(html, {
+          ALLOWED_TAGS: [
+              'p', 'br', 'strong', 'b', 'em', 'i', 'u',
+              'ul', 'ol', 'li',
+              'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+              'a', 'img', 'span', 'div',
+              'blockquote', 'code', 'pre'
+          ],
+          ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'style'],
+          ALLOW_DATA_ATTR: false,
+          ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i
       });
-    });
+  }
     
     return tmp.innerHTML;
   }

@@ -103,31 +103,30 @@ function escapeJs(str) {
         .replace(/\r/g, '\\r');
 }
 
+// ==========================================
+// SANITIZE HTML — DOMPurify wrapper
+// Whitelist ketat. Fallback ke escapeHtml jika DOMPurify gagal load.
+// ==========================================
+const PURIFY_CONFIG = {
+    ALLOWED_TAGS: [
+        'p', 'br', 'strong', 'b', 'em', 'i', 'u',
+        'ul', 'ol', 'li',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'a', 'img', 'span', 'div',
+        'blockquote', 'code', 'pre'
+    ],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'style'],
+    ALLOW_DATA_ATTR: false,
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i
+};
+
 function sanitizeHtml(html) {
     if (!html) return '';
-    
-    let cleaned = String(html);
-    
-    // 1. Hapus elemen berbahaya (script, iframe, embed, object, form)
-    cleaned = cleaned.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-    cleaned = cleaned.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
-    cleaned = cleaned.replace(/<embed\b[^>]*>/gi, '');
-    cleaned = cleaned.replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '');
-    cleaned = cleaned.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '');
-    
-    // 2. Hapus event handler (onclick=, onerror=, onload=, ...)
-    cleaned = cleaned.replace(/\son\w+\s*=\s*"[^"]*"/gi, '');
-    cleaned = cleaned.replace(/\son\w+\s*=\s*'[^']*'/gi, '');
-    cleaned = cleaned.replace(/\son\w+\s*=\s*[^\s>]+/gi, '');
-    
-    // 3. Netralkan javascript: URL di href/src
-    cleaned = cleaned.replace(/(href|src)\s*=\s*(['"])\s*javascript:[^'"]*\2/gi, '$1=$2#$2');
-    
-    // 4. Hapus <style> dan <link> yang bisa inject CSS global
-    cleaned = cleaned.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
-    cleaned = cleaned.replace(/<link\b[^>]*>/gi, '');
-    
-    return cleaned;
+    if (typeof DOMPurify === 'undefined') {
+        console.warn('⚠️ DOMPurify tidak ter-load, fallback ke escapeHtml');
+        return escapeHtml(html);
+    }
+    return DOMPurify.sanitize(html, PURIFY_CONFIG);
 }
 
 // ==========================================

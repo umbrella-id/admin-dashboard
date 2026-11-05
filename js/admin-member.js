@@ -340,7 +340,7 @@ function renderMemberList(members) {
                 <div class="member-info">
                     <div class="member-ign">
                         <strong>${escapeHtml(member.ign)}</strong>
-                        <span class="member-role ${member.role}">${member.role.toUpperCase()}</span>
+                        <span class="member-role ${escapeHtml(member.role)}">${escapeHtml(member.role.toUpperCase())}</span>
                         ${verifiedBadge}
                         ${bendaharaBadge}
                         ${activationBadge}

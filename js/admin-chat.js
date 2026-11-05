@@ -311,20 +311,29 @@ function renderChatLogs(logs, container) {
         const uid = msg.uid;
 
         // 🛡️ FIX XSS: escapeJs untuk uid di onclick
-        const safeUid = (typeof escapeJs === 'function') ? escapeJs(uid) : String(uid).replace(/'/g, "\\'");
+        const safeUid = escapeHtml(uid);
+        const safeTs = escapeHtml(String(timestamp));
         
         html += `
             <div class="chat-row ${isMe ? 'me' : 'other'}">
                 <b>${username}</b>
                 <div class="chat-message-wrapper">
                     <div class="msg-text">${message}</div>
-                    ${!isMe ? `<button class="delete-chat-btn" onclick="window.deleteChatMessage(${timestamp}, '${safeUid}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    ${!isMe ? `<button class="delete-chat-btn" 
+                        data-ts="${safeTs}" 
+                        data-uid="${safeUid}"
+                        title="Hapus pesan"><i class="fas fa-trash-alt"></i></button>` : ''}
                 </div>
             </div>
         `;
     }
     
     container.innerHTML = html;
+    container.querySelectorAll('.delete-chat-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            window.deleteChatMessage(Number(btn.dataset.ts), btn.dataset.uid);
+        });
+    });
     container.scrollTop = container.scrollHeight;
 }
 
@@ -362,20 +371,35 @@ async function fetchOnlineUsers() {
         }
         
         if (regulars.length) {
-            if (admins.length) html += '<div style="margin:12px 0 8px;"><span style="font-size:0.65rem;">👥 USER ONLINE</span></div>';
+            if (admins.length) html += '<div style="...">USER ONLINE</div>';
             for (const u of regulars) {
                 const muted = u.isMuted === true;
-
-                // 🛡️ FIX XSS: escapeJs untuk uid
-                const safeUid = (typeof escapeJs === 'function') ? escapeJs(u.uid) : String(u.uid).replace(/'/g, "\\'");
+                const safeUid = escapeHtml(u.uid);
                 const safeIgn = escapeHtml(u.ign);
-                const safeIgnJs = (typeof escapeJs === 'function') ? escapeJs(u.ign) : String(u.ign).replace(/'/g, "\\'");
-
-                html += `<div class="online-user-item"><div><strong>${safeIgn}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}<div style="font-size:0.6rem;">${safeIgn}</div></div><button class="${muted ? 'unmute-btn' : 'mute-btn'}" onclick="window.toggleMute('${safeUid}', '${safeIgnJs}', ${muted})">${muted ? 'BUKA BISU' : 'BISUKAN'}</button></div>`;
+                const mutedAttr = muted ? 'true' : 'false';
+                const btnClass = muted ? 'unmute-btn' : 'mute-btn';
+                const btnLabel = muted ? 'BUKA BISU' : 'BISUKAN';
+                
+                html += `<div class="online-user-item">
+                    <div>
+                        <strong>${safeIgn}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}
+                        <div style="font-size:0.6rem;">${safeIgn}</div>
+                    </div>
+                    <button class="${btnClass}" 
+                            data-uid="${safeUid}" 
+                            data-ign="${safeIgn}" 
+                            data-muted="${mutedAttr}">${btnLabel}</button>
+                </div>`;
             }
         }
-        
         container.innerHTML = html;
+        
+        // 🆕 Attach event listener setelah render
+        container.querySelectorAll('.online-user-item button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                window.toggleMute(btn.dataset.uid, btn.dataset.ign, btn.dataset.muted === 'true');
+            });
+        });
     } catch(e) { 
         console.error("Fetch online users error:", e);
         container.innerHTML = '<div style="padding:12px;text-align:center;">⚠️ Gagal memuat</div>';
@@ -471,25 +495,27 @@ function renderMuteModalInternal(uid, ign) {
     const modal = document.getElementById('modal-overlay');
 
     // 🛡️ FIX XSS: escapeJs untuk uid di onclick
-    const safeUid = (typeof escapeJs === 'function') ? escapeJs(uid) : String(uid).replace(/'/g, "\\'");
-
     modal.innerHTML = `
         <div class="modal-content">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-volume-mute"></i> Bisukan Pemain</h3>
             <p>Pemain: <strong>${escapeHtml(ign)}</strong> (${escapeHtml(uid)})</p>
-            <select id="mute-duration" style="width:100%; padding:8px; margin-bottom:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
-                <option value="1">1 menit</option><option value="5">5 menit</option>
-                <option value="10">10 menit</option><option value="30">30 menit</option>
-                <option value="60">60 menit</option>
+            <select id="mute-duration" ...>
+                ...
             </select>
             <div class="modal-buttons">
-                <button onclick="window.executeMute('${safeUid}', document.getElementById('mute-duration').value, '${escapeHtml(ign)}')" style="background:var(--color-primary);">BISUKAN</button>
+                <button id="mute-confirm-btn" style="background:var(--color-primary);">BISUKAN</button>
                 <button onclick="window.closeModal()" style="background:#333;">Batal</button>
             </div>
         </div>
     `;
     modal.style.display = 'flex';
+    
+    // 🆕 Attach event listener
+    document.getElementById('mute-confirm-btn').addEventListener('click', () => {
+        const duration = document.getElementById('mute-duration').value;
+        window.executeMute(uid, duration, ign);
+    });
 }
 
 window.executeMute = async function(targetUid, duration, ign) {

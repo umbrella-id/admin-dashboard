@@ -49,7 +49,7 @@
     const editor = document.createElement('div');
     editor.className = 'wysiwyg-editor';
     editor.contentEditable = 'true';
-    editor.innerHTML = initialHtml || '<p><br></p>';
+    editor.innerHTML = sanitize(initialHtml) || '<p><br></p>';
     editor.setAttribute('data-placeholder', placeholder);
     
     const uploadBtn = document.createElement('button');

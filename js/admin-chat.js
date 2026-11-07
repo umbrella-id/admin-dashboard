@@ -1,25 +1,20 @@
 /**
- * admin-chat.js - Chat Widget (V4 — XSS Fix + Legacy UID)
- * 
- * Perubahan V4:
- * - 🛡️ Fix XSS di 3 onclick (deleteChatMessage, toggleMute, executeMute)
- * - 🔄 isMyMessage(): dukung legacy UID (ADMN_x / ADMIN_x → ADM-xxxx)
- * - 🎯 Bubble admin muncul di sisi "me" walau UID lama
+ * admin-chat.js - Chat Widget (V5 — Mute Local Timer + Split Polling)
  */
 
-let eInterval = null;
+let activeInterval = null;
 let chatPollingInterval = null;
 let isChatOpen = false;
 let adminData = null;
 let currentChatTab = 'chat';
 let isSending = false;
 let onlineUsersCount = 0;
-const eMutes = new Map();
+const activeMutes = new Map();
 let muteExpiryTimer = null;
 let lastOnlineUsers = [];
 
 // ==========================================
-// 🎯 LEGACY UID HELPER
+// LEGACY UID HELPER
 // ==========================================
 function normalizeDigits(s) {
     var d = String(s || '').replace(/\D/g, '');
@@ -28,22 +23,14 @@ function normalizeDigits(s) {
 
 function isMyMessage(msgUid, adminData) {
     if (!msgUid || !adminData) return false;
-
-    // 1. Exact match — UID saat ini
     if (msgUid === adminData.id) return true;
-
-    // 2. Explicit legacy list (future-proof)
-    if (Array.isArray(adminData.legacyIds) && adminData.legacyIds.indexOf(msgUid) !== -1) {
-        return true;
-    }
-
-    // 3. Heuristic: digit match untuk migrasi ADMN_x / ADMIN_x → ADM-xxxx
+    if (Array.isArray(adminData.legacyIds) && adminData.legacyIds.indexOf(msgUid) !== -1) return true;
+    
     var currentDigits = normalizeDigits(adminData.id);
     if (!currentDigits) return false;
-
     var msgDigits = normalizeDigits(msgUid);
     if (!msgDigits || msgDigits !== currentDigits) return false;
-
+    
     var msgStr = String(msgUid);
     var legacyPrefixes = ['ADMN_', 'ADMN-', 'ADMIN_', 'ADMIN-', 'ADM_'];
     for (var i = 0; i < legacyPrefixes.length; i++) {
@@ -52,27 +39,19 @@ function isMyMessage(msgUid, adminData) {
             return true;
         }
     }
-
     return false;
 }
 
-// 🎯 Migrasi : hapus key lama (sekarang disimpan di server per-admin)
 (function migrateChatTimestampToServer() {
     if (localStorage.getItem('umbrella_last_chat_timestamp')) {
         localStorage.removeItem('umbrella_last_chat_timestamp');
-        console.log('🧹 Migrasi: umbrella_last_chat_timestamp dihapus (sekarang di server GAS 2)');
+        console.log('🧹 Migrasi: umbrella_last_chat_timestamp dihapus');
     }
 })();
 
 let lastChatStamp = null;
-
-function getLastChatStamp() {
-    return lastChatStamp;
-}
-
-function setLastChatStamp(stamp) {
-    lastChatStamp = stamp;
-}
+function getLastChatStamp() { return lastChatStamp; }
+function setLastChatStamp(stamp) { lastChatStamp = stamp; }
 
 function initChat(admin) {
     adminData = admin;
@@ -107,25 +86,19 @@ window.toggleChatWidget = async function() {
         renderChatTabs();
         switchChatTab('chat');
         await loadChatMessages();
-        await fetchMuteList();       // ← BARU
+        await fetchMuteList();
         await syncOnlineUsers();
         
         const input = document.getElementById('admin-chat-input');
         if (input) input.focus();
         
-        if (typeof pushView === 'function') {
-            pushView('chat');
-        }
+        if (typeof pushView === 'function') pushView('chat');
     } else {
         widget.classList.remove('show');
         isChatOpen = false;
-        
         stopAllTimers();
         if (typeof window.sendPresence === 'function') await window.sendPresence('standby');
-        
-        if (typeof closeCurrentView === 'function') {
-            closeCurrentView();
-        }
+        if (typeof closeCurrentView === 'function') closeCurrentView();
     }
 };
 
@@ -149,9 +122,7 @@ function renderChatTabs() {
     `;
     
     const header = widget.querySelector('.chat-header');
-    if (header) {
-        header.insertAdjacentHTML('afterend', tabsHtml);
-    }
+    if (header) header.insertAdjacentHTML('afterend', tabsHtml);
     
     document.querySelectorAll('.chat-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => switchChatTab(btn.dataset.tab));
@@ -173,8 +144,6 @@ function switchChatTab(tab) {
         if (onlineDiv) onlineDiv.style.display = 'block';
         if (chatDiv) chatDiv.style.display = 'none';
         if (inputArea) inputArea.style.display = 'none';
-        
-        // Sequential: fetch mute dulu, lalu sync users
         fetchMuteList().then(() => syncOnlineUsers());
     } else {
         if (onlineDiv) onlineDiv.style.display = 'none';
@@ -203,7 +172,7 @@ function startAllTimers() {
         if (isChatOpen && adminData) {
             await loadChatMessages();
             if (currentChatTab === 'online') {
-                await syncOnlineUsers();   // ← TIDAK fetch mute
+                await syncOnlineUsers();
             }
         }
     }, 4500);
@@ -220,7 +189,6 @@ window.stopActivePresence = stopAllTimers;
 // ==========================================
 async function loadChatMessages() {
     if (!adminData) return;
-    
     const container = document.getElementById('admin-chat-logs');
     if (!container) return;
     
@@ -228,15 +196,9 @@ async function loadChatMessages() {
     if (cached) {
         try {
             const cachedLogs = JSON.parse(cached);
-            
-            if (lastChatStamp === null) {
-                lastChatStamp = JSON.stringify(cachedLogs);
-            }
-            
+            if (lastChatStamp === null) lastChatStamp = JSON.stringify(cachedLogs);
             renderChatLogs(cachedLogs, container);
-        } catch(e) { 
-            console.error("Cache parse error:", e); 
-        }
+        } catch(e) { console.error("Cache parse error:", e); }
     }
     
     try {
@@ -246,7 +208,7 @@ async function loadChatMessages() {
         const logs = data.logs || [];
         const stamp = JSON.stringify(logs);
         const savedStamp = getLastChatStamp();
-
+        
         if (stamp === savedStamp && cached) return;
         setLastChatStamp(stamp);
         
@@ -255,9 +217,7 @@ async function loadChatMessages() {
         renderChatLogs(logs, container);
     } catch(e) { 
         console.error("Load chat error:", e);
-        if (!cached) {
-            container.innerHTML = '<div style="text-align:center;padding:20px;">⚠️ Gagal memuat chat</div>';
-        }
+        if (!cached) container.innerHTML = '<div style="text-align:center;padding:20px;">⚠️ Gagal memuat chat</div>';
     }
 }
 
@@ -266,7 +226,6 @@ async function loadChatMessages() {
 // ==========================================
 function renderChatLogs(logs, container) {
     if (!container) return;
-    
     if (!logs.length) {
         container.innerHTML = '<div style="text-align:center;padding:20px;">📭 Belum ada pesan</div>';
         return;
@@ -291,23 +250,17 @@ function renderChatLogs(logs, container) {
                 const targetIGN = escapeHtml(parts[2] || 'Seseorang');
                 displayText = `🔊 ${targetIGN} telah dibuka bisuannya.`;
                 isSystem = true;
-            } else {
-                continue;
-            }
+            } else continue;
         }
         
         if (msgType !== 'msg' && !isSystem) continue;
-        
         const isDeleted = (msgType === 'msg' && msgText === '[deleted by admin]');
-        
-        // 🎯 FIX: pakai isMyMessage untuk dukung legacy UID
         const isMe = isMyMessage(msg.uid, adminData);
         
         if (isSystem) {
             html += `<div class="chat-row system-message"><div class="system-text">${displayText}</div></div>`;
             continue;
         }
-        
         if (isDeleted) {
             html += `<div class="chat-row deleted"><div class="msg-text">🗑️ Pesan dihapus admin</div></div>`;
             continue;
@@ -317,8 +270,6 @@ function renderChatLogs(logs, container) {
         const message = escapeHtml(msg.message || '');
         const timestamp = msg.timestamp;
         const uid = msg.uid;
-
-        // 🛡️ FIX XSS: escapeJs untuk uid di onclick
         const safeUid = escapeHtml(uid);
         const safeTs = escapeHtml(String(timestamp));
         
@@ -349,146 +300,141 @@ function renderChatLogs(logs, container) {
 // FETCH MUTE LIST
 // ==========================================
 async function fetchMuteList() {
-  try {
-    const res = await adminFetch(window.GAS_ADMIN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'getMuteListForAdmin' })
-    });
-    const data = await res.json();
-    
-    activeMutes.clear();
-    const now = Date.now();
-    (data.mutes || []).forEach(m => {
-      if (m.expiresAt > now) {
-        activeMutes.set(m.uid, m);
-      }
-    });
-    
-    schedulExpiryCheck();
-    return true;
-  } catch(e) {
-    console.error('fetchMuteList error:', e);
-    return false;
-  }
+    try {
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'getMuteListForAdmin' })
+        });
+        const data = await res.json();
+        
+        activeMutes.clear();
+        const now = Date.now();
+        (data.mutes || []).forEach(m => {
+            if (m.expiresAt > now) {
+                activeMutes.set(m.uid, m);
+            }
+        });
+        
+        scheduleMuteExpiryCheck();
+        return true;
+    } catch(e) {
+        console.error('fetchMuteList error:', e);
+        return false;
+    }
 }
 
 // ==========================================
-// SYNC ONLINE USERS (polling 4.5s — TIDAK fetch mute)
+// SYNC ONLINE USERS
 // ==========================================
 async function syncOnlineUsers() {
-  const container = document.getElementById('online-users-container');
-  if (!container) return;
-  
-  try {
-    const res = await adminFetch(`${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`);
-    const data = await res.json();
+    const container = document.getElementById('online-users-container');
+    if (!container) return;
     
-    lastOnlineUsers = data.onlineUsers || [];
-    renderOnlineUserList();
-  } catch(e) {
-    console.error('syncOnlineUsers error:', e);
-    if (lastOnlineUsers.length === 0) {
-      container.innerHTML = '<div style="padding:12px;text-align:center;">⚠️ Gagal memuat</div>';
+    try {
+        const res = await adminFetch(`${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`);
+        const data = await res.json();
+        lastOnlineUsers = data.onlineUsers || [];
+        renderOnlineUserList();
+    } catch(e) {
+        console.error('syncOnlineUsers error:', e);
+        if (lastOnlineUsers.length === 0) {
+            container.innerHTML = '<div style="padding:12px;text-align:center;">⚠️ Gagal memuat</div>';
+        }
     }
-  }
 }
 
 // ==========================================
-// RENDER ONLINE USER LIST (pakai activeMutes)
+// RENDER ONLINE USER LIST
 // ==========================================
 function renderOnlineUserList() {
-  const container = document.getElementById('online-users-container');
-  if (!container) return;
-  
-  // Cleanup expired dari local map dulu (defense)
-  const now = Date.now();
-  activeMutes.forEach((m, uid) => {
-    if (m.expiresAt <= now) activeMutes.delete(uid);
-  });
-  
-  const users = lastOnlineUsers.map(u => ({
-    ...u,
-    isMuted: activeMutes.has(u.uid)
-  }));
-  
-  const admins = users.filter(u => u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0));
-  const regulars = users.filter(u => !(u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0)));
-  onlineUsersCount = users.length;
-  
-  const onlineCountSpan = document.getElementById('online-count');
-  if (onlineCountSpan) onlineCountSpan.innerText = onlineUsersCount;
-  
-  if (!users.length) {
-    container.innerHTML = '<div style="padding:12px;text-align:center;">✨ Tidak ada pengguna online</div>';
-    return;
-  }
-  
-  let html = '';
-  if (admins.length) {
-    html += '<div style="margin-bottom:8px;"><span style="font-size:0.65rem;color:var(--color-primary);">👑 ADMIN ONLINE</span></div>';
-    for (const u of admins) {
-      html += `<div class="online-user-item admin-item"><div><i class="fas fa-crown" style="color:#f59e0b;"></i> ${escapeHtml(u.ign)}<div style="font-size:0.6rem;">${escapeHtml(u.uid)}</div></div><div style="width:50px;"></div></div>`;
-    }
-  }
-  
-  if (regulars.length) {
-    if (admins.length) html += '<div style="margin:12px 0 8px;"><span style="font-size:0.65rem;">👥 USER ONLINE</span></div>';
-    for (const u of regulars) {
-      const muted = u.isMuted === true;
-      const safeUid = escapeHtml(u.uid);
-      const safeIgn = escapeHtml(u.ign);
-      const mutedAttr = muted ? 'true' : 'false';
-      const btnClass = muted ? 'unmute-btn' : 'mute-btn';
-      const btnLabel = muted ? 'BUKA BISU' : 'BISUKAN';
-      
-      html += `<div class="online-user-item">
-        <div>
-          <strong>${safeIgn}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}
-          <div style="font-size:0.6rem;">${safeUid}</div>
-        </div>
-        <button class="${btnClass}"
-                data-uid="${safeUid}"
-                data-ign="${safeIgn}"
-                data-muted="${mutedAttr}">${btnLabel}</button>
-      </div>`;
-    }
-  }
-  
-  container.innerHTML = html;
-  
-  container.querySelectorAll('.online-user-item button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      window.toggl(btn.dataset.uid, btn.dataset.ign, btn.dataset.muted === 'true');
+    const container = document.getElementById('online-users-container');
+    if (!container) return;
+    
+    const now = Date.now();
+    activeMutes.forEach((m, uid) => {
+        if (m.expiresAt <= now) activeMutes.delete(uid);
     });
-  });
+    
+    const users = lastOnlineUsers.map(u => ({
+        ...u,
+        isMuted: activeMutes.has(u.uid)
+    }));
+    
+    const admins = users.filter(u => u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0));
+    const regulars = users.filter(u => !(u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0)));
+    onlineUsersCount = users.length;
+    
+    const onlineCountSpan = document.getElementById('online-count');
+    if (onlineCountSpan) onlineCountSpan.innerText = onlineUsersCount;
+    
+    if (!users.length) {
+        container.innerHTML = '<div style="padding:12px;text-align:center;">✨ Tidak ada pengguna online</div>';
+        return;
+    }
+    
+    let html = '';
+    if (admins.length) {
+        html += '<div style="margin-bottom:8px;"><span style="font-size:0.65rem;color:var(--color-primary);">👑 ADMIN ONLINE</span></div>';
+        for (const u of admins) {
+            html += `<div class="online-user-item admin-item"><div><i class="fas fa-crown" style="color:#f59e0b;"></i> ${escapeHtml(u.ign)}<div style="font-size:0.6rem;">${escapeHtml(u.uid)}</div></div><div style="width:50px;"></div></div>`;
+        }
+    }
+    
+    if (regulars.length) {
+        if (admins.length) html += '<div style="margin:12px 0 8px;"><span style="font-size:0.65rem;">👥 USER ONLINE</span></div>';
+        for (const u of regulars) {
+            const muted = u.isMuted === true;
+            const safeUid = escapeHtml(u.uid);
+            const safeIgn = escapeHtml(u.ign);
+            const mutedAttr = muted ? 'true' : 'false';
+            const btnClass = muted ? 'unmute-btn' : 'mute-btn';
+            const btnLabel = muted ? 'BUKA BISU' : 'BISUKAN';
+            
+            html += `<div class="online-user-item">
+                <div>
+                    <strong>${safeIgn}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}
+                    <div style="font-size:0.6rem;">${safeUid}</div>
+                </div>
+                <button class="${btnClass}"
+                        data-uid="${safeUid}"
+                        data-ign="${safeIgn}"
+                        data-muted="${mutedAttr}">${btnLabel}</button>
+            </div>`;
+        }
+    }
+    
+    container.innerHTML = html;
+    
+    container.querySelectorAll('.online-user-item button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            window.toggleMute(btn.dataset.uid, btn.dataset.ign, btn.dataset.muted === 'true');
+        });
+    });
 }
 
-function schedulExpiryCheck() {
-  if (muteExpiryTimer) {
-    clearTimeout(muteExpiryTimer);
-    muteExpiryTimer = null;
-  }
-  
-  const now = Date.now();
-  let nextExpiry = Infinity;
-  
-  activeMutes.forEach((m, uid) => {
-    if (m.expiresAt <= now) {
-      activeMutes.delete(uid);
-    } else if (m.expiresAt < nextExpiry) {
-      nextExpiry = m.expiresAt;
+function scheduleMuteExpiryCheck() {
+    if (muteExpiryTimer) {
+        clearTimeout(muteExpiryTimer);
+        muteExpiryTimer = null;
     }
-  });
-  
-  if (nextExpiry !== Infinity) {
-    const delay = Math.max(0, (nextExpiry - now) + 100);
-    muteExpiryTimer = setTimeout(() => {
-      console.log('⏰ Mute expired — auto re-render');
-      renderOnlineUserList();
-      schedulExpiryCheck();
-    }, delay);
-  }
+    
+    const now = Date.now();
+    let nextExpiry = Infinity;
+    
+    activeMutes.forEach((m, uid) => {
+        if (m.expiresAt <= now) activeMutes.delete(uid);
+        else if (m.expiresAt < nextExpiry) nextExpiry = m.expiresAt;
+    });
+    
+    if (nextExpiry !== Infinity) {
+        const delay = Math.max(0, (nextExpiry - now) + 100);
+        muteExpiryTimer = setTimeout(() => {
+            console.log('⏰ Mute expired — auto re-render');
+            renderOnlineUserList();
+            scheduleMuteExpiryCheck();
+        }, delay);
+    }
 }
 
 // ==========================================
@@ -496,10 +442,8 @@ function schedulExpiryCheck() {
 // ==========================================
 window.adminSendMessage = async function() {
     if (isSending) return;
-    
     const input = document.getElementById('admin-chat-input');
     if (!input) return;
-    
     const msg = input.value.trim();
     if (!msg) return;
     
@@ -510,11 +454,7 @@ window.adminSendMessage = async function() {
         const res = await adminFetch(window.GAS_ADMIN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-                action: 'sendChat',
-                ign: adminData.nama,
-                msg: msg
-            })
+            body: JSON.stringify({ action: 'sendChat', ign: adminData.nama, msg: msg })
         });
         const data = await res.json();
         if (data.status === 'success') {
@@ -550,10 +490,7 @@ window.deleteChatMessage = async function(timestamp, uid) {
             const res = await adminFetch(window.GAS_ADMIN_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                    action: 'deleteChat',
-                    timestamp: timestamp
-                })
+                body: JSON.stringify({ action: 'deleteChat', timestamp: timestamp })
             });
             const data = await res.json();
             if (data.status === 'success') {
@@ -572,7 +509,7 @@ window.deleteChatMessage = async function(timestamp, uid) {
 // ==========================================
 // MUTE / UNMUTE
 // ==========================================
-window.toggl = function(uid, ign, isCurrentlyMuted) {
+window.toggleMute = function(uid, ign, isCurrentlyMuted) {
     if (isCurrentlyMuted) {
         window.executeUnmute(uid, ign);
     } else {
@@ -585,14 +522,12 @@ window.toggl = function(uid, ign, isCurrentlyMuted) {
 // ==========================================
 window.showMuteModal = function(uid, ign) {
     renderMuteModalInternal(uid, ign);
-    if (typeof pushView === 'function') {
-        pushView('chat-mute', { uid: uid, ign: ign });
-    }
+    if (typeof pushView === 'function') pushView('chat-mute', { uid: uid, ign: ign });
 };
 
 function renderMuteModalInternal(uid, ign) {
     const modal = document.getElementById('modal-overlay');
-
+    
     modal.innerHTML = `
         <div class="modal-content">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
@@ -613,10 +548,9 @@ function renderMuteModalInternal(uid, ign) {
     `;
     modal.style.display = 'flex';
     
-    // 🆕 Attach event listener
     document.getElementById('mute-confirm-btn').addEventListener('click', () => {
         const duration = document.getElementById('mute-duration').value;
-        window.execut(uid, duration, ign);
+        window.executeMute(uid, duration, ign);
     });
 }
 
@@ -635,7 +569,8 @@ window.executeMute = async function(targetUid, duration, ign) {
                 targetIgn: ign
             })
         });
-        const data = await res.json(); 
+        const data = await res.json();
+        
         if (data.status === 'success') {
             activeMutes.set(targetUid, {
                 uid: targetUid,
@@ -673,9 +608,9 @@ window.executeUnmute = async function(targetUid, ign) {
             })
         });
         const data = await res.json();
+        
         if (data.status === 'success') {
-            // Server sudah confirm push GAS3 — baru clear local
-            eMutes.delete(targetUid);
+            activeMutes.delete(targetUid);
             renderOnlineUserList();
             scheduleMuteExpiryCheck();
             
@@ -700,4 +635,4 @@ window.isMyMessage = isMyMessage;
 window.fetchMuteList = fetchMuteList;
 window.syncOnlineUsers = syncOnlineUsers;
 
-console.log("✅ admin-chat.js loaded (V4 — XSS Fix + Legacy UID)");
+console.log("✅ admin-chat.js loaded (V5 — Mute Local Timer + Split Polling)");

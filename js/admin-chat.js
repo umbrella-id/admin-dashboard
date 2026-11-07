@@ -531,14 +531,17 @@ window.showMuteModal = function(uid, ign) {
 function renderMuteModalInternal(uid, ign) {
     const modal = document.getElementById('modal-overlay');
 
-    // 🛡️ FIX XSS: escapeJs untuk uid di onclick
     modal.innerHTML = `
         <div class="modal-content">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-volume-mute"></i> Bisukan Pemain</h3>
             <p>Pemain: <strong>${escapeHtml(ign)}</strong> (${escapeHtml(uid)})</p>
-            <select id="mute-duration" ...>
-                ...
+            <select id="mute-duration" style="width:100%; padding:8px; margin-bottom:10px; background:var(--bg-dark); border:1px solid var(--border-line); border-radius:8px; color:white;">
+                <option value="1">1 menit</option>
+                <option value="5">5 menit</option>
+                <option value="10">10 menit</option>
+                <option value="30">30 menit</option>
+                <option value="60">60 menit</option>
             </select>
             <div class="modal-buttons">
                 <button id="mute-confirm-btn" style="background:var(--color-primary);">BISUKAN</button>

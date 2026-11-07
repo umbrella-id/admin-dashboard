@@ -341,69 +341,92 @@ function renderChatLogs(logs, container) {
 // FETCH ONLINE USERS
 // ==========================================
 async function fetchOnlineUsers() {
-    const container = document.getElementById('online-users-container');
-    if (!container) return;
+  const container = document.getElementById('online-users-container');
+  if (!container) return;
+  
+  try {
+    const [syncData, muteData] = await Promise.all([
+      adminFetch(`${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`)
+        .then(r => r.json()),
+      adminFetch(window.GAS_ADMIN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'getMuteListForAdmin' })
+      })
+        .then(r => r.json())
+        .catch(() => ({ mutes: [] }))
+    ]);
     
-    try {
-        const url = `${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`;
-        const res = await adminFetch(url);
-        const data = await res.json();
-        let users = data.onlineUsers || [];
-        
-        const admins = users.filter(u => u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0));
-        const regulars = users.filter(u => !(u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0)));
-        onlineUsersCount = users.length;
-        
-        const onlineCountSpan = document.getElementById('online-count');
-        if (onlineCountSpan) onlineCountSpan.innerText = onlineUsersCount;
-        
-        if (!users.length) {
-            container.innerHTML = '<div style="padding:12px;text-align:center;">✨ Tidak ada pengguna online</div>';
-            return;
-        }
-        
-        let html = '';
-        if (admins.length) {
-            html += '<div style="margin-bottom:8px;"><span style="font-size:0.65rem;color:var(--color-primary);">👑 ADMIN ONLINE</span></div>';
-            for (const u of admins) {
-                html += `<div class="online-user-item admin-item"><div><i class="fas fa-crown" style="color:#f59e0b;"></i> ${escapeHtml(u.ign)}<div style="font-size:0.6rem;">${escapeHtml(u.uid)}</div></div><div style="width:50px;"></div></div>`;
-            }
-        }
-        
-        if (regulars.length) {
-            if (admins.length) html += '<div style="...">USER ONLINE</div>';
-            for (const u of regulars) {
-                const muted = u.isMuted === true;
-                const safeUid = escapeHtml(u.uid);
-                const safeIgn = escapeHtml(u.ign);
-                const mutedAttr = muted ? 'true' : 'false';
-                const btnClass = muted ? 'unmute-btn' : 'mute-btn';
-                const btnLabel = muted ? 'BUKA BISU' : 'BISUKAN';
-                
-                html += `<div class="online-user-item">
-                    <div>
-                        <strong>${safeIgn}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}
-                        <div style="font-size:0.6rem;">${safeIgn}</div>
-                    </div>
-                    <button class="${btnClass}" 
-                            data-uid="${safeUid}" 
-                            data-ign="${safeIgn}" 
-                            data-muted="${mutedAttr}">${btnLabel}</button>
-                </div>`;
-            }
-        }
-        container.innerHTML = html;
-        
-        // 🆕 Attach event listener setelah render
-        container.querySelectorAll('.online-user-item button').forEach(btn => {
-            btn.addEventListener('click', () => {
-                window.toggleMute(btn.dataset.uid, btn.dataset.ign, btn.dataset.muted === 'true');
-            });
-        });
-    } catch(e) { 
-        console.error("Fetch online users error:", e);
-        container.innerHTML = '<div style="padding:12px;text-align:center;">⚠️ Gagal memuat</div>';
+    // Build mute map dari GAS4
+    const muteMap = {};
+    (muteData.mutes || []).forEach(m => {
+      muteMap[m.uid] = m;
+    });
+    
+    let users = syncData.onlineUsers || [];
+    
+    // Override isMuted dengan data GAS4 (authoritative)
+    users.forEach(u => {
+      const mute = muteMap[u.uid];
+      u.isMuted = !!mute;
+      u.muteExpiresAt = mute ? mute.expiresAt : 0;
+    });
+    
+    const admins = users.filter(u => u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0));
+    const regulars = users.filter(u => !(u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0)));
+    onlineUsersCount = users.length;
+    
+    const onlineCountSpan = document.getElementById('online-count');
+    if (onlineCountSpan) onlineCountSpan.innerText = onlineUsersCount;
+    
+    if (!users.length) {
+      container.innerHTML = '<div style="padding:12px;text-align:center;">✨ Tidak ada pengguna online</div>';
+      return;
     }
+    
+    let html = '';
+    if (admins.length) {
+      html += '<div style="margin-bottom:8px;"><span style="font-size:0.65rem;color:var(--color-primary);">👑 ADMIN ONLINE</span></div>';
+      for (const u of admins) {
+        html += `<div class="online-user-item admin-item"><div><i class="fas fa-crown" style="color:#f59e0b;"></i> ${escapeHtml(u.ign)}<div style="font-size:0.6rem;">${escapeHtml(u.uid)}</div></div><div style="width:50px;"></div></div>`;
+      }
+    }
+    
+    if (regulars.length) {
+      if (admins.length) html += '<div style="margin:12px 0 8px;"><span style="font-size:0.65rem;">👥 USER ONLINE</span></div>';
+      for (const u of regulars) {
+        const muted = u.isMuted === true;
+        const safeUid = escapeHtml(u.uid);
+        const safeIgn = escapeHtml(u.ign);
+        const mutedAttr = muted ? 'true' : 'false';
+        const btnClass = muted ? 'unmute-btn' : 'mute-btn';
+        const btnLabel = muted ? 'BUKA BISU' : 'BISUKAN';
+        
+        html += `<div class="online-user-item">
+          <div>
+            <strong>${safeIgn}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}
+            <div style="font-size:0.6rem;">${safeUid}</div>
+          </div>
+          <button class="${btnClass}"
+                  data-uid="${safeUid}"
+                  data-ign="${safeIgn}"
+                  data-muted="${mutedAttr}">${btnLabel}</button>
+        </div>`;
+      }
+    }
+    
+    container.innerHTML = html;
+    
+    // Attach event listener (event delegation pattern)
+    container.querySelectorAll('.online-user-item button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        window.toggleMute(btn.dataset.uid, btn.dataset.ign, btn.dataset.muted === 'true');
+      });
+    });
+  } catch(e) {
+    console.error("Fetch online users error:", e);
+    container.innerHTML = '<div style="padding:12px;text-align:center;">⚠️ Gagal memuat</div>';
+  }
 }
 
 // ==========================================
@@ -422,8 +445,15 @@ window.adminSendMessage = async function() {
     input.disabled = true;
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=sendChat&adminId=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}&msg=${encodeURIComponent(msg)}`;
-        const res = await adminFetch(url);
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'sendChat',
+                ign: adminData.nama,
+                msg: msg
+            })
+        });
         const data = await res.json();
         if (data.status === 'success') {
             input.value = '';
@@ -455,7 +485,14 @@ window.deleteChatMessage = async function(timestamp, uid) {
     
     window.showConfirmModal('Hapus pesan ini?', async () => {
         try {
-            const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=deleteChat&adminId=${adminData.id}&timestamp=${timestamp}`);
+            const res = await adminFetch(window.GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'deleteChat',
+                    timestamp: timestamp
+                })
+            });
             const data = await res.json();
             if (data.status === 'success') {
                 window.showToast('✅ Pesan dihapus');
@@ -523,7 +560,16 @@ window.executeMute = async function(targetUid, duration, ign) {
     window.showToast(`⏳ Membisukan ${ign}...`);
     
     try {
-        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=executeMute&adminId=${adminData.id}&targetUid=${encodeURIComponent(targetUid)}&duration=${encodeURIComponent(duration)}&targetIgn=${encodeURIComponent(ign)}`);
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'executeMute',
+                targetUid: targetUid,
+                duration: duration,
+                targetIgn: ign
+            })
+        });
         const data = await res.json();
         if (data.status === 'success') {
             window.showToast(`✅ ${ign} dibisukan ${duration} menit`);
@@ -543,7 +589,15 @@ window.executeUnmute = async function(targetUid, ign) {
     window.showToast(`⏳ Membuka bisuan ${ign}...`);
     
     try {
-        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=executeUnmute&adminId=${adminData.id}&targetUid=${encodeURIComponent(targetUid)}&targetIgn=${encodeURIComponent(ign)}`);
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'executeUnmute',
+                targetUid: targetUid,
+                targetIgn: ign
+            })
+        });
         const data = await res.json();
         if (data.status === 'success') {
             window.showToast(`✅ Bisuan ${ign} dibuka`);

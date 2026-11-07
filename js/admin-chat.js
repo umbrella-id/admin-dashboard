@@ -14,6 +14,9 @@ let adminData = null;
 let currentChatTab = 'chat';
 let isSending = false;
 let onlineUsersCount = 0;
+const activeMutes = new Map();
+let muteExpiryTimer = null;
+let lastOnlineUsers = [];
 
 // ==========================================
 // 🎯 LEGACY UID HELPER
@@ -104,7 +107,8 @@ window.toggleChatWidget = async function() {
         renderChatTabs();
         switchChatTab('chat');
         await loadChatMessages();
-        await fetchOnlineUsers();
+        await fetchMuteList();       // ← BARU
+        await syncOnlineUsers();
         
         const input = document.getElementById('admin-chat-input');
         if (input) input.focus();
@@ -169,7 +173,9 @@ function switchChatTab(tab) {
         if (onlineDiv) onlineDiv.style.display = 'block';
         if (chatDiv) chatDiv.style.display = 'none';
         if (inputArea) inputArea.style.display = 'none';
-        fetchOnlineUsers();
+        
+        // Sequential: fetch mute dulu, lalu sync users
+        fetchMuteList().then(() => syncOnlineUsers());
     } else {
         if (onlineDiv) onlineDiv.style.display = 'none';
         if (chatDiv) {
@@ -196,7 +202,9 @@ function startAllTimers() {
     chatPollingInterval = setInterval(async () => {
         if (isChatOpen && adminData) {
             await loadChatMessages();
-            if (currentChatTab === 'online') await fetchOnlineUsers();
+            if (currentChatTab === 'online') {
+                await syncOnlineUsers();   // ← TIDAK fetch mute
+            }
         }
     }, 4500);
 }
@@ -338,94 +346,148 @@ function renderChatLogs(logs, container) {
 }
 
 // ==========================================
-// FETCH ONLINE USERS
+// FETCH MUTE LIST
 // ==========================================
-async function fetchOnlineUsers() {
+async function fetchMuteList() {
+  try {
+    const res = await adminFetch(window.GAS_ADMIN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'getMuteListForAdmin' })
+    });
+    const data = await res.json();
+    
+    activeMutes.clear();
+    const now = Date.now();
+    (data.mutes || []).forEach(m => {
+      if (m.expiresAt > now) {
+        activeMutes.set(m.uid, m);
+      }
+    });
+    
+    scheduleMuteExpiryCheck();
+    return true;
+  } catch(e) {
+    console.error('fetchMuteList error:', e);
+    return false;
+  }
+}
+
+// ==========================================
+// SYNC ONLINE USERS (polling 4.5s — TIDAK fetch mute)
+// ==========================================
+async function syncOnlineUsers() {
   const container = document.getElementById('online-users-container');
   if (!container) return;
   
   try {
-    const [syncData, muteData] = await Promise.all([
-      adminFetch(`${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`)
-        .then(r => r.json()),
-      adminFetch(window.GAS_ADMIN_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'getMuteListForAdmin' })
-      })
-        .then(r => r.json())
-        .catch(() => ({ mutes: [] }))
-    ]);
+    const res = await adminFetch(`${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`);
+    const data = await res.json();
     
-    // Build mute map dari GAS4
-    const muteMap = {};
-    (muteData.mutes || []).forEach(m => {
-      muteMap[m.uid] = m;
-    });
-    
-    let users = syncData.onlineUsers || [];
-    
-    // Override isMuted dengan data GAS4 (authoritative)
-    users.forEach(u => {
-      const mute = muteMap[u.uid];
-      u.isMuted = !!mute;
-      u.muteExpiresAt = mute ? mute.expiresAt : 0;
-    });
-    
-    const admins = users.filter(u => u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0));
-    const regulars = users.filter(u => !(u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0)));
-    onlineUsersCount = users.length;
-    
-    const onlineCountSpan = document.getElementById('online-count');
-    if (onlineCountSpan) onlineCountSpan.innerText = onlineUsersCount;
-    
-    if (!users.length) {
-      container.innerHTML = '<div style="padding:12px;text-align:center;">✨ Tidak ada pengguna online</div>';
-      return;
-    }
-    
-    let html = '';
-    if (admins.length) {
-      html += '<div style="margin-bottom:8px;"><span style="font-size:0.65rem;color:var(--color-primary);">👑 ADMIN ONLINE</span></div>';
-      for (const u of admins) {
-        html += `<div class="online-user-item admin-item"><div><i class="fas fa-crown" style="color:#f59e0b;"></i> ${escapeHtml(u.ign)}<div style="font-size:0.6rem;">${escapeHtml(u.uid)}</div></div><div style="width:50px;"></div></div>`;
-      }
-    }
-    
-    if (regulars.length) {
-      if (admins.length) html += '<div style="margin:12px 0 8px;"><span style="font-size:0.65rem;">👥 USER ONLINE</span></div>';
-      for (const u of regulars) {
-        const muted = u.isMuted === true;
-        const safeUid = escapeHtml(u.uid);
-        const safeIgn = escapeHtml(u.ign);
-        const mutedAttr = muted ? 'true' : 'false';
-        const btnClass = muted ? 'unmute-btn' : 'mute-btn';
-        const btnLabel = muted ? 'BUKA BISU' : 'BISUKAN';
-        
-        html += `<div class="online-user-item">
-          <div>
-            <strong>${safeIgn}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}
-            <div style="font-size:0.6rem;">${safeUid}</div>
-          </div>
-          <button class="${btnClass}"
-                  data-uid="${safeUid}"
-                  data-ign="${safeIgn}"
-                  data-muted="${mutedAttr}">${btnLabel}</button>
-        </div>`;
-      }
-    }
-    
-    container.innerHTML = html;
-    
-    // Attach event listener (event delegation pattern)
-    container.querySelectorAll('.online-user-item button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        window.toggleMute(btn.dataset.uid, btn.dataset.ign, btn.dataset.muted === 'true');
-      });
-    });
+    lastOnlineUsers = data.onlineUsers || [];
+    renderOnlineUserList();
   } catch(e) {
-    console.error("Fetch online users error:", e);
-    container.innerHTML = '<div style="padding:12px;text-align:center;">⚠️ Gagal memuat</div>';
+    console.error('syncOnlineUsers error:', e);
+    if (lastOnlineUsers.length === 0) {
+      container.innerHTML = '<div style="padding:12px;text-align:center;">⚠️ Gagal memuat</div>';
+    }
+  }
+}
+
+// ==========================================
+// RENDER ONLINE USER LIST (pakai activeMutes)
+// ==========================================
+function renderOnlineUserList() {
+  const container = document.getElementById('online-users-container');
+  if (!container) return;
+  
+  // Cleanup expired dari local map dulu (defense)
+  const now = Date.now();
+  activeMutes.forEach((m, uid) => {
+    if (m.expiresAt <= now) activeMutes.delete(uid);
+  });
+  
+  const users = lastOnlineUsers.map(u => ({
+    ...u,
+    isMuted: activeMutes.has(u.uid)
+  }));
+  
+  const admins = users.filter(u => u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0));
+  const regulars = users.filter(u => !(u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0)));
+  onlineUsersCount = users.length;
+  
+  const onlineCountSpan = document.getElementById('online-count');
+  if (onlineCountSpan) onlineCountSpan.innerText = onlineUsersCount;
+  
+  if (!users.length) {
+    container.innerHTML = '<div style="padding:12px;text-align:center;">✨ Tidak ada pengguna online</div>';
+    return;
+  }
+  
+  let html = '';
+  if (admins.length) {
+    html += '<div style="margin-bottom:8px;"><span style="font-size:0.65rem;color:var(--color-primary);">👑 ADMIN ONLINE</span></div>';
+    for (const u of admins) {
+      html += `<div class="online-user-item admin-item"><div><i class="fas fa-crown" style="color:#f59e0b;"></i> ${escapeHtml(u.ign)}<div style="font-size:0.6rem;">${escapeHtml(u.uid)}</div></div><div style="width:50px;"></div></div>`;
+    }
+  }
+  
+  if (regulars.length) {
+    if (admins.length) html += '<div style="margin:12px 0 8px;"><span style="font-size:0.65rem;">👥 USER ONLINE</span></div>';
+    for (const u of regulars) {
+      const muted = u.isMuted === true;
+      const safeUid = escapeHtml(u.uid);
+      const safeIgn = escapeHtml(u.ign);
+      const mutedAttr = muted ? 'true' : 'false';
+      const btnClass = muted ? 'unmute-btn' : 'mute-btn';
+      const btnLabel = muted ? 'BUKA BISU' : 'BISUKAN';
+      
+      html += `<div class="online-user-item">
+        <div>
+          <strong>${safeIgn}</strong>${muted ? '<span style="color:#ff8888;"> 🔇</span>' : ''}
+          <div style="font-size:0.6rem;">${safeUid}</div>
+        </div>
+        <button class="${btnClass}"
+                data-uid="${safeUid}"
+                data-ign="${safeIgn}"
+                data-muted="${mutedAttr}">${btnLabel}</button>
+      </div>`;
+    }
+  }
+  
+  container.innerHTML = html;
+  
+  container.querySelectorAll('.online-user-item button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.toggleMute(btn.dataset.uid, btn.dataset.ign, btn.dataset.muted === 'true');
+    });
+  });
+}
+
+function scheduleMuteExpiryCheck() {
+  if (muteExpiryTimer) {
+    clearTimeout(muteExpiryTimer);
+    muteExpiryTimer = null;
+  }
+  
+  const now = Date.now();
+  let nextExpiry = Infinity;
+  
+  activeMutes.forEach((m, uid) => {
+    if (m.expiresAt <= now) {
+      activeMutes.delete(uid);
+    } else if (m.expiresAt < nextExpiry) {
+      nextExpiry = m.expiresAt;
+    }
+  });
+  
+  if (nextExpiry !== Infinity) {
+    const delay = Math.max(0, (nextExpiry - now) + 100);
+    muteExpiryTimer = setTimeout(() => {
+      console.log('⏰ Mute expired — auto re-render');
+      renderOnlineUserList();
+      scheduleMuteExpiryCheck();
+    }, delay);
   }
 }
 
@@ -573,13 +635,21 @@ window.executeMute = async function(targetUid, duration, ign) {
                 targetIgn: ign
             })
         });
-        const data = await res.json();
         if (data.status === 'success') {
+            activeMutes.set(targetUid, {
+                uid: targetUid,
+                expiresAt: data.expiresAt,
+                mutedAt: data.confirmedAt || Date.now(),
+                durationMin: parseInt(duration) || 0,
+                targetIgn: ign
+            });
+            renderOnlineUserList();
+            scheduleMuteExpiryCheck();
+            
             window.showToast(`✅ ${ign} dibisukan ${duration} menit`);
-            await fetchOnlineUsers();
             await loadChatMessages();
         } else {
-            window.showToast(`❌ Gagal`, true);
+            window.showToast(`❌ ${data.message || 'Gagal'}`, true);
         }
     } catch(e) { 
         console.error("Execute mute error:", e);
@@ -603,11 +673,15 @@ window.executeUnmute = async function(targetUid, ign) {
         });
         const data = await res.json();
         if (data.status === 'success') {
+            // Server sudah confirm push GAS3 — baru clear local
+            activeMutes.delete(targetUid);
+            renderOnlineUserList();
+            scheduleMuteExpiryCheck();
+            
             window.showToast(`✅ Bisuan ${ign} dibuka`);
-            await fetchOnlineUsers();
             await loadChatMessages();
         } else {
-            window.showToast(`❌ Gagal`, true);
+            window.showToast(`❌ ${data.message || 'Gagal'}`, true);
         }
     } catch(e) { 
         console.error("Execute unmute error:", e);
@@ -620,8 +694,9 @@ window.executeUnmute = async function(targetUid, ign) {
 // ==========================================
 window.initChat = initChat;
 window.loadChatMessages = loadChatMessages;
-window.fetchOnlineUsers = fetchOnlineUsers;
 window.renderMuteModalInternal = renderMuteModalInternal;
 window.isMyMessage = isMyMessage;
+window.fetchMuteList = fetchMuteList;
+window.syncOnlineUsers = syncOnlineUsers;
 
 console.log("✅ admin-chat.js loaded (V4 — XSS Fix + Legacy UID)");

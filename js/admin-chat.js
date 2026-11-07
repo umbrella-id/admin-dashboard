@@ -357,15 +357,15 @@ async function fetchMuteList() {
     });
     const data = await res.json();
     
-    activeMutes.clear();
+    activs.clear();
     const now = Date.now();
     (data.mutes || []).forEach(m => {
       if (m.expiresAt > now) {
-        activeMutes.set(m.uid, m);
+        activs.set(m.uid, m);
       }
     });
     
-    scheduleMuteExpiryCheck();
+    schedulExpiryCheck();
     return true;
   } catch(e) {
     console.error('fetchMuteList error:', e);
@@ -395,7 +395,7 @@ async function syncOnlineUsers() {
 }
 
 // ==========================================
-// RENDER ONLINE USER LIST (pakai activeMutes)
+// RENDER ONLINE USER LIST (pakai activs)
 // ==========================================
 function renderOnlineUserList() {
   const container = document.getElementById('online-users-container');
@@ -403,13 +403,13 @@ function renderOnlineUserList() {
   
   // Cleanup expired dari local map dulu (defense)
   const now = Date.now();
-  activeMutes.forEach((m, uid) => {
-    if (m.expiresAt <= now) activeMutes.delete(uid);
+  activs.forEach((m, uid) => {
+    if (m.expiresAt <= now) activs.delete(uid);
   });
   
   const users = lastOnlineUsers.map(u => ({
     ...u,
-    isMuted: activeMutes.has(u.uid)
+    isMuted: activs.has(u.uid)
   }));
   
   const admins = users.filter(u => u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0));
@@ -459,12 +459,12 @@ function renderOnlineUserList() {
   
   container.querySelectorAll('.online-user-item button').forEach(btn => {
     btn.addEventListener('click', () => {
-      window.toggleMute(btn.dataset.uid, btn.dataset.ign, btn.dataset.muted === 'true');
+      window.toggl(btn.dataset.uid, btn.dataset.ign, btn.dataset.muted === 'true');
     });
   });
 }
 
-function scheduleMuteExpiryCheck() {
+function schedulExpiryCheck() {
   if (muteExpiryTimer) {
     clearTimeout(muteExpiryTimer);
     muteExpiryTimer = null;
@@ -473,9 +473,9 @@ function scheduleMuteExpiryCheck() {
   const now = Date.now();
   let nextExpiry = Infinity;
   
-  activeMutes.forEach((m, uid) => {
+  activs.forEach((m, uid) => {
     if (m.expiresAt <= now) {
-      activeMutes.delete(uid);
+      activs.delete(uid);
     } else if (m.expiresAt < nextExpiry) {
       nextExpiry = m.expiresAt;
     }
@@ -486,7 +486,7 @@ function scheduleMuteExpiryCheck() {
     muteExpiryTimer = setTimeout(() => {
       console.log('⏰ Mute expired — auto re-render');
       renderOnlineUserList();
-      scheduleMuteExpiryCheck();
+      schedulExpiryCheck();
     }, delay);
   }
 }
@@ -572,7 +572,7 @@ window.deleteChatMessage = async function(timestamp, uid) {
 // ==========================================
 // MUTE / UNMUTE
 // ==========================================
-window.toggleMute = function(uid, ign, isCurrentlyMuted) {
+window.toggl = function(uid, ign, isCurrentlyMuted) {
     if (isCurrentlyMuted) {
         window.executeUnmute(uid, ign);
     } else {
@@ -616,7 +616,7 @@ function renderMuteModalInternal(uid, ign) {
     // 🆕 Attach event listener
     document.getElementById('mute-confirm-btn').addEventListener('click', () => {
         const duration = document.getElementById('mute-duration').value;
-        window.executeMute(uid, duration, ign);
+        window.execut(uid, duration, ign);
     });
 }
 
@@ -635,6 +635,7 @@ window.executeMute = async function(targetUid, duration, ign) {
                 targetIgn: ign
             })
         });
+        const data = await res.json(); 
         if (data.status === 'success') {
             activeMutes.set(targetUid, {
                 uid: targetUid,

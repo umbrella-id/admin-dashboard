@@ -7,14 +7,14 @@
  * - 🎯 Bubble admin muncul di sisi "me" walau UID lama
  */
 
-let activeInterval = null;
+let eInterval = null;
 let chatPollingInterval = null;
 let isChatOpen = false;
 let adminData = null;
 let currentChatTab = 'chat';
 let isSending = false;
 let onlineUsersCount = 0;
-const activeMutes = new Map();
+const eMutes = new Map();
 let muteExpiryTimer = null;
 let lastOnlineUsers = [];
 
@@ -357,11 +357,11 @@ async function fetchMuteList() {
     });
     const data = await res.json();
     
-    activs.clear();
+    activeMutes.clear();
     const now = Date.now();
     (data.mutes || []).forEach(m => {
       if (m.expiresAt > now) {
-        activs.set(m.uid, m);
+        activeMutes.set(m.uid, m);
       }
     });
     
@@ -395,7 +395,7 @@ async function syncOnlineUsers() {
 }
 
 // ==========================================
-// RENDER ONLINE USER LIST (pakai activs)
+// RENDER ONLINE USER LIST (pakai activeMutes)
 // ==========================================
 function renderOnlineUserList() {
   const container = document.getElementById('online-users-container');
@@ -403,13 +403,13 @@ function renderOnlineUserList() {
   
   // Cleanup expired dari local map dulu (defense)
   const now = Date.now();
-  activs.forEach((m, uid) => {
-    if (m.expiresAt <= now) activs.delete(uid);
+  activeMutes.forEach((m, uid) => {
+    if (m.expiresAt <= now) activeMutes.delete(uid);
   });
   
   const users = lastOnlineUsers.map(u => ({
     ...u,
-    isMuted: activs.has(u.uid)
+    isMuted: activeMutes.has(u.uid)
   }));
   
   const admins = users.filter(u => u.uid && (u.uid.indexOf('ADM-') === 0 || u.uid.indexOf('ADMIN_') === 0 || u.uid.indexOf('ADMN_') === 0));
@@ -473,9 +473,9 @@ function schedulExpiryCheck() {
   const now = Date.now();
   let nextExpiry = Infinity;
   
-  activs.forEach((m, uid) => {
+  activeMutes.forEach((m, uid) => {
     if (m.expiresAt <= now) {
-      activs.delete(uid);
+      activeMutes.delete(uid);
     } else if (m.expiresAt < nextExpiry) {
       nextExpiry = m.expiresAt;
     }
@@ -675,7 +675,7 @@ window.executeUnmute = async function(targetUid, ign) {
         const data = await res.json();
         if (data.status === 'success') {
             // Server sudah confirm push GAS3 — baru clear local
-            activeMutes.delete(targetUid);
+            eMutes.delete(targetUid);
             renderOnlineUserList();
             scheduleMuteExpiryCheck();
             

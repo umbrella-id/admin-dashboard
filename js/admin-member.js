@@ -544,14 +544,14 @@ async function submitAddMember() {
             window.showToast(result.message);
             closeModal();
             
-            if (result.data) {
-                const existingIndex = memberList.findIndex(m => m.uid === result.data.uid);
-                if (existingIndex >= 0) {
-                    memberList[existingIndex] = result.data;
-                } else {
-                    memberList.push(result.data);
-                }
-                memberList = sortMembers(memberList);
+        if (result.data) {
+            const existingIndex = memberList.findIndex(m => m.uid === result.data.uid);
+            if (existingIndex >= 0) {
+                memberList[existingIndex] = Object.assign({}, memberList[existingIndex], result.data);
+            } else {
+                memberList.push(result.data);
+            }
+            memberList = sortMembers(memberList);
                 sessionStorage.setItem('umbrella_cached_members', JSON.stringify(memberList));
                 renderMemberList(memberList);
                 updateMissingWABadge(memberList);
@@ -901,7 +901,7 @@ async function submitEditMember(uid) {
                 } else {
                     const existingIndex = memberList.findIndex(m => m.uid === result.data.uid);
                     if (existingIndex >= 0) {
-                        memberList[existingIndex] = result.data;
+                        memberList[existingIndex] = Object.assign({}, memberList[existingIndex], result.data);
                     } else {
                         memberList.push(result.data);
                     }

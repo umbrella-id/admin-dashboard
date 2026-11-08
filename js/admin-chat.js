@@ -202,9 +202,11 @@ async function loadChatMessages() {
     }
     
     try {
-        const url = `${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`;
-        const res = await adminFetch(url);
-        const data = await res.json();
+        const data = await gas2Post({ action: 'getChats' });
+        if (data.status === 'rejected' || data.status === 'rate_limited') {
+            console.warn('Load chat rejected:', data.message);
+            return;
+        }
         const logs = data.logs || [];
         const stamp = JSON.stringify(logs);
         const savedStamp = getLastChatStamp();
@@ -332,8 +334,11 @@ async function syncOnlineUsers() {
     if (!container) return;
     
     try {
-        const res = await adminFetch(`${window.GAS_SYNC_URL}?uid=${adminData.id}&ign=${encodeURIComponent(adminData.nama)}`);
-        const data = await res.json();
+        const data = await gas2Post({ action: 'getChats' });
+        if (data.status === 'rejected' || data.status === 'rate_limited') {
+            console.warn('Sync online rejected:', data.message);
+            return;
+        }
         lastOnlineUsers = data.onlineUsers || [];
         renderOnlineUserList();
     } catch(e) {

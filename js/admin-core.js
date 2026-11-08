@@ -93,12 +93,28 @@ function escapeHtml(str) {
     });
 }
 
+/**====================================================================
+ * escapeJs — Harden untuk konteks HTML attribute (onclick="fn('...')")
+ * 
+ * Urutan kritis: `&`, `<`, `>` DULU. Lalu backslash & quotes.
+ * `"` di-escape jadi `&quot;` (bukan `\"`) — karena ini HTML attribute,
+ * bukan pure JS context. HTML parser akan decode `&quot;` → `"` saat
+ * parsing attribute value, lalu JS string parser menerima `"` sebagai
+ * karakter literal (aman karena string di-quote dengan `'`).
+ * 
+ * Test: input `a"b` → output `a&quot;b` → di onclick="fn('a&quot;b')" 
+ * → HTML decode → fn('a"b') → JS parse → string "a\"b" as literal "a\"b". 
+ * Attribute TIDAK break.
+======================================================================= */
 function escapeJs(str) {
     if (str === undefined || str === null) return '';
     return String(str)
+        .replace(/&/g, '&amp;')      // HARUS PERTAMA
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
         .replace(/\\/g, '\\\\')
         .replace(/'/g, "\\'")
-        .replace(/"/g, '\\"')
+        .replace(/"/g, '&quot;')     // HTML entity, BUKAN \"
         .replace(/\n/g, '\\n')
         .replace(/\r/g, '\\r');
 }

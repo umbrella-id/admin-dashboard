@@ -260,12 +260,28 @@ function showBrowserNotification(title, body, type = '') {
 }
 
 // ==========================================
+// GAS2 POST HELPER (chat/sync)
+// ==========================================
+async function gas2Post(payload) {
+    const memberToken = localStorage.getItem('umbrella_session_token') || '';
+    if (!memberToken) {
+        return { status: 'rejected', reason: 'no_token', message: 'Token tidak ada.' };
+    }
+    const res = await fetch(window.GAS_SYNC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(Object.assign({}, payload, { token: memberToken }))
+    });
+    return res.json();
+}
+
+// ==========================================
 // PRESENCE
 // ==========================================
 window.sendPresence = async function(mode) {
     if (!currentAdmin) return;
     try {
-        await fetch(`${window.GAS_SYNC_URL}?role=admin&uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}&mode=${mode}`);
+        await gas2Post({ action: 'sendPresence', mode: mode });
     } catch(e) {
         console.warn('Presence error:', e);
     }
@@ -289,9 +305,11 @@ async function sendStandbyAndUpdateAll() {
     // ========== FETCH SEKALI UNTUK CHAT + MAIL ==========
     let syncData = null;
     try {
-        const url = `${window.GAS_SYNC_URL}?uid=${currentAdmin.id}&ign=${encodeURIComponent(currentAdmin.nama)}`;
-        const res = await fetch(url);
-        syncData = await res.json();
+        syncData = await gas2Post({ action: 'getChats' });
+        if (syncData.status === 'rejected' || syncData.status === 'rate_limited') {
+            console.warn('Standby sync rejected:', syncData.message);
+            return;
+        }
     } catch(e) {
         console.error("❌ Sync fetch error:", e);
         return;
@@ -318,7 +336,7 @@ async function sendStandbyAndUpdateAll() {
                 sessionStorage.setItem('umbrella_chat_last_notified', baseline.toString());
                 console.log('🔄 Chat baseline adopted:', new Date(baseline).toISOString());
                 if (lastChatRead === 0 && lastTimestamp > 0) {
-                    fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true }).catch(()=>{});
+                    gas2Post({ action: 'markChatRead', timestamp: lastTimestamp }).catch(()=>{});
                 }
             }
         } else if (lastTimestamp > localLastNotified && newestMessage) {
@@ -339,7 +357,7 @@ async function sendStandbyAndUpdateAll() {
         }
         
         if (lastTimestamp > lastChatRead) {
-            fetch(`${window.GAS_SYNC_URL}?action=markChatRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastTimestamp}`, { keepalive: true }).catch(()=>{});
+            gas2Post({ action: 'markChatRead', timestamp: lastTimestamp }).catch(()=>{});
         }
     } catch(e) {
         console.error("❌ Chat check error:", e);
@@ -358,7 +376,7 @@ async function sendStandbyAndUpdateAll() {
                 sessionStorage.setItem('umbrella_mail_last_notified', baseline.toString());
                 console.log('🔄 Mail baseline adopted:', new Date(baseline).toISOString());
                 if (lastMailRead === 0 && lastIncomingMail > 0) {
-                    fetch(`${window.GAS_SYNC_URL}?action=markMailRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastIncomingMail}`, { keepalive: true }).catch(()=>{});
+                    gas2Post({ action: 'markMailRead', timestamp: lastIncomingMail }).catch(()=>{});
                 }
             }
         } else if (lastIncomingMail > localLastNotified) {
@@ -397,7 +415,7 @@ async function sendStandbyAndUpdateAll() {
         }
         
         if (lastIncomingMail > lastMailRead) {
-            fetch(`${window.GAS_SYNC_URL}?action=markMailRead&uid=${encodeURIComponent(currentAdmin.id)}&timestamp=${lastIncomingMail}`, { keepalive: true }).catch(()=>{});
+            gas2Post({ action: 'markMailRead', timestamp: lastIncomingMail }).catch(()=>{});
         }
     } catch(e) {
         console.error("❌ Mail check error:", e);

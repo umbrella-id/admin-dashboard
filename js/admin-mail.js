@@ -319,30 +319,7 @@ async function renderMailDetailInternal(mail) {
     
     let adminReplyHTML = '';
     if (status === 'REPLIED' || status === 'DONE') {
-        let adminReply = findAdminReply(mail);
-        
-        // 🎯 Fallback: currentMailList exclude admin replies untuk filter replied/done
-        // → fetch history (yang tidak filter) untuk dapat bubble balasan
-        if (!adminReply) {
-            try {
-                const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=getMailHistory&adminId=${currentAdmin.id}&uid=${encodeURIComponent(mail.uid)}`);
-                const data = await res.json();
-                if (data.status === 'success' && data.history) {
-                    const replies = data.history.filter(h => 
-                        h.isFromAdmin && 
-                        h.timestamp > mail.timestamp && 
-                        h.category === mail.category
-                    );
-                    if (replies.length > 0) {
-                        replies.sort((a, b) => a.timestamp - b.timestamp);
-                        adminReply = replies[0];
-                    }
-                }
-            } catch(e) {
-                console.error('Fetch reply fallback error:', e);
-            }
-        }
-        
+        const adminReply = findAdminReply(mail);
         if (adminReply) {
             const replyTime = new Date(adminReply.timestamp);
             const replyTanggal = replyTime.toLocaleDateString('id-ID');
@@ -431,6 +408,10 @@ async function renderMailDetailInternal(mail) {
 // CARI BALASAN ADMIN
 // ==========================================
 function findAdminReply(userMessage) {
+    // 1. Server pre-loaded (via getMailList enrichment)
+    if (userMessage.lastReply) return userMessage.lastReply;
+    
+    // 2. Fallback: scan currentMailList (safety net)
     const adminReplies = currentMailList.filter(m => 
         m.isFromAdmin &&
         m.uid === userMessage.uid &&
@@ -610,20 +591,42 @@ async function submitMailReply() {
         const res = await adminFetch(url);
         const data = await res.json();
         
-        if (data.status === 'success') {
+         if (data.status === 'success') {
             window.showToast("✅ Balasan terkirim");
+            
+            // Attach lastReply lokal dulu agar bubble tampil kalau dibuka lagi sebelum refresh selesai
+            const replyMail = {
+                isFromAdmin: true,
+                message: reply,
+                timestamp: Date.now(),
+                category: currentMailDetail.category,
+                uid: currentMailDetail.uid,
+                adminUid: adminUid,
+                adminName: adminIgn,
+                status: 'SENT'
+            };
+            currentMailDetail.lastReply = replyMail;
+            currentMailDetail.status = 'REPLIED';
+            
+            const mailInList = currentMailList.find(m => m.timestamp === currentMailDetail.timestamp);
+            if (mailInList) {
+                mailInList.lastReply = replyMail;
+                mailInList.status = 'REPLIED';
+            }
             
             if (data.feedback) {
                 updateFromFeedback(data.feedback);
             }
             
-            currentMailDetail.status = 'REPLIED';
             updateCache();
             renderMailbox(currentMailList);
             
             if (typeof closeCurrentView === 'function') {
                 closeCurrentView();
             }
+            
+            // Background: refresh dari server untuk sinkron data terbaru (lastReply enrichment)
+            setTimeout(() => refreshMailbox(), 300);
         } else {
             window.showToast(data.message || "Gagal mengirim", true);
             if (btn) {

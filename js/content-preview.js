@@ -26,7 +26,7 @@
   // HELPER: POST ke GAS 4
   // ==========================================
   async function gasPost(payload) {
-    const res = await fetch(window.GAS_ADMIN_URL, {
+    const res = await adminFetch(window.GAS_ADMIN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)

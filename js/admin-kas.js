@@ -53,6 +53,50 @@ function formatDate(timestamp) {
 }
 
 // ==========================================
+// 🎯 HELPER: Apply kas mutation success
+// Update data + refresh breakdown + re-render DOM
+// Dipakai oleh SEMUA mutation function (setoran, pengeluaran, transfer, edit, tarif)
+// ==========================================
+async function applyKasMutationSuccess(responseData, successMessage) {
+    // Fallback: kalau GAS4 tidak return data, refresh penuh via loadKasDashboard
+    if (!responseData) {
+        await loadKasDashboard(true);
+        if (successMessage) window.showToast(successMessage);
+        return;
+    }
+    
+    // 1. Update in-memory data dari response mutation
+    updateKasDataFromResponse(responseData);
+    
+    // 2. Refresh breakdown (dari GAS5, karena mutation response tidak include)
+    let freshBreakdown = null;
+    try {
+        const bd = await fetchKasBreakdownData();
+        if (bd && !bd.error) {
+            freshBreakdown = bd;
+            kasData.breakdown = bd;
+        } else {
+            kasData.breakdown = null;
+        }
+    } catch(e) {
+        console.warn('Refresh breakdown after mutation failed:', e);
+        kasData.breakdown = null;
+    }
+    
+    // 3. Update cache dengan format konsisten {kas, breakdown}
+    sessionStorage.setItem('umbrella_cached_kas', JSON.stringify({
+        kas: responseData,
+        breakdown: freshBreakdown
+    }));
+    
+    // 4. Re-render DOM (renderKasDashboard internal panggil renderKasBreakdownPanel)
+    renderKasDashboard();
+    
+    // 5. Toast sukses
+    if (successMessage) window.showToast(successMessage);
+}
+
+// ==========================================
 // UPDATE DATA DARI RESPONSE
 // ==========================================
 function updateKasDataFromResponse(responseData, breakdownData) {
@@ -709,19 +753,7 @@ async function submitSetoran() {
         const data = await response.json();
         
         if (data.status === 'success') {
-            window.showToast(data.message || "✅ Setoran berhasil");
-            if (data.data) {
-                sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                updateKasDataFromResponse(data.data);
-            } else {
-                await loadKasDashboard(true);
-            }
-            const mn = document.getElementById('kas-member-name');
-            const sp = document.getElementById('kas-spina');
-            const nt = document.getElementById('kas-notes-setoran');
-            if (mn) mn.value = '';
-            if (sp) sp.value = '';
-            if (nt) nt.value = '';
+            await applyKasMutationSuccess(data.data, data.message || "✅ Setoran berhasil");
         } else {
             window.showToast(data.message || "Gagal menyimpan", true);
         }
@@ -773,19 +805,7 @@ async function submitTransferRequest() {
         const data = await response.json();
         
         if (data.status === 'success') {
-            window.showToast(data.message || `✅ Request transfer ${formatSpina(amount)} ke ${toName} terkirim`);
-            if (data.data) {
-                sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                updateKasDataFromResponse(data.data);
-            } else {
-                await loadKasDashboard(true);
-            }
-            const toEl = document.getElementById('kas-transfer-to');
-            const amEl = document.getElementById('kas-transfer-amount');
-            const ntEl = document.getElementById('kas-notes-transfer');
-            if (toEl) toEl.value = '';
-            if (amEl) amEl.value = '';
-            if (ntEl) ntEl.value = '';
+            await applyKasMutationSuccess(data.data, data.message || `✅ Request transfer ${formatSpina(amount)} ke ${toName} terkirim`);
         } else {
             window.showToast(data.message || "Gagal mengirim request", true);
         }
@@ -841,19 +861,7 @@ async function submitPengeluaran() {
         const data = await response.json();
         
         if (data.status === 'success') {
-            window.showToast("✅ Pengeluaran dicatat");
-            if (data.data) {
-                sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                updateKasDataFromResponse(data.data);
-            } else {
-                await loadKasDashboard(true);
-            }
-            const kt = document.getElementById('kas-keterangan');
-            const sp = document.getElementById('kas-pengeluaran');
-            const nt = document.getElementById('kas-notes-pengeluaran');
-            if (kt) kt.value = '';
-            if (sp) sp.value = '';
-            if (nt) nt.value = '';
+            await applyKasMutationSuccess(data.data, "✅ Pengeluaran dicatat");
         } else {
             window.showToast(data.message || "Gagal", true);
         }
@@ -886,13 +894,7 @@ async function approveTransferRequest(requestId) {
             const data = await response.json();
             
             if (data.status === 'success') {
-                window.showToast(data.message || "Transfer disetujui");
-                if (data.data) {
-                    sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                    updateKasDataFromResponse(data.data);
-                } else {
-                    await loadKasDashboard(true);
-                }
+                await applyKasMutationSuccess(data.data, data.message || "Transfer disetujui");
             } else {
                 window.showToast(data.message || "Gagal menyetujui", true);
             }
@@ -923,13 +925,7 @@ async function rejectTransferRequest(requestId) {
             const data = await response.json();
             
             if (data.status === 'success') {
-                window.showToast(data.message || "Transfer ditolak");
-                if (data.data) {
-                    sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                    updateKasDataFromResponse(data.data);
-                } else {
-                    await loadKasDashboard(true);
-                }
+                await applyKasMutationSuccess(data.data, data.message || "Transfer ditolak");
             } else {
                 window.showToast(data.message || "Gagal menolak", true);
             }
@@ -959,13 +955,7 @@ async function cancelTransferRequest(requestId) {
             const data = await response.json();
             
             if (data.status === 'success') {
-                window.showToast(data.message || "Request dibatalkan");
-                if (data.data) {
-                    sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                    updateKasDataFromResponse(data.data);
-                } else {
-                    await loadKasDashboard(true);
-                }
+                await applyKasMutationSuccess(data.data, data.message || "Request dibatalkan");
             } else {
                 window.showToast(data.message || "Gagal membatalkan", true);
             }
@@ -1062,13 +1052,7 @@ async function saveEditTransaction(rowId) {
         const data = await response.json();
         
         if (data.status === 'success') {
-            window.showToast(data.message || "✅ Transaksi diperbarui");
-            if (data.data) {
-                sessionStorage.setItem('umbrella_cached_kas', JSON.stringify(data.data));
-                updateKasDataFromResponse(data.data);
-            } else {
-                await loadKasDashboard(true);
-            }
+            await applyKasMutationSuccess(data.data, data.message || "✅ Transaksi diperbarui");
         } else {
             window.showToast(data.message || "Gagal mengupdate", true);
         }

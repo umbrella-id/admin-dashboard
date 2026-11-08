@@ -1,12 +1,5 @@
 /**
- * admin-member.js - Member Management Module (V8)
- * 
- * Perubahan dari V7:
- * - 🐛 FIX BUG #1: Leader bisa edit nama & WA sendiri (status/role tetap readonly)
- * - 🎯 Defensive Bug #2: pakai member.ign sebagai display name admin
- * - 🎯 Reset Passkey Random (generate di frontend)
- * - 🎯 Tombol Reset Passkey di modal Ubah Jabatan
- * - 🐛 FIX BUG: role2 "bendahara" tidak mau terhapus (isDeleteMode logic)
+ * admin-member.js - Member Management Module
  */
 
 let memberList = [];
@@ -308,7 +301,7 @@ function renderMemberList(members) {
         
         if (canEditMember(currentAdmin, member)) {
             actionButtons += `
-                <button class="btn-icon" onclick="editMember('${escapeJs(member.uid)}')" title="Edit">
+                <button class="btn-icon" data-mbr-action="edit" data-uid="${escapeHtml(member.uid)}" title="Edit">
                     <i class="fas fa-edit"></i>
                 </button>
             `;
@@ -318,13 +311,13 @@ function renderMemberList(members) {
             const isSelf = member.uid === currentAdmin.linkedMemberUid;
             if (!isSelf) {
                 actionButtons += `
-                    <button class="btn-icon btn-icon-warning" onclick="openPromoteAdminModal('${escapeJs(member.uid)}', '${escapeJs(member.ign)}')" title="${memberIsAdmin ? 'Ubah Jabatan' : 'Angkat jadi Admin'}">
+                    <button class="btn-icon btn-icon-warning" data-mbr-action="promote" data-uid="${escapeHtml(member.uid)}" data-ign="${escapeHtml(member.ign)}" title="${memberIsAdmin ? 'Ubah Jabatan' : 'Angkat jadi Admin'}">
                         <i class="fas fa-crown"></i>
                     </button>
                 `;
             } else {
                 actionButtons += `
-                    <button class="btn-icon btn-icon-warning" onclick="openTransferLeadershipModal()" title="Serah Jabatan LEADER">
+                    <button class="btn-icon btn-icon-warning" data-mbr-action="transfer-leadership" title="Serah Jabatan LEADER">
                         <i class="fas fa-exchange-alt"></i>
                     </button>
                 `;
@@ -357,6 +350,19 @@ function renderMemberList(members) {
     }
     
     container.innerHTML = html;
+    
+    container.querySelectorAll('[data-mbr-action]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const action = btn.dataset.mbrAction;
+            if (action === 'edit') {
+                editMember(btn.dataset.uid);
+            } else if (action === 'promote') {
+                openPromoteAdminModal(btn.dataset.uid, btn.dataset.ign);
+            } else if (action === 'transfer-leadership') {
+                openTransferLeadershipModal();
+            }
+        });
+    });
 }
 
 function fallbackCopyVerifCode(code) {
@@ -728,12 +734,12 @@ function renderEditMemberInternal(member) {
                     ✅ VERIFIKASI AKUN
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button onclick="window.generateActivationCode('${escapeJs(member.uid)}', '${escapeJs(member.ign)}')" 
+                    <button data-mbr-edit-action="generate-activation" data-uid="${escapeHtml(member.uid)}" data-ign="${escapeHtml(member.ign)}"
                             style="flex: 1; background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; border-radius: 8px; padding: 10px; color: #4ade80; cursor: pointer; font-size: 0.75rem; font-weight: bold;">
                         <i class="fas fa-check-circle"></i> Generate Kode Verifikasi
                     </button>
                     ${member.activationStatus?.hasCode && !member.activationStatus?.used ? `
-                    <button onclick="window.revokeActivationCode('${escapeJs(member.uid)}', '${escapeJs(member.ign)}')" 
+                    <button data-mbr-edit-action="revoke-activation" data-uid="${escapeHtml(member.uid)}" data-ign="${escapeHtml(member.ign)}"
                             style="flex: 1; background: rgba(255, 68, 68, 0.2); border: 1px solid #ff4444; border-radius: 8px; padding: 10px; color: #ff8888; cursor: pointer; font-size: 0.75rem;">
                         <i class="fas fa-trash"></i> Revoke
                     </button>
@@ -753,7 +759,7 @@ function renderEditMemberInternal(member) {
             ` : ''}
             
             <div class="modal-buttons" style="margin-top: 20px;">
-                <button onclick="submitEditMember('${escapeJs(member.uid)}')" 
+                <button data-mbr-edit-action="submit-edit" data-uid="${escapeHtml(member.uid)}"
                         style="background:var(--color-primary);">
                     Simpan
                 </button>
@@ -762,6 +768,21 @@ function renderEditMemberInternal(member) {
         </div>
     `;
     modal.style.display = 'flex';
+
+    modal.querySelectorAll('[data-mbr-edit-action]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const action = btn.dataset.mbrEditAction;
+            const uid = btn.dataset.uid;
+            const ign = btn.dataset.ign;
+            if (action === 'generate-activation') {
+                window.generateActivationCode(uid, ign);
+            } else if (action === 'revoke-activation') {
+                window.revokeActivationCode(uid, ign);
+            } else if (action === 'submit-edit') {
+                submitEditMember(uid);
+            }
+        });
+    });
 }
 
 // ==========================================

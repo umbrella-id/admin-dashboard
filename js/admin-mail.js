@@ -319,7 +319,30 @@ async function renderMailDetailInternal(mail) {
     
     let adminReplyHTML = '';
     if (status === 'REPLIED' || status === 'DONE') {
-        const adminReply = findAdminReply(mail);
+        let adminReply = findAdminReply(mail);
+        
+        // 🎯 Fallback: currentMailList exclude admin replies untuk filter replied/done
+        // → fetch history (yang tidak filter) untuk dapat bubble balasan
+        if (!adminReply) {
+            try {
+                const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=getMailHistory&adminId=${currentAdmin.id}&uid=${encodeURIComponent(mail.uid)}`);
+                const data = await res.json();
+                if (data.status === 'success' && data.history) {
+                    const replies = data.history.filter(h => 
+                        h.isFromAdmin && 
+                        h.timestamp > mail.timestamp && 
+                        h.category === mail.category
+                    );
+                    if (replies.length > 0) {
+                        replies.sort((a, b) => a.timestamp - b.timestamp);
+                        adminReply = replies[0];
+                    }
+                }
+            } catch(e) {
+                console.error('Fetch reply fallback error:', e);
+            }
+        }
+        
         if (adminReply) {
             const replyTime = new Date(adminReply.timestamp);
             const replyTanggal = replyTime.toLocaleDateString('id-ID');

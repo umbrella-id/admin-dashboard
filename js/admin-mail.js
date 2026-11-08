@@ -376,7 +376,7 @@ async function renderMailDetailInternal(mail) {
                     ${senderLabel}
                     <span class="modal-uid">${escapeHtml(mail.uid)}</span>
                 </div>
-                <button onclick="openHistory('${escapeJs(mail.uid)}')" 
+                <button class="mail-history-btn" data-uid="${escapeHtml(mail.uid)}"
                         style="background:transparent; border:1px solid var(--border-line); border-radius:6px; padding:4px 10px; color:#c9a55a; cursor:pointer; font-size:0.65rem; flex-shrink:0;">
                     📜 HISTORY
                 </button>
@@ -395,6 +395,13 @@ async function renderMailDetailInternal(mail) {
         </div>
     `;
     modal.style.display = 'flex';
+
+    const historyBtn = modal.querySelector('.mail-history-btn');
+    if (historyBtn) {
+        historyBtn.addEventListener('click', function() {
+            openHistory(this.dataset.uid);
+        });
+    }
 }
 
 // ==========================================

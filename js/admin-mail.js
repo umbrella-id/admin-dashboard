@@ -47,7 +47,11 @@ async function refreshMailbox() {
     try {
         // 🎯 Kirim adminId
         console.log('📬 [MAIL] Fetching filter:', currentMailFilter);
-        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=getMailList&adminId=${currentAdmin.id}&filter=${currentMailFilter}`);
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'getMailList', filter: currentMailFilter })
+        });
         const data = await res.json();
             console.log('📬 [MAIL] Response:', {
             status: data.status,
@@ -458,7 +462,11 @@ async function renderMailHistoryInternal(uid) {
     
     try {
         // 🎯 Kirim adminId
-        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=getMailHistory&adminId=${currentAdmin.id}&uid=${encodeURIComponent(uid)}`);
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'getMailHistory', uid: uid })
+        });
         const data = await res.json();
         
         if (data.status === 'success' && data.history) {
@@ -582,65 +590,49 @@ async function submitMailReply() {
         btn.disabled = true;
     }
     
-    const adminUid = currentAdmin?.id || '';
-    const adminIgn = currentAdmin?.nama || 'Admin';
     const timestamp = currentMailDetail.timestamp;
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=mailReply&adminId=${currentAdmin.id}&timestamp=${timestamp}&adminUid=${encodeURIComponent(adminUid)}&adminIgn=${encodeURIComponent(adminIgn)}&adminReply=${encodeURIComponent(reply)}`;
-        const res = await adminFetch(url);
+        // ✅ GUNAKAN POST (Hapus adminUid & adminIgn dari URL)
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ 
+                action: 'mailReply', 
+                timestamp: timestamp, 
+                adminReply: reply 
+            })
+        });
         const data = await res.json();
         
          if (data.status === 'success') {
             window.showToast("✅ Balasan terkirim");
             
-            // Attach lastReply lokal dulu agar bubble tampil kalau dibuka lagi sebelum refresh selesai
             const replyMail = {
-                isFromAdmin: true,
-                message: reply,
-                timestamp: Date.now(),
-                category: currentMailDetail.category,
-                uid: currentMailDetail.uid,
-                adminUid: adminUid,
-                adminName: adminIgn,
-                status: 'SENT'
+                isFromAdmin: true, message: reply, timestamp: Date.now(),
+                category: currentMailDetail.category, uid: currentMailDetail.uid,
+                adminUid: currentAdmin.id, adminName: currentAdmin.nama, status: 'SENT'
             };
             currentMailDetail.lastReply = replyMail;
             currentMailDetail.status = 'REPLIED';
             
             const mailInList = currentMailList.find(m => m.timestamp === currentMailDetail.timestamp);
-            if (mailInList) {
-                mailInList.lastReply = replyMail;
-                mailInList.status = 'REPLIED';
-            }
+            if (mailInList) { mailInList.lastReply = replyMail; mailInList.status = 'REPLIED'; }
             
-            if (data.feedback) {
-                updateFromFeedback(data.feedback);
-            }
-            
+            if (data.feedback) updateFromFeedback(data.feedback);
             updateCache();
             renderMailbox(currentMailList);
             
-            if (typeof closeCurrentView === 'function') {
-                closeCurrentView();
-            }
-            
-            // Background: refresh dari server untuk sinkron data terbaru (lastReply enrichment)
+            if (typeof closeCurrentView === 'function') closeCurrentView();
             setTimeout(() => refreshMailbox(), 300);
         } else {
             window.showToast(data.message || "Gagal mengirim", true);
-            if (btn) {
-                btn.innerHTML = '<i class="fas fa-paper-plane"></i> KIRIM';
-                btn.disabled = false;
-            }
+            if (btn) { btn.innerHTML = '<i class="fas fa-paper-plane"></i> KIRIM'; btn.disabled = false; }
         }
     } catch(e) {
         console.error("Reply error:", e);
         window.showToast("Koneksi gagal", true);
-        if (btn) {
-            btn.innerHTML = '<i class="fas fa-paper-plane"></i> KIRIM';
-            btn.disabled = false;
-        }
+        if (btn) { btn.innerHTML = '<i class="fas fa-paper-plane"></i> KIRIM'; btn.disabled = false; }
     }
 }
 

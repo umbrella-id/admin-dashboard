@@ -86,8 +86,11 @@ async function loadAdminLinkedUids() {
     
     // Fallback: fetch kalau tidak ada cache (misal user reload page)
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
-        const res = await adminFetch(url);
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'getAdminList' })
+        });
         const data = await res.json();
         
         if (data.status === 'success' && data.data) {

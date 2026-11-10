@@ -179,11 +179,12 @@ async function loadKasDashboard(forceRefresh = false) {
         const needsBreakdown = currentAdmin?.webUid;
         
         const [kasResponse, breakdownResponse] = await Promise.all([
-            adminFetch(`${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`)
-                .then(r => r.json()),
-            needsBreakdown 
-                ? fetchKasBreakdownData()   // fungsi baru, return raw breakdown
-                : Promise.resolve(null)
+            adminFetch(window.GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'getKasFullData' })
+            }).then(r => r.json()),
+            needsBreakdown ? fetchKasBreakdownData() : Promise.resolve(null)
         ]);
         
         if (kasResponse.status === 'success' && kasResponse.data) {
@@ -214,45 +215,33 @@ async function loadKasDashboard(forceRefresh = false) {
 // 🎯 Fetch breakdown murni — return data, tidak render
 async function fetchKasBreakdownData() {
     const webUid = currentAdmin?.webUid || '';
-    if (!webUid) {
-        return { error: 'no_webuid' };
-    }
+    const token = localStorage.getItem('umbrella_session_token') || '';
+    if (!webUid || !token) return { error: 'no_webuid' };
     
     try {
         const now = new Date();
-        const tahun = now.getFullYear();
-        const bulan = now.getMonth() + 1;
-        
-        const url = `${window.GAS5_URL}?action=getMonthlyTable` +
-            `&uid=${encodeURIComponent(webUid)}` +
-            `&tahun=${tahun}&bulan=${bulan}`;
-        
-        const res = await fetch(url);
+        const res = await fetch(window.GAS5_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'getMonthlyTable',
+                token: token,
+                tahun: now.getFullYear(),
+                bulan: now.getMonth() + 1
+            })
+        });
         const data = await res.json();
-        
-        if (!data.success) {
-            return { error: data.error || 'gagal' };
-        }
+        if (!data.success) return { error: data.error || 'gagal' };
         
         const memberData = data.data || [];
         let totalDeposit = 0;
         let memberDenganDeposit = 0;
-        
         for (const m of memberData) {
             const dep = parseFloat(m.deposit) || 0;
-            if (dep > 0) {
-                totalDeposit += dep;
-                memberDenganDeposit++;
-            }
+            if (dep > 0) { totalDeposit += dep; memberDenganDeposit++; }
         }
-        
-        return {
-            dibayarDimuka: totalDeposit,
-            memberDenganDeposit: memberDenganDeposit,
-            totalMember: memberData.length
-        };
+        return { dibayarDimuka: totalDeposit, memberDenganDeposit: memberDenganDeposit, totalMember: memberData.length };
     } catch(e) {
-        console.error('fetchKasBreakdownData error:', e);
         return { error: 'koneksi' };
     }
 }

@@ -1032,30 +1032,28 @@ async function changeMyPasskey() {
     const oldPasskey = document.getElementById('old-passkey').value.trim();
     const newPasskey = document.getElementById('new-passkey').value.trim();
     const confirmPasskey = document.getElementById('confirm-passkey').value.trim();
+    
     if (!oldPasskey || !newPasskey) { showToast("Isi semua field", true); return; }
     if (newPasskey !== confirmPasskey) { showToast("Passkey baru tidak cocok", true); return; }
     if (newPasskey.length < 6) { showToast("Passkey minimal 6 karakter", true); return; }
-    if (/[^a-zA-Z0-9]/.test(newPasskey)) { showToast("Passkey hanya boleh huruf dan angka", true); return; }
-    
-    const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
-    if (!session.sessionToken) {
-        showToast("Sesi berakhir. Login ulang.", true);
-        setTimeout(() => logout(), 1500);
-        return;
-    }
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=changeMyPasskey` +
-            `&sessionToken=${encodeURIComponent(session.sessionToken)}` +
-            `&oldPasskey=${encodeURIComponent(oldPasskey)}` +
-            `&newKey=${encodeURIComponent(newPasskey)}`;
-        const res = await fetch(url);
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'changeMyPasskey',
+                oldPasskey: oldPasskey,
+                newKey: newPasskey
+            })
+        });
         const data = await res.json();
         if (data.status === 'success') { 
             showToast("Passkey berhasil diubah!");
             setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(data.message || "Gagal", true);
         }
-        else showToast(data.message || "Gagal", true);
     } catch(e) { showToast("Gagal koneksi", true); }
 }
 

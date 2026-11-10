@@ -318,7 +318,6 @@ async function sendStandbyAndUpdateAll() {
     // ==================== CHAT ====================
     try {
         const logs = syncData.logs || [];
-        const lastChatRead = parseInt(syncData.lastChatRead) || 0;
         let localLastNotified = parseInt(sessionStorage.getItem('umbrella_chat_last_notified') || '0');
         
         const guestMessages = logs.filter(msg => msg.type !== 'command' && msg.uid !== currentAdmin.id);
@@ -330,14 +329,9 @@ async function sendStandbyAndUpdateAll() {
         }
         
         if (localLastNotified === 0) {
-            const baseline = Math.max(lastChatRead, lastTimestamp);
-            if (baseline > 0) {
-                localLastNotified = baseline;
-                sessionStorage.setItem('umbrella_chat_last_notified', baseline.toString());
-                console.log('🔄 Chat baseline adopted:', new Date(baseline).toISOString());
-                if (lastChatRead === 0 && lastTimestamp > 0) {
-                    gas2Post({ action: 'markChatRead', timestamp: lastTimestamp }).catch(()=>{});
-                }
+            if (lastTimestamp > 0) {
+                localLastNotified = lastTimestamp;
+                sessionStorage.setItem('umbrella_chat_last_notified', lastTimestamp.toString());
             }
         } else if (lastTimestamp > localLastNotified && newestMessage) {
             const sender = newestMessage.username || 'Guest';
@@ -356,8 +350,13 @@ async function sendStandbyAndUpdateAll() {
             sessionStorage.setItem('umbrella_chat_last_notified', localLastNotified.toString());
         }
         
-        if (lastTimestamp > lastChatRead) {
-            gas2Post({ action: 'markChatRead', timestamp: lastTimestamp }).catch(()=>{});
+        // Pindah ke GAS 4 (Gunakan adminFetch)
+        if (lastTimestamp > 0) {
+            adminFetch(window.GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'markChatRead', timestamp: lastTimestamp })
+            }).catch(()=>{});
         }
     } catch(e) {
         console.error("❌ Chat check error:", e);
@@ -366,21 +365,14 @@ async function sendStandbyAndUpdateAll() {
     // ==================== MAIL ====================
     try {
         const lastIncomingMail = parseInt(syncData.lastIncomingMail) || 0;
-        const lastMailRead = parseInt(syncData.lastMailRead) || 0;
         let localLastNotified = parseInt(sessionStorage.getItem('umbrella_mail_last_notified') || '0');
         
         if (localLastNotified === 0) {
-            const baseline = Math.max(lastMailRead, lastIncomingMail);
-            if (baseline > 0) {
-                localLastNotified = baseline;
-                sessionStorage.setItem('umbrella_mail_last_notified', baseline.toString());
-                console.log('🔄 Mail baseline adopted:', new Date(baseline).toISOString());
-                if (lastMailRead === 0 && lastIncomingMail > 0) {
-                    gas2Post({ action: 'markMailRead', timestamp: lastIncomingMail }).catch(()=>{});
-                }
+            if (lastIncomingMail > 0) {
+                localLastNotified = lastIncomingMail;
+                sessionStorage.setItem('umbrella_mail_last_notified', lastIncomingMail.toString());
             }
         } else if (lastIncomingMail > localLastNotified) {
-            // Extract preview dari cache
             let sender = 'Guest', subject = 'Umum', preview = 'Ada surat baru masuk';
             const cached = sessionStorage.getItem('umbrella_mail_all');
             if (cached) {
@@ -408,14 +400,18 @@ async function sendStandbyAndUpdateAll() {
             localLastNotified = lastIncomingMail;
             sessionStorage.setItem('umbrella_mail_last_notified', localLastNotified.toString());
             
-            // Auto-refresh mailbox kalau tab aktif
             if (isMailTabActive && typeof window.refreshMailbox === 'function') {
                 window.refreshMailbox();
             }
         }
         
-        if (lastIncomingMail > lastMailRead) {
-            gas2Post({ action: 'markMailRead', timestamp: lastIncomingMail }).catch(()=>{});
+        // Pindah ke GAS 4 (Gunakan adminFetch)
+        if (lastIncomingMail > 0) {
+            adminFetch(window.GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'markMailRead', timestamp: lastIncomingMail })
+            }).catch(()=>{});
         }
     } catch(e) {
         console.error("❌ Mail check error:", e);
@@ -636,6 +632,9 @@ async function doLogin() {
                 // 3. Simpan Tiket Publik (agar tidak perlu login di web publik)
                 if (data.memberToken) {
                     localStorage.setItem('umbrella_session_token', data.memberToken);
+                    // Simpan read state awal dari server
+                    sessionStorage.setItem('umbrella_chat_last_notified', String(data.lastChatRead || 0));
+                    sessionStorage.setItem('umbrella_mail_last_notified', String(data.lastMailRead || 0));
                     console.log('✅ SSO: Tiket Publik tersimpan');
                 }
                 console.log('✅ Admin juga member:', currentAdmin.webUid);
@@ -769,6 +768,9 @@ async function checkSession() {
             // 🎯 SSO: member token persistent
             if (freshData.memberToken) {
                 localStorage.setItem('umbrella_session_token', freshData.memberToken);
+                // Simpan read state awal dari server
+                sessionStorage.setItem('umbrella_chat_last_notified', String(freshData.lastChatRead || 0));
+                sessionStorage.setItem('umbrella_mail_last_notified', String(freshData.lastMailRead || 0));
                 console.log('✅ SSO: Member token dari session (persistent)');
             } else {
                 console.log('⏳ Member token null, trigger background refresh');
@@ -860,6 +862,20 @@ async function validateSessionInBackground(admin) {
         // 🎯 Update member token kalau server return (persistent)
         if (data.memberToken) {
             localStorage.setItem('umbrella_session_token', data.memberToken);
+        }
+
+        // Sync read state dari server (untuk multi-device consistency)
+        if (data.lastChatRead !== undefined) {
+            const localNotified = parseInt(sessionStorage.getItem('umbrella_chat_last_notified') || '0');
+            if (data.lastChatRead > localNotified) {
+                sessionStorage.setItem('umbrella_chat_last_notified', String(data.lastChatRead));
+            }
+        }
+        if (data.lastMailRead !== undefined) {
+            const localNotified = parseInt(sessionStorage.getItem('umbrella_mail_last_notified') || '0');
+            if (data.lastMailRead > localNotified) {
+                sessionStorage.setItem('umbrella_mail_last_notified', String(data.lastMailRead));
+            }
         }
         
         localStorage.setItem('umbrella_admin_session', JSON.stringify(session));

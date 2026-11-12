@@ -14,8 +14,7 @@
  */
 
 window.GAS_ADMIN_URL = "https://script.google.com/macros/s/AKfycbx1VqwGfC0Bz_tXNacdEe6s3Lu7USX9uRy7JbrOet4qu_bjA6PR9r780Ne7LP73UwUs/exec";
-window.GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbwqsSUeVxPg4V5hMc9ph92eMQ2cFqTQI7SJZOG9f-FDlPii4IaXGEfOZ7zdRG35zbIhnw/exec";
-window.GAS5_URL = "https://script.google.com/macros/s/AKfycbzTP1-9KuQ2iz4ffTfhujqkSIQqQxXWMXY-BHljCVU_Zzm0Ept8j4AJUCBHqB-ZSZk/exec";
+window.AUTH_FALLBACK_URL = "https://script.google.com/macros/s/<GAS-AUTH-DEPLOY-ANDA>/exec";
 
 let currentAdmin = null;
 let standbyInterval = null;
@@ -25,6 +24,141 @@ let toastTimeout = null;
 
 let lastRefreshAt = 0;
 const REFRESH_THROTTLE_MS = 30 * 1000;
+
+// ==========================================
+// AUTH CONFIG — resolve dynamic URL via proxy GAS4
+// ==========================================
+let _authConfigCache = null;
+let _authConfigCacheTime = 0;
+const AUTH_CONFIG_TTL = 5 * 60 * 1000;
+
+async function getAuthConfig() {
+    const now = Date.now();
+    if (_authConfigCache && (now - _authConfigCacheTime) < AUTH_CONFIG_TTL) {
+        return _authConfigCache;
+    }
+    
+    try {
+        const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
+        const sessionToken = session.sessionToken || '';
+        
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(
+            window.GAS_ADMIN_URL + '?action=getAuthConfigProxy&sessionToken=' + encodeURIComponent(sessionToken),
+            { signal: controller.signal }
+        ).finally(() => clearTimeout(timer));
+        
+        const data = await res.json();
+        if (data.status === 'success' && data.activeUrl) {
+            _authConfigCache = {
+                activeUrl: data.activeUrl,
+                active: data.active,
+                total: data.total
+            };
+            _authConfigCacheTime = now;
+            return _authConfigCache;
+        }
+    } catch(e) {
+        console.warn('getAuthConfig fallback:', e.message);
+    }
+    
+    return { activeUrl: window.AUTH_FALLBACK_URL, active: -1, total: 0 };
+}
+
+async function reportAuthIssue(failedUrl) {
+    try {
+        const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
+        const sessionToken = session.sessionToken || '';
+        
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'reportAuthIssueProxy',
+                sessionToken: sessionToken,
+                failedUrl: failedUrl
+            }),
+            signal: controller.signal
+        }).finally(() => clearTimeout(timer));
+        
+        const data = await res.json();
+        if (data.newUrl && data.newUrl !== failedUrl) {
+            _authConfigCache = {
+                activeUrl: data.newUrl,
+                active: data.active,
+                total: data.total
+            };
+            _authConfigCacheTime = Date.now();
+            console.log('🔀 Auth URL rotated →', data.newUrl);
+        }
+        return data;
+    } catch(e) {
+        return null;
+    }
+}
+
+async function authFetch(action, payload, options) {
+    options = options || {};
+    const isWrite = options.isWrite === true;
+    const timeoutMs = options.timeout || 12000;
+    
+    const config = await getAuthConfig();
+    const url = config.activeUrl;
+    
+    const doRequest = async (targetUrl) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            return await fetch(targetUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(Object.assign({ action: action }, payload || {})),
+                signal: controller.signal
+            }).finally(() => clearTimeout(timer));
+        } catch(e) {
+            clearTimeout(timer);
+            throw e;
+        }
+    };
+    
+    try {
+        const res = await doRequest(url);
+        
+        if (res.status >= 500) {
+            await reportAuthIssue(url);
+            if (!isWrite) {
+                const newConfig = await getAuthConfig();
+                if (newConfig.activeUrl !== url) {
+                    const retry = await doRequest(newConfig.activeUrl);
+                    return retry.json();
+                }
+            }
+            throw new Error('Server error ' + res.status);
+        }
+        
+        const data = await res.json();
+        if (data.status === 'quota_exceeded') {
+            await reportAuthIssue(url);
+            throw new Error('Server quota habis.');
+        }
+        return data;
+        
+    } catch(e) {
+        if (e.name === 'AbortError' || String(e.message).includes('Failed to fetch')) {
+            await reportAuthIssue(url);
+            if (isWrite) throw new Error('Timeout. Cek dulu sebelum kirim ulang.');
+            const newConfig = await getAuthConfig();
+            if (newConfig.activeUrl !== url) {
+                const retry = await doRequest(newConfig.activeUrl);
+                return retry.json();
+            }
+        }
+        throw e;
+    }
+}
 
 // ==========================================
 // 🧹 CLEANUP STALE STORAGE
@@ -260,28 +394,18 @@ function showBrowserNotification(title, body, type = '') {
 }
 
 // ==========================================
-// GAS2 POST HELPER (chat/sync)
-// ==========================================
-async function gas2Post(payload) {
-    const memberToken = localStorage.getItem('umbrella_session_token') || '';
-    if (!memberToken) {
-        return { status: 'rejected', reason: 'no_token', message: 'Token tidak ada.' };
-    }
-    const res = await fetch(window.GAS_SYNC_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(Object.assign({}, payload, { token: memberToken }))
-    });
-    return res.json();
-}
-
-// ==========================================
 // PRESENCE
 // ==========================================
 window.sendPresence = async function(mode) {
     if (!currentAdmin) return;
+    const memberToken = localStorage.getItem('umbrella_session_token') || '';
+    if (!memberToken) return;
     try {
-        await gas2Post({ action: 'sendPresence', mode: mode });
+        await authFetch('sendPresence', {
+            token: memberToken,
+            mode: mode,
+            asAdmin: true
+        });
     } catch(e) {
         console.warn('Presence error:', e);
     }
@@ -305,7 +429,9 @@ async function sendStandbyAndUpdateAll() {
     // ========== FETCH SEKALI UNTUK CHAT + MAIL ==========
     let syncData = null;
     try {
-        syncData = await gas2Post({ action: 'getChats' });
+        const memberToken = localStorage.getItem('umbrella_session_token') || '';
+        if (!memberToken) return;
+        syncData = await authFetch('getChats', { token: memberToken });
         if (syncData.status === 'rejected' || syncData.status === 'rate_limited') {
             console.warn('Standby sync rejected:', syncData.message);
             return;
@@ -1088,8 +1214,10 @@ function logout() {
     
     if (shouldEnableHeartbeat() && currentAdmin) {
         try {
-            fetch(`${window.GAS_SYNC_URL}?role=admin&uid=${currentAdmin.id}&mode=offline`, 
-                  { keepalive: true }).catch(() => {});
+            const memberToken = localStorage.getItem('umbrella_session_token') || '';
+            if (memberToken) {
+                authFetch('sendPresence', { token: memberToken, mode: 'standby', asAdmin: true }).catch(() => {});
+            }
         } catch(e) {}
     }
     

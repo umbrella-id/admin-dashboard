@@ -336,7 +336,6 @@ async function syncOnlineUsers() {
     if (!container) return;
     
     try {
-    try {
         const memberToken = localStorage.getItem('umbrella_session_token') || '';
         if (!memberToken) return;
         const data = await authFetch('getChats', { token: memberToken });

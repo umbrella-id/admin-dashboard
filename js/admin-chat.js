@@ -202,7 +202,9 @@ async function loadChatMessages() {
     }
     
     try {
-        const data = await gas2Post({ action: 'getChats' });
+        const memberToken = localStorage.getItem('umbrella_session_token') || '';
+        if (!memberToken) return;
+        const data = await authFetch('getChats', { token: memberToken });
         if (data.status === 'rejected' || data.status === 'rate_limited') {
             console.warn('Load chat rejected:', data.message);
             return;
@@ -334,7 +336,10 @@ async function syncOnlineUsers() {
     if (!container) return;
     
     try {
-        const data = await gas2Post({ action: 'getChats' });
+    try {
+        const memberToken = localStorage.getItem('umbrella_session_token') || '';
+        if (!memberToken) return;
+        const data = await authFetch('getChats', { token: memberToken });
         if (data.status === 'rejected' || data.status === 'rate_limited') {
             console.warn('Sync online rejected:', data.message);
             return;

@@ -6,7 +6,7 @@
 (function() {
   const UPLOAD_CONFIG = {
     MAX_SIZE: 5 * 1024 * 1024,
-    ALLOWED_EXTS: ['jpg', 'jpeg', 'jfif', 'jpe', 'png', 'webp', 'gif', 'avif', 'svg']
+    ALLOWED_EXTS: ['jpg', 'jpeg', 'jfif', 'jpe', 'png', 'webp', 'gif', 'avif']  // ← hapus 'svg'
   };
   
   const COMPRESS_SETTINGS = {

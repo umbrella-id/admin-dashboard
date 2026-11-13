@@ -282,7 +282,11 @@ async function renderMailDetailInternal(mail) {
         renderMailbox(currentMailList);
         
         // 🎯 Kirim adminId + timestamp
-        adminFetch(`${window.GAS_ADMIN_URL}?action=mailMarkRead&adminId=${currentAdmin.id}&timestamp=${mail.timestamp}`)
+        adminFetch(window.GAS_ADMIN_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'mailMarkRead', timestamp: mail.timestamp })
+            })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'success' && data.feedback) {
@@ -653,7 +657,11 @@ async function markAsDone(timestamp) {
         renderMailbox(currentMailList);
         
         try {
-            const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=mailClose&adminId=${currentAdmin.id}&timestamp=${timestamp}`);
+            const res = await adminFetch(window.GAS_ADMIN_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'mailClose', timestamp: timestamp })
+            });
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -737,7 +745,11 @@ window.deleteMail = async function(timestamp) {
     window.showConfirmModal('Hapus surat ini?', async () => {
         try {
             window.showToast("⏳ Menghapus...");
-            const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=deleteMail&adminId=${currentAdmin.id}&timestamp=${timestamp}`);
+            const res = await adminFetch(window.GAS_ADMIN_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'deleteMail', timestamp: timestamp })
+            });
             const data = await res.json();
             
             if (data.status === 'success') {

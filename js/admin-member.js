@@ -1292,6 +1292,7 @@ window.renderPromoteSuccessModal = function(data, memberIgn) {
     Login: https://umbrella-id.github.io/admin-dashboard`;
 
     window.__promoteInfoText = infoText;
+    setTimeout(() => { window.__promoteInfoText = null; }, 60000);
     
     const modal = document.getElementById('modal-overlay');
     modal.innerHTML = `
@@ -1358,12 +1359,13 @@ window.copyPromotePasskey = function(passkey) {
 };
 
 window.copyPromoteInfo = function() {
-    const text = window.__promoteInfoText || '';
-    navigator.clipboard.writeText(text).then(() => {
-        window.showToast('✅ Info lengkap dicopy');
-    }).catch(() => {
-        window.showToast('❌ Gagal copy', true);
-    });
+  const text = window.__promoteInfoText || '';
+  navigator.clipboard.writeText(text).then(() => {
+    window.__promoteInfoText = null;   // NEW
+    window.showToast('✅ Info lengkap dicopy');
+  }).catch(() => {
+    window.showToast('❌ Gagal copy', true);
+  });
 };
 
 // ==========================================

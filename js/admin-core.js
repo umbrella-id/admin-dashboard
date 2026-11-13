@@ -49,7 +49,7 @@ async function getAuthConfig() {
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'getAuthConfigProxy', sessionToken: sessionToken }),
           signal: controller.signal
-        ).finally(() => clearTimeout(timer));
+        }).finally(() => clearTimeout(timer));
         
         const data = await res.json();
         if (data.status === 'success' && data.activeUrl) {

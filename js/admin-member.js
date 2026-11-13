@@ -1032,8 +1032,11 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
     let adminData = null;
     if (memberIsAdmin) {
         try {
-            const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
-            const res = await adminFetch(url);
+            const res = await adminFetch(window.GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'getAdminList' })
+            });
             const data = await res.json();
             
             if (data.status === 'success' && data.data) {
@@ -1138,8 +1141,11 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
     
     if (mode === 'edit' && adminData) {
         try {
-            const kasUrl = `${window.GAS_ADMIN_URL}?action=getKasFullData&adminId=${currentAdmin.id}`;
-            const kasRes = await adminFetch(kasUrl);
+            const kasRes = await adminFetch(window.GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'getKasFullData' })
+            });
             const kasData = await kasRes.json();
             
             const saldoEl = document.getElementById('promote-saldo-display');
@@ -1491,8 +1497,11 @@ window.openTransferLeadershipModal = async function() {
     window.showToast('⏳ Memuat list CO-LEAD...');
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=getAdminList&adminId=${currentAdmin.id}`;
-        const res = await adminFetch(url);
+        const res = await adminFetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'getAdminList' })
+        });
         const data = await res.json();
         
         if (data.status !== 'success' || !data.data) {

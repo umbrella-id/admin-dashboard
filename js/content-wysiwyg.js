@@ -25,7 +25,7 @@
               'a', 'img', 'span', 'div',
               'blockquote', 'code', 'pre'
           ],
-          ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'style'],
+          ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
           ALLOW_DATA_ATTR: false,
           ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i
       });

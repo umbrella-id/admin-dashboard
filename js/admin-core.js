@@ -44,9 +44,11 @@ async function getAuthConfig() {
         
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(
-            window.GAS_ADMIN_URL + '?action=getAuthConfigProxy&sessionToken=' + encodeURIComponent(sessionToken),
-            { signal: controller.signal }
+        const res = await fetch(window.GAS_ADMIN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'getAuthConfigProxy', sessionToken: sessionToken }),
+          signal: controller.signal
         ).finally(() => clearTimeout(timer));
         
         const data = await res.json();

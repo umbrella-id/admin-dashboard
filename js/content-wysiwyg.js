@@ -60,7 +60,7 @@
     
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = 'image/*,.jfif,.jpe,.svg';
+    fileInput.accept = 'image/*,.jfif,.jpe';
     fileInput.style.display = 'none';
     
     const loadingOverlay = document.createElement('div');

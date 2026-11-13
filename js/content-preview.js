@@ -200,16 +200,12 @@
         let uploadBlob = file;
         let formatStr = 'webp';
         
-        if (file.type === 'image/svg+xml') {
-          formatStr = 'svg';
-        } else {
-          try {
-            uploadBlob = await compressToWebP(file);
-          } catch (ce) {
-            console.warn('[PREVIEW] compress error, pakai asli:', ce);
-            uploadBlob = file;
-            formatStr = (file.type.split('/')[1] || 'jpeg').toLowerCase();
-          }
+        try {
+          uploadBlob = await compressToWebP(file);
+        } catch (ce) {
+          console.warn('[PREVIEW] compress error, pakai asli:', ce);
+          uploadBlob = file;
+          formatStr = (file.type.split('/')[1] || 'jpeg').toLowerCase();
         }
         
         const base64 = await blobToBase64(uploadBlob);

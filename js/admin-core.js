@@ -312,7 +312,7 @@ window.showConfirmModal = function(pesan, onConfirm, onCancel) {
         <div class="modal-content" style="max-width: 300px;">
             <button class="modal-close-x" onclick="window.closeModal()">✕</button>
             <h3><i class="fas fa-question-circle"></i> Konfirmasi</h3>
-            <p style="margin-bottom:20px;">${pesan}</p>
+            <p style="margin-bottom:20px;">${escapeHtml(pesan)}</p>
             <div class="modal-buttons">
                 <button id="confirm-yes" style="background:var(--color-primary);">Ya</button>
                 <button id="confirm-no" style="background:#333;">Batal</button>

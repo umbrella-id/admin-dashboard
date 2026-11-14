@@ -769,8 +769,7 @@ window.deleteMail = async function(timestamp) {
 // ==========================================
 async function checkMailboxChanges() {
     try {
-        // 🎯 Kirim adminId
-        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=checkMailboxStatus&adminId=${currentAdmin.id}`);
+        const res = await adminPost('checkMailboxStatus');
         const data = await res.json();
         
         if (data.status !== 'success') return false;

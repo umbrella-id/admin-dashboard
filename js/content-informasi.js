@@ -18,17 +18,8 @@
   // API HELPER
   // ==========================================
   async function gasCall(action, params) {
-    params = params || {};
-    const url = new URL(window.GAS_ADMIN_URL);
-    url.searchParams.set('action', action);
-    url.searchParams.set('adminId', currentAdmin.id);
-    for (const k in params) {
-      if (params[k] !== undefined && params[k] !== null) {
-        url.searchParams.set(k, params[k]);
-      }
-    }
-    const res = await adminFetch(url.toString());
-    return res.json();
+      const res = await adminPost(action, params);
+      return res.json();
   }
   
   // ==========================================

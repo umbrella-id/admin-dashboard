@@ -14,7 +14,6 @@
  */
 
 window.GAS_ADMIN_URL = "https://script.google.com/macros/s/AKfycbx1VqwGfC0Bz_tXNacdEe6s3Lu7USX9uRy7JbrOet4qu_bjA6PR9r780Ne7LP73UwUs/exec";
-window.GAS_CONTENT_URL = "https://script.google.com/macros/s/AKfycbzlxIQc75KaCjn_05YhbQP3VMzP4W0NqpuJrGk8Vjm0F81NixhQ6RE_g55wMq_vf8cPVw/exec";
 
 let currentAdmin = null;
 let standbyInterval = null;

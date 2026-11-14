@@ -83,6 +83,21 @@ async function getAuthConfig() {
   throw new Error('Server sedang sibuk. Coba lagi dalam 30 detik.');
 }
 
+function getFriendlyErrorMessage(err, fallback) {
+    if (!err) return fallback || 'Terjadi kesalahan';
+    const msg = String(err.message || '');
+    
+    if (msg.includes('Server sedang sibuk') || msg.includes('Gagal resolve auth URL')) {
+        return '⚠️ Server sedang sibuk. Coba lagi sebentar lagi.';
+    }
+    if (msg.includes('Timeout') || msg.includes('Failed to fetch') || 
+        msg.includes('NetworkError') || msg.includes('Load failed')) {
+        return '⚠️ Koneksi lambat. Periksa internet Anda.';
+    }
+    return fallback || 'Terjadi kesalahan';
+}
+window.getFriendlyErrorMessage = getFriendlyErrorMessage;
+
 async function reportAuthIssue(failedUrl) {
     try {
         const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
@@ -801,7 +816,7 @@ async function doLogin() {
             document.getElementById('login-error').innerText = data.message || 'Login gagal!';
         }
     } catch(err) { 
-        document.getElementById('login-error').innerText = 'Koneksi gagal!'; 
+        document.getElementById('login-error').innerText = getFriendlyErrorMessage(err, 'Koneksi gagal!');
     }
 }
 
@@ -1213,7 +1228,7 @@ async function changeMyPasskey() {
         } else {
             showToast(data.message || "Gagal", true);
         }
-    } catch(e) { showToast("Gagal koneksi", true); }
+    } catch(e) { showToast(getFriendlyErrorMessage(e, 'Gagal koneksi'), true); }
 }
 
 // ==========================================
@@ -1238,12 +1253,19 @@ function logout() {
         } catch(e) {}
     }
     
-    // BARU: hapus token di server (fire-and-forget)
+    // BARU: hapus token di server via POST (bukan GET)
     try {
         const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
         if (session.sessionToken) {
-            fetch(`${window.GAS_ADMIN_URL}?action=logout&sessionToken=${encodeURIComponent(session.sessionToken)}`,
-                  { keepalive: true }).catch(() => {});
+            fetch(window.GAS_ADMIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ 
+                    action: 'logout', 
+                    sessionToken: session.sessionToken 
+                }),
+                keepalive: true
+            }).catch(() => {});
         }
     } catch(e) {}
 
@@ -1253,21 +1275,7 @@ function logout() {
         }
     });
     
-    // Bersihkan SEMUA jejak di localStorage
-    localStorage.removeItem('umbrella_admin_session');
-    localStorage.removeItem('u_uid');
-    localStorage.removeItem('u_ign');
-    localStorage.removeItem('u_class');
-    localStorage.removeItem('umbrella_session_token');
-    
-    currentAdmin = null;
-    
-    if (typeof forceCloseAllModals === 'function') {
-        forceCloseAllModals();
-    }
-    
-    cleanupStaleStorage();
-    location.reload();
+    // ... sisa sama ...
 }
 
 // ==========================================

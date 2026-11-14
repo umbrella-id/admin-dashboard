@@ -83,21 +83,6 @@ async function getAuthConfig() {
   throw new Error('Server sedang sibuk. Coba lagi dalam 30 detik.');
 }
 
-function getFriendlyErrorMessage(err, fallback) {
-    if (!err) return fallback || 'Terjadi kesalahan';
-    const msg = String(err.message || '');
-    
-    if (msg.includes('Server sedang sibuk') || msg.includes('Gagal resolve auth URL')) {
-        return '⚠️ Server sedang sibuk. Coba lagi sebentar lagi.';
-    }
-    if (msg.includes('Timeout') || msg.includes('Failed to fetch') || 
-        msg.includes('NetworkError') || msg.includes('Load failed')) {
-        return '⚠️ Koneksi lambat. Periksa internet Anda.';
-    }
-    return fallback || 'Terjadi kesalahan';
-}
-window.getFriendlyErrorMessage = getFriendlyErrorMessage;
-
 async function reportAuthIssue(failedUrl) {
     try {
         const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
@@ -310,6 +295,21 @@ function sanitizeHtml(html) {
     }
     return DOMPurify.sanitize(html, PURIFY_CONFIG);
 }
+
+function getFriendlyErrorMessage(err, fallback) {
+    if (!err) return fallback || 'Terjadi kesalahan';
+    const msg = String(err.message || '');
+    
+    if (msg.includes('Server sedang sibuk') || msg.includes('Gagal resolve auth URL')) {
+        return '⚠️ Server sedang sibuk. Coba lagi sebentar lagi.';
+    }
+    if (msg.includes('Timeout') || msg.includes('Failed to fetch') || 
+        msg.includes('NetworkError') || msg.includes('Load failed')) {
+        return '⚠️ Koneksi lambat. Periksa internet Anda.';
+    }
+    return fallback || 'Terjadi kesalahan';
+}
+window.getFriendlyErrorMessage = getFriendlyErrorMessage;
 
 // ==========================================
 // TAMPILAN ROLE — Format gabungan role1 + role2 (uppercase)

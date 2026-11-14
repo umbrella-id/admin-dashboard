@@ -48,17 +48,30 @@ async function getAuthConfig() {
   }
   
   try {
-    const res = await fetchWithTimeout(GAS_CONTENT_URL, {
+    const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
+    const sessionToken = session.sessionToken || '';
+    
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(window.GAS_ADMIN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'getAuthConfig' })
-    }, 5000);
-    const data = await res.json();
+      body: JSON.stringify({ 
+        action: 'getAuthConfigProxy', 
+        sessionToken: sessionToken 
+      }),
+      signal: controller.signal
+    }).finally(() => clearTimeout(timer));
     
+    const data = await res.json();
     if (data.status === 'success' && data.activeUrl) {
-      _authConfigCache = {...};
+      _authConfigCache = {
+        activeUrl: data.activeUrl,
+        active: data.active,
+        total: data.total
+      };
       _authConfigCacheTime = now;
-      _authConfigNegativeUntil = 0;  // reset
+      _authConfigNegativeUntil = 0;
       return _authConfigCache;
     }
   } catch(e) {
@@ -69,23 +82,6 @@ async function getAuthConfig() {
   _authConfigNegativeUntil = now + 30000;
   throw new Error('Server sedang sibuk. Coba lagi dalam 30 detik.');
 }
-
-window.handleFetchError = function(err, defaultMsg) {
-  if (!err) {
-    showToast(defaultMsg || '❌ Terjadi kesalahan', true);
-    return;
-  }
-  
-  const msg = String(err.message || '');
-  
-  if (msg.includes('Server sedang sibuk') || msg.includes('Gagal resolve auth URL')) {
-    showToast('⚠️ Server sedang sibuk. Coba lagi sebentar lagi.', true);
-  } else if (msg.includes('Timeout') || msg.includes('Failed to fetch')) {
-    showToast('⚠️ Koneksi lambat. Periksa internet Anda.', true);
-  } else {
-    showToast(defaultMsg || '❌ Terjadi kesalahan', true);
-  }
-};
 
 async function reportAuthIssue(failedUrl) {
     try {

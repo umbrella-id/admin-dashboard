@@ -373,6 +373,71 @@ window.showConfirmModal = function(pesan, onConfirm, onCancel) {
     };
 };
 
+/**
+ * requestPasskeyAndConfirm(pesan, title) — Modal minta passkey.
+ * Return: Promise<string|null> — passkey, atau null jika batal.
+ */
+window.requestPasskeyAndConfirm = function(pesan, title) {
+  return new Promise((resolve) => {
+    document.getElementById('reauth-overlay')?.remove();
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'reauth-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;';
+    
+    overlay.innerHTML = `
+      <div class="modal-content" style="max-width: 400px; position:relative;">
+        <button class="modal-close-x" id="reauth-close">✕</button>
+        <h3 style="text-align:center; margin-bottom:16px;"><i class="fas fa-shield-alt"></i> ${escapeHtml(title || 'Konfirmasi Passkey')}</h3>
+        <p style="margin-bottom:16px; text-align:center; font-size:0.8rem; color:var(--text-muted); line-height:1.5;">${escapeHtml(pesan)}</p>
+        <div class="passkey-input-group">
+          <label><i class="fas fa-lock"></i> Passkey Anda</label>
+          <input type="password" id="reauth-passkey" placeholder="••••••••" autocomplete="off">
+        </div>
+        <div id="reauth-error" style="color:#ff8888; font-size:0.75rem; text-align:center; min-height:20px; margin-top:8px;"></div>
+        <div class="modal-buttons" style="margin-top:16px;">
+          <button id="reauth-submit" style="background:var(--color-primary); flex:1;">
+            <i class="fas fa-shield-alt"></i> Konfirmasi
+          </button>
+          <button id="reauth-cancel" style="background:#333; flex:1;">Batal</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    const cleanup = (result) => {
+      overlay.remove();
+      resolve(result);
+    };
+    
+    document.getElementById('reauth-submit').onclick = () => {
+      const pk = document.getElementById('reauth-passkey')?.value.trim();
+      if (!pk) {
+        document.getElementById('reauth-error').innerText = 'Passkey wajib diisi';
+        return;
+      }
+      cleanup(pk);
+    };
+    
+    document.getElementById('reauth-cancel').onclick = () => cleanup(null);
+    document.getElementById('reauth-close').onclick = () => cleanup(null);
+    
+    setTimeout(() => {
+      const input = document.getElementById('reauth-passkey');
+      if (input) {
+        input.focus();
+        input.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('reauth-submit').click();
+          }
+        });
+      }
+    }, 100);
+  });
+};
+
 // ==========================================
 // NOTIFICATION
 // ==========================================

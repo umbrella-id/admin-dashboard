@@ -1160,95 +1160,104 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
 // SUBMIT PROMOTE / EDIT ADMIN — atomic
 // ==========================================
 window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdToEdit = '') {
-    if (currentAdmin?.role1 !== 'leader') {
-        window.showToast('❌ Hanya LEADER yang bisa', true);
-        return;
+  if (currentAdmin?.role1 !== 'leader') {
+    window.showToast('❌ Hanya LEADER yang bisa', true);
+    return;
+  }
+  
+  const role1 = document.getElementById('promote-role1')?.value || '';
+  const role2 = document.getElementById('promote-role2')?.value || '';
+  
+  if (role1 === 'leader') {
+    window.showToast('❌ Tidak bisa set LEADER dari form ini. Gunakan "Serah Jabatan".', true);
+    return;
+  }
+  
+  if (!role1 && !role2 && mode === 'promote') {
+    window.showToast('❌ Pilih minimal 1 role', true);
+    return;
+  }
+  
+  // Tentukan action + params
+  const action = mode === 'promote' ? 'promoteMemberToAdmin' : 'updateAdminRoles';
+  const params = mode === 'promote' 
+    ? { memberUid: memberUid, role1: role1, role2: role2 }
+    : { targetAdminId: adminIdToEdit, role1: role1, role2: role2 };
+  
+  // Deskripsi untuk modal re-auth
+  let actionDesc;
+  if (mode === 'promote') {
+    const roleParts = [];
+    if (role1) roleParts.push(role1.toUpperCase());
+    if (role2) roleParts.push(role2.toUpperCase());
+    actionDesc = `Angkat member menjadi admin baru dengan jabatan: ${roleParts.join(' + ') || '(no role)'}.`;
+  } else if (!role1 && !role2) {
+    actionDesc = `Hapus admin ini sepenuhnya (semua jabatan dikosongkan).`;
+  } else {
+    const roleParts = [];
+    if (role1) roleParts.push(role1.toUpperCase());
+    if (role2) roleParts.push(role2.toUpperCase());
+    actionDesc = `Ubah jabatan admin menjadi: ${roleParts.join(' + ') || '(no role)'}.`;
+  }
+  
+  const btn = document.querySelector('#modal-overlay .modal-buttons button:first-child');
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+  btn.disabled = true;
+  
+  try {
+    // Try tanpa passkey dulu (cache 5 min)
+    let res = await adminPost(action, params);
+    let data = await res.json();
+    
+    // Re-auth flow
+    if (data.status === 'reauth_required') {
+      // Restore button, prompt passkey
+      btn.innerHTML = originalHtml;
+      btn.disabled = false;
+      
+      const passkey = await window.requestPasskeyAndConfirm(actionDesc, 'Konfirmasi Passkey');
+      if (!passkey) {
+        return;  // User batal — modal tetap terbuka
+      }
+      
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+      btn.disabled = true;
+      
+      res = await adminPost(action, Object.assign({}, params, { currentPasskey: passkey }));
+      data = await res.json();
     }
     
-    const role1 = document.getElementById('promote-role1')?.value || '';
-    const role2 = document.getElementById('promote-role2')?.value || '';
-    
-    if (role1 === 'leader') {
-        window.showToast('❌ Tidak bisa set LEADER dari form ini. Gunakan "Serah Jabatan".', true);
-        return;
+    if (data.status === 'success') {
+      window.closeModal();
+      
+      if (mode === 'promote') {
+        setTimeout(() => {
+          const memberData = memberList.find(m => m.uid === memberUid);
+          const memberIgn = memberData ? memberData.ign : '';
+          renderPromoteSuccessModal(data.data, memberIgn);
+        }, 200);
+      } else {
+        window.showToast('✅ ' + (data.message || 'Jabatan diperbarui'));
+      }
+      
+      if (data.snapshot) {
+        applySnapshot(data.snapshot);
+      } else {
+        await loadAdminLinkedUids();
+        await loadMemberList(true);
+      }
+    } else {
+      window.showToast('❌ ' + (data.message || 'Gagal'), true);
+      btn.innerHTML = originalHtml;
+      btn.disabled = false;
     }
-    
-    if (!role1 && !role2 && mode === 'promote') {
-        window.showToast('❌ Pilih minimal 1 role', true);
-        return;
-    }
-    
-    const willDeleteAdmin = (mode === 'edit' && !role1 && !role2);
-    if (willDeleteAdmin) {
-        if (!confirm(`⚠️ Semua jabatan dikosongkan.\n\nAdmin ini akan DIHAPUS dari sistem.\n\nLanjutkan?`)) {
-            return;
-        }
-    }
-    
-    const btn = document.querySelector('#modal-overlay .modal-buttons button:first-child');
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
-    btn.disabled = true;
-    
-    try {
-        if (mode === 'promote') {
-            const res = await adminPost('promoteMemberToAdmin', {
-                memberUid: memberUid,
-                role1: role1,
-                role2: role2
-            });
-            const data = await res.json();
-            
-            if (data.status === 'success') {
-                window.closeModal();
-                setTimeout(() => {
-                    const memberData = memberList.find(m => m.uid === memberUid);
-                    const memberIgn = memberData ? memberData.ign : '';
-                    renderPromoteSuccessModal(data.data, memberIgn);
-                }, 200);
-                
-                if (data.snapshot) {
-                    applySnapshot(data.snapshot);
-                } else {
-                    await loadAdminLinkedUids();
-                    await loadMemberList(true);
-                }
-            } else {
-                window.showToast('❌ ' + (data.message || 'Gagal'), true);
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }
-            
-        } else {
-            const res = await adminPost('updateAdminRoles', {
-                targetAdminId: adminIdToEdit,
-                role1: role1,
-                role2: role2
-            });
-            const data = await res.json();
-            
-            if (data.status === 'success') {
-                window.showToast('✅ ' + (data.message || 'Jabatan diperbarui'));
-                window.closeModal();
-                
-                if (data.snapshot) {
-                    applySnapshot(data.snapshot);
-                } else {
-                    await loadAdminLinkedUids();
-                    await loadMemberList(true);
-                }
-            } else {
-                window.showToast('❌ ' + (data.message || 'Gagal'), true);
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }
-        }
-    } catch(e) {
-        console.error('Submit promote error:', e);
-        window.showToast('❌ Koneksi gagal', true);
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
-    }
+  } catch(e) {
+    console.error('Submit promote error:', e);
+    window.showToast('❌ Koneksi gagal', true);
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+  }
 };
 
 // ==========================================
@@ -1368,44 +1377,58 @@ window.copyPromoteInfo = function() {
 // RESET PASSKEY (RANDOM)
 // ==========================================
 window.handleResetPasskey = async function(adminId, adminNama) {
-    if (!adminId) {
-        window.showToast('❌ Admin ID tidak valid', true);
+  if (!adminId) {
+    window.showToast('❌ Admin ID tidak valid', true);
+    return;
+  }
+  
+  if (currentAdmin?.role1 !== 'leader') {
+    window.showToast('❌ Hanya LEADER yang bisa reset passkey', true);
+    return;
+  }
+  
+  const newPasskey = generateRandomPasskey(8);
+  window.showToast('⏳ Mereset passkey...');
+  
+  try {
+    // Try tanpa passkey dulu (kalau ada cache 5 menit)
+    let res = await adminPost('resetPasskey', {
+      targetAdminId: adminId,
+      newKey: newPasskey
+    });
+    let data = await res.json();
+    
+    // Kalau server minta re-auth
+    if (data.status === 'reauth_required') {
+      const passkey = await window.requestPasskeyAndConfirm(
+        `Reset passkey untuk admin: ${adminNama} (${adminId}). Passkey baru akan di-generate otomatis.`,
+        'Konfirmasi Reset Passkey'
+      );
+      if (!passkey) {
+        window.showToast('Dibatalkan', true);
         return;
+      }
+      
+      res = await adminPost('resetPasskey', {
+        targetAdminId: adminId,
+        newKey: newPasskey,
+        currentPasskey: passkey
+      });
+      data = await res.json();
     }
     
-    if (currentAdmin?.role1 !== 'leader') {
-        window.showToast('❌ Hanya LEADER yang bisa reset passkey', true);
-        return;
+    if (data.status === 'success') {
+      window.showToast('✅ Passkey berhasil direset');
+      setTimeout(() => {
+        renderPasskeyResultModal(adminId, adminNama, data.newPasskey || newPasskey);
+      }, 300);
+    } else {
+      window.showToast('❌ ' + (data.message || 'Gagal reset'), true);
     }
-    
-    const konfirmasi = confirm(`⚠️ Reset passkey untuk admin:\n\nNama: ${adminNama}\nID: ${adminId}\n\nPasskey baru akan di-generate otomatis (random).\n\nLanjutkan?`);
-    
-    if (!konfirmasi) return;
-    
-    const newPasskey = generateRandomPasskey(8);
-    
-    window.showToast('⏳ Mereset passkey...');
-    
-    try {
-        const res = await adminPost('resetPasskey', {
-            targetAdminId: adminId,
-            newKey: newPasskey
-        });
-        const data = await res.json();
-        
-        if (data.status === 'success') {
-            window.showToast('✅ Passkey berhasil direset');
-            
-            setTimeout(() => {
-                renderPasskeyResultModal(adminId, adminNama, data.newPasskey || newPasskey);
-            }, 300);
-        } else {
-            window.showToast('❌ ' + (data.message || 'Gagal reset'), true);
-        }
-    } catch(e) {
-        console.error('Reset passkey error:', e);
-        window.showToast('❌ Gagal koneksi', true);
-    }
+  } catch(e) {
+    console.error('Reset passkey error:', e);
+    window.showToast('❌ Gagal koneksi', true);
+  }
 };
 
 // ==========================================

@@ -998,6 +998,7 @@ async function checkSession() {
             } else {
                 console.log('⏳ Member token null, trigger background refresh');
                 setTimeout(() => refreshMemberTokenBackground(data.sessionToken), 100);
+                validateAndRefreshMemberToken();
             }
             
             if (freshData.admin.webUid) {
@@ -1019,6 +1020,7 @@ async function checkSession() {
         // ==========================================
         showDashboard();
         setupDashboardAfterLogin();
+        validateAndRefreshMemberToken();
         
     } catch(e) {
         console.error("Session parse error:", e);
@@ -1444,6 +1446,66 @@ async function refreshMemberTokenBackground(sessionToken) {
         console.warn('❌ Background member token error:', e);
     }
 }
+
+/**
+ * validateAndRefreshMemberToken() — "Silent login".
+ * Fire-and-forget setelah dashboard tampil.
+ * - Validate member token via GAS-AUTH
+ * - Kalau invalid → refresh (buat baru via GAS-ADMIN)
+ * - Kalau valid → tidak ada aksi (M1 tetap, publik session aman)
+ * - Tanpa rate limit (fire tiap dashboard open)
+ */
+async function validateAndRefreshMemberToken() {
+    const uid = localStorage.getItem('u_uid');
+    const token = localStorage.getItem('umbrella_session_token');
+    const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
+    
+    if (!uid || !session.sessionToken) return;
+    
+    try {
+        // Kalau ada token → validate dulu
+        if (token) {
+            const data = await authFetch('validateMemberSession', { uid, token });
+            
+            if (data.valid) {
+                console.log('✅ Member token valid — no action');
+                return;
+            }
+            
+            // Transient error → jangan refresh, biar next open retry
+            if (data.reason && data.reason !== 'invalid_token' && data.reason !== 'not_found') {
+                console.warn('⚠️ Validation transient error:', data.reason);
+                return;
+            }
+            
+            console.log('🔄 Member token invalid (' + data.reason + '), refreshing...');
+        } else {
+            console.log('🔄 No member token, creating fresh...');
+        }
+        
+        // Refresh (create new via GAS-ADMIN)
+        const res = await fetch(window.GAS_ADMIN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action: 'refreshMemberToken',
+                sessionToken: session.sessionToken
+            })
+        });
+        const refreshData = await res.json();
+        
+        if (refreshData.status === 'success' && refreshData.memberToken) {
+            localStorage.setItem('umbrella_session_token', refreshData.memberToken);
+            console.log('✅ Member token refreshed');
+        } else {
+            console.warn('⚠️ Refresh failed:', refreshData.message);
+        }
+        
+    } catch(e) {
+        console.warn('Member token validation error (non-fatal):', e);
+    }
+}
+window.validateAndRefreshMemberToken = validateAndRefreshMemberToken;
 
 // ==========================================
 // LOGIN DENGAN ENTER

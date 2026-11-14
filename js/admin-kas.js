@@ -211,37 +211,44 @@ async function loadKasDashboard(forceRefresh = false) {
         kasLoading = false;
     }
 }
-
-// 🎯 Fetch breakdown murni — return data, tidak render
+// 🎯 Fetch breakdown — hitung dari getKasMonthly (GAS-CONTENT)
 async function fetchKasBreakdownData() {
-    const webUid = currentAdmin?.webUid || '';
-    const token = localStorage.getItem('umbrella_session_token') || '';
-    if (!webUid || !token) return { error: 'no_webuid' };
+    if (!window.GAS_CONTENT_URL) {
+        return { error: 'no_content_url' };
+    }
     
     try {
         const now = new Date();
-        const res = await fetch(window.GAS5_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-                action: 'getMonthlyTable',
-                token: token,
-                tahun: now.getFullYear(),
-                bulan: now.getMonth() + 1
-            })
-        });
+        const tahun = now.getFullYear();
+        const bulan = now.getMonth() + 1;
+        
+        const url = window.GAS_CONTENT_URL + '?action=getKasMonthly&tahun=' + tahun + '&bulan=' + bulan;
+        const res = await fetch(url);
         const data = await res.json();
-        if (!data.success) return { error: data.error || 'gagal' };
+        
+        if (!data.success) {
+            return { error: data.message || 'gagal' };
+        }
         
         const memberData = data.data || [];
         let totalDeposit = 0;
         let memberDenganDeposit = 0;
+        
         for (const m of memberData) {
             const dep = parseFloat(m.deposit) || 0;
-            if (dep > 0) { totalDeposit += dep; memberDenganDeposit++; }
+            if (dep > 0) {
+                totalDeposit += dep;
+                memberDenganDeposit++;
+            }
         }
-        return { dibayarDimuka: totalDeposit, memberDenganDeposit: memberDenganDeposit, totalMember: memberData.length };
+        
+        return {
+            dibayarDimuka: totalDeposit,
+            memberDenganDeposit: memberDenganDeposit,
+            totalMember: memberData.length
+        };
     } catch(e) {
+        console.error('fetchKasBreakdownData error:', e);
         return { error: 'koneksi' };
     }
 }
@@ -260,19 +267,19 @@ function renderKasBreakdownPanel() {
     return;
   }
   
-  if (bd.error) {
-    let msg = 'Gagal memuat rincian';
-    if (bd.error === 'no_webuid') msg = 'Akun admin belum terhubung ke member — tidak bisa menampilkan rincian';
-    else if (bd.error === 'koneksi') msg = 'Koneksi gagal';
-    
-    container.innerHTML = `
-      <div class="kas-breakdown-box error">
-        <div class="kas-breakdown-title">RINCIAN KAS</div>
-        <div class="kas-breakdown-error"><i class="fas fa-exclamation-triangle"></i> ${escapeHtml(msg)}</div>
-      </div>
-    `;
-    return;
-  }
+    if (bd.error) {
+        let msg = 'Gagal memuat rincian';
+        if (bd.error === 'no_content_url') msg = 'URL GAS-CONTENT belum di-set di admin-core.js';
+        else if (bd.error === 'koneksi') msg = 'Koneksi gagal';
+        
+        container.innerHTML = `
+          <div class="kas-breakdown-box error">
+            <div class="kas-breakdown-title">RINCIAN KAS</div>
+            <div class="kas-breakdown-error"><i class="fas fa-exclamation-triangle"></i> ${escapeHtml(msg)}</div>
+          </div>
+        `;
+        return;
+    }
   
   // 🎯 Hitung jatuhTempo di sini dari totalSaldo - dibayarDimuka
   const totalKas = kasData.totalSaldo;

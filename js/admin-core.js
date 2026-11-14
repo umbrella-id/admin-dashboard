@@ -31,41 +31,61 @@ let _authConfigCache = null;
 let _authConfigCacheTime = 0;
 const AUTH_CONFIG_TTL = 5 * 60 * 1000;
 
+let _authConfigNegativeUntil = 0;
+
 async function getAuthConfig() {
-    const now = Date.now();
-    if (_authConfigCache && (now - _authConfigCacheTime) < AUTH_CONFIG_TTL) {
-        return _authConfigCache;
-    }
+  const now = Date.now();
+  
+  // Cache positif
+  if (_authConfigCache && (now - _authConfigCacheTime) < AUTH_CONFIG_TTL) {
+    return _authConfigCache;
+  }
+  
+  // Negative cache — jangan spam server
+  if (now < _authConfigNegativeUntil) {
+    throw new Error('Server sedang sibuk. Coba lagi dalam ' + 
+                    Math.ceil((_authConfigNegativeUntil - now) / 1000) + ' detik.');
+  }
+  
+  try {
+    const res = await fetchWithTimeout(GAS_CONTENT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'getAuthConfig' })
+    }, 5000);
+    const data = await res.json();
     
-    try {
-        const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
-        const sessionToken = session.sessionToken || '';
-        
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(window.GAS_ADMIN_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'getAuthConfigProxy', sessionToken: sessionToken }),
-          signal: controller.signal
-        }).finally(() => clearTimeout(timer));
-        
-        const data = await res.json();
-        if (data.status === 'success' && data.activeUrl) {
-            _authConfigCache = {
-                activeUrl: data.activeUrl,
-                active: data.active,
-                total: data.total
-            };
-            _authConfigCacheTime = now;
-            return _authConfigCache;
-        }
-    } catch(e) {
-        console.warn('getAuthConfig fallback:', e.message);
+    if (data.status === 'success' && data.activeUrl) {
+      _authConfigCache = {...};
+      _authConfigCacheTime = now;
+      _authConfigNegativeUntil = 0;  // reset
+      return _authConfigCache;
     }
-    
-    return { activeUrl: window.AUTH_FALLBACK_URL, active: -1, total: 0 };
+  } catch(e) {
+    console.warn('getAuthConfig error:', e.message);
+  }
+  
+  // Gagal — set cooldown 30 detik
+  _authConfigNegativeUntil = now + 30000;
+  throw new Error('Server sedang sibuk. Coba lagi dalam 30 detik.');
 }
+
+window.handleFetchError = function(err, defaultMsg) {
+  if (!err) {
+    showToast(defaultMsg || '❌ Terjadi kesalahan', true);
+    return;
+  }
+  
+  const msg = String(err.message || '');
+  
+  if (msg.includes('Server sedang sibuk') || msg.includes('Gagal resolve auth URL')) {
+    showToast('⚠️ Server sedang sibuk. Coba lagi sebentar lagi.', true);
+  } else if (msg.includes('Timeout') || msg.includes('Failed to fetch')) {
+    showToast('⚠️ Koneksi lambat. Periksa internet Anda.', true);
+  } else {
+    showToast(defaultMsg || '❌ Terjadi kesalahan', true);
+  }
+};
 
 async function reportAuthIssue(failedUrl) {
     try {

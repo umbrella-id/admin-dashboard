@@ -1032,13 +1032,8 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
     let adminData = null;
     if (memberIsAdmin) {
         try {
-            const res = await adminFetch(window.GAS_ADMIN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'getAdminList' })
-            });
+            const res = await adminPost('getAdminList');
             const data = await res.json();
-            
             if (data.status === 'success' && data.data) {
                 adminData = data.data.find(a => a.linkedMemberUid === memberUid);
             }
@@ -1141,11 +1136,7 @@ window.openPromoteAdminModal = async function(memberUid, memberIgn) {
     
     if (mode === 'edit' && adminData) {
         try {
-            const kasRes = await adminFetch(window.GAS_ADMIN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'getKasFullData' })
-            });
+            const kasRes = await adminPost('getKasFullData');
             const kasData = await kasRes.json();
             
             const saldoEl = document.getElementById('promote-saldo-display');
@@ -1201,9 +1192,11 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
     
     try {
         if (mode === 'promote') {
-            // Promote — tetap pakai endpoint lama (sudah atomic)
-            const url = `${window.GAS_ADMIN_URL}?action=promoteMemberToAdmin&adminId=${currentAdmin.id}&memberUid=${encodeURIComponent(memberUid)}&role1=${encodeURIComponent(role1)}&role2=${encodeURIComponent(role2)}`;
-            const res = await adminFetch(url);
+            const res = await adminPost('promoteMemberToAdmin', {
+                memberUid: memberUid,
+                role1: role1,
+                role2: role2
+            });
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -1227,14 +1220,11 @@ window.submitPromoteAdmin = async function(memberUid, mode = 'promote', adminIdT
             }
             
         } else {
-            // Edit — pakai endpoint baru atomic
-            const url = `${window.GAS_ADMIN_URL}?action=updateAdminRoles` +
-                `&adminId=${currentAdmin.id}` +
-                `&targetAdminId=${encodeURIComponent(adminIdToEdit)}` +
-                `&role1=${encodeURIComponent(role1)}` +
-                `&role2=${encodeURIComponent(role2)}`;
-            
-            const res = await adminFetch(url);
+            const res = await adminPost('updateAdminRoles', {
+                targetAdminId: adminIdToEdit,
+                role1: role1,
+                role2: role2
+            });
             const data = await res.json();
             
             if (data.status === 'success') {
@@ -1270,7 +1260,7 @@ async function syncMemberRoleFromAdmin(memberUid, role1) {
     else if (role1 === 'co-lead') newRole = 'co-lead';
     
     try {
-        await adminFetch(`${window.GAS_ADMIN_URL}?action=updateMemberRole&adminId=${currentAdmin.id}&uid=${encodeURIComponent(memberUid)}&role=${encodeURIComponent(newRole)}`);
+        await adminPost('updateMemberRole', { uid: memberUid, role: newRole });
     } catch(e) {
         console.error('Sync member role error:', e);
     }
@@ -1397,8 +1387,10 @@ window.handleResetPasskey = async function(adminId, adminNama) {
     window.showToast('⏳ Mereset passkey...');
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=resetPasskey&adminId=${currentAdmin.id}&targetAdminId=${encodeURIComponent(adminId)}&newKey=${encodeURIComponent(newPasskey)}`;
-        const res = await adminFetch(url);
+        const res = await adminPost('resetPasskey', {
+            targetAdminId: adminId,
+            newKey: newPasskey
+        });
         const data = await res.json();
         
         if (data.status === 'success') {
@@ -1497,11 +1489,7 @@ window.openTransferLeadershipModal = async function() {
     window.showToast('⏳ Memuat list CO-LEAD...');
     
     try {
-        const res = await adminFetch(window.GAS_ADMIN_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'getAdminList' })
-        });
+        const res = await adminPost('getAdminList');
         const data = await res.json();
         
         if (data.status !== 'success' || !data.data) {
@@ -1602,8 +1590,10 @@ window.submitTransferLeadership = async function() {
     btn.disabled = true;
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=transferLeadership&adminId=${currentAdmin.id}&passkey=${encodeURIComponent(passkey)}&targetAdminId=${encodeURIComponent(targetAdminId)}`;
-        const res = await adminFetch(url);
+        const res = await adminPost('transferLeadership', {
+            passkey: passkey,
+            targetAdminId: targetAdminId
+        });
         const data = await res.json();
         
         if (data.status === 'success') {
@@ -1653,8 +1643,7 @@ window.generateActivationCode = async function(memberUid, memberIgn) {
     });
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=generateActivationCode&adminId=${currentAdmin.id}&uid=${encodeURIComponent(memberUid)}`;
-        const res = await adminFetch(url);
+        const res = await adminPost('generateActivationCode', { uid: memberUid });
         const data = await res.json();
         
         if (data.status === 'success') {
@@ -1849,8 +1838,7 @@ window.revokeActivationCode = async function(memberUid, memberIgn) {
     if (!confirmed) return;
     
     try {
-        const url = `${window.GAS_ADMIN_URL}?action=revokeActivationCode&adminId=${currentAdmin.id}&uid=${encodeURIComponent(memberUid)}`;
-        const res = await adminFetch(url);
+        const res = await adminPost('revokeActivationCode', { uid: memberUid });
         const data = await res.json();
         
         if (data.status === 'success') {

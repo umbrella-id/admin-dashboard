@@ -1455,6 +1455,7 @@ window.changeMyPasskey = changeMyPasskey;
 window.openSettingsModal = openSettingsModal;
 window.renderSettingsModalInternal = renderSettingsModalInternal;
 window.renderChangePasskeyInternal = renderChangePasskeyInternal;
+window.requestPasskeyAndConfirm = requestPasskeyAndConfirm;
 
 checkSession();
 console.log("✅ admin-core.js loaded");

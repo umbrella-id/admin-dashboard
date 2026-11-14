@@ -14,7 +14,7 @@
  */
 
 window.GAS_ADMIN_URL = "https://script.google.com/macros/s/AKfycbx1VqwGfC0Bz_tXNacdEe6s3Lu7USX9uRy7JbrOet4qu_bjA6PR9r780Ne7LP73UwUs/exec";
-window.AUTH_FALLBACK_URL = "https://script.google.com/macros/s/<GAS-AUTH-DEPLOY-ANDA>/exec";
+window.GAS_CONTENT_URL = "https://script.google.com/macros/s/AKfycbzlxIQc75KaCjn_05YhbQP3VMzP4W0NqpuJrGk8Vjm0F81NixhQ6RE_g55wMq_vf8cPVw/exec";
 
 let currentAdmin = null;
 let standbyInterval = null;
@@ -1298,6 +1298,19 @@ window.adminFetch = async function(url, options) {
     }
     
     return res;
+};
+
+/**
+ * adminPost(action, params) — Helper untuk action admin via POST.
+ * Return: Promise<Response> (sama seperti adminFetch, caller tetap .json())
+ * Token otomatis di-inject oleh adminFetch.
+ */
+window.adminPost = function(action, params) {
+    return adminFetch(window.GAS_ADMIN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(Object.assign({}, params || {}, { action: action }))
+    });
 };
 
 async function refreshMemberTokenBackground(sessionToken) {

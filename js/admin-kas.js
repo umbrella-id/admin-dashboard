@@ -658,7 +658,7 @@ function renderKasDashboard() {
 // ==========================================
 async function openKasNotification() {
     try {
-        const res = await adminFetch(`${window.GAS_ADMIN_URL}?action=getKasNotifications&adminId=${currentAdmin.id}`);
+        const res = await adminPost('getKasNotifications');
         const data = await res.json();
         
         if (data.status === 'success' && data.data && data.data.length > 0) {

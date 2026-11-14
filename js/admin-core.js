@@ -1309,6 +1309,7 @@ function logout() {
     if (standbyInterval) clearInterval(standbyInterval);
     if (typeof window.stopActivePresence === 'function') window.stopActivePresence();
     
+    // Notify standby (fire-and-forget)
     if (shouldEnableHeartbeat() && currentAdmin) {
         try {
             const memberToken = localStorage.getItem('umbrella_session_token') || '';
@@ -1318,7 +1319,7 @@ function logout() {
         } catch(e) {}
     }
     
-    // BARU: hapus token di server via POST (bukan GET)
+    // Destroy token di server via POST (fire-and-forget)
     try {
         const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
         if (session.sessionToken) {
@@ -1333,14 +1334,36 @@ function logout() {
             }).catch(() => {});
         }
     } catch(e) {}
-
+    
+    // Clear sessionStorage
     Object.keys(sessionStorage).forEach(key => {
         if (key.startsWith('umbrella_')) {
             sessionStorage.removeItem(key);
         }
     });
     
-    // ... sisa sama ...
+    // Clear localStorage — SEMUA jejak
+    localStorage.removeItem('umbrella_admin_session');
+    localStorage.removeItem('u_uid');
+    localStorage.removeItem('u_ign');
+    localStorage.removeItem('u_class');
+    localStorage.removeItem('u_ign_changed_at');
+    localStorage.removeItem('umbrella_session_token');
+    localStorage.removeItem('umbrella_mute_expiry');
+    
+    // Reset state global
+    currentAdmin = null;
+    
+    // Close semua modal
+    if (typeof forceCloseAllModals === 'function') {
+        forceCloseAllModals();
+    }
+    
+    // Cleanup stale keys
+    cleanupStaleStorage();
+    
+    // Reload → balik ke login screen
+    location.reload();
 }
 
 // ==========================================

@@ -211,41 +211,21 @@ async function loadKasDashboard(forceRefresh = false) {
         kasLoading = false;
     }
 }
-// 🎯 Fetch breakdown — hitung dari getKasMonthly (GAS-CONTENT)
+// 🎯 Fetch breakdown — hitung dari GAS-ADMIN langsung (database, bukan konten)
 async function fetchKasBreakdownData() {
-    if (!window.GAS_CONTENT_URL) {
-        return { error: 'no_content_url' };
-    }
-    
     try {
-        const now = new Date();
-        const tahun = now.getFullYear();
-        const bulan = now.getMonth() + 1;
-        
-        const url = window.GAS_CONTENT_URL + '?action=getKasMonthly&tahun=' + tahun + '&bulan=' + bulan;
-        const res = await fetch(url);
+        const res = await adminPost('getKasBreakdown');
         const data = await res.json();
         
-        if (!data.success) {
+        if (data.status !== 'success' || !data.data) {
             return { error: data.message || 'gagal' };
         }
         
-        const memberData = data.data || [];
-        let totalDeposit = 0;
-        let memberDenganDeposit = 0;
-        
-        for (const m of memberData) {
-            const dep = parseFloat(m.deposit) || 0;
-            if (dep > 0) {
-                totalDeposit += dep;
-                memberDenganDeposit++;
-            }
-        }
-        
         return {
-            dibayarDimuka: totalDeposit,
-            memberDenganDeposit: memberDenganDeposit,
-            totalMember: memberData.length
+            dibayarDimuka: data.data.dibayarDimuka || 0,
+            memberDenganDeposit: data.data.memberDenganDeposit || 0,
+            totalMember: data.data.totalMember || 0,
+            source: data.data.source || 'unknown'
         };
     } catch(e) {
         console.error('fetchKasBreakdownData error:', e);

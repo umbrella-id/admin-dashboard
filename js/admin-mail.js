@@ -164,7 +164,10 @@ function buildStatusBadge(status) {
         };
     }
     
-    return { class: 'badge-unread', text: s, icon: '' };
+    // Fallback: whitelist enum, cegah injeksi via status string
+    const VALID = ['UNREAD', 'READ', 'REPLIED', 'DONE', 'SENT'];
+    const safe = VALID.includes(s) ? s : 'UNREAD';
+    return { class: 'badge-unread', text: safe, icon: '' };
 }
 
 // ==========================================

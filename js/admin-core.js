@@ -816,6 +816,9 @@ function setupDashboardAfterLogin() {
     if (typeof setupBaseState === 'function') {
         setupBaseState();
     }
+  
+    // Warm up auth URL cache — dipakai logout beacon
+    getAuthConfig().catch(() => {});
 }
 
 // ==========================================

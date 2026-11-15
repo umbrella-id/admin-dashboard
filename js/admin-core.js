@@ -1413,7 +1413,13 @@ window.adminFetch = async function(url, options) {
         try {
             const cloned = res.clone();
             const data = await cloned.json();
-            if (data.status === 'error' && (data.message || '').includes('Sesi berakhir')) {
+            // Primary: gunakan error code. Fallback: message match untuk backward compat
+            const isSessionExpired =
+                data.code === 'SESSION_EXPIRED' ||
+                ((data.status === 'error' || data.status === 'failed') &&
+                 (data.message || '').includes('Sesi berakhir'));
+            
+            if (isSessionExpired) {
                 window.__reloginPending = true;
                 if (typeof showToast === 'function') showToast('Sesi berakhir. Login ulang.', true);
                 window.showConfirmModal(

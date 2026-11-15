@@ -1311,31 +1311,43 @@ function logout() {
     if (standbyInterval) clearInterval(standbyInterval);
     if (typeof window.stopActivePresence === 'function') window.stopActivePresence();
     
-    // Notify standby (fire-and-forget)
-    if (shouldEnableHeartbeat() && currentAdmin) {
+    // === 1. Capture tokens SEBELUM clear ===
+    let adminToken = '';
+    let memberToken = '';
+    try {
+        const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
+        adminToken = session.sessionToken || '';
+        memberToken = localStorage.getItem('umbrella_session_token') || '';
+    } catch(e) {}
+    
+    // === 2. Fire standby presence (opsional, non-blocking) ===
+    if (memberToken && window.__umbrellaAuthUrl && shouldEnableHeartbeat() && currentAdmin) {
         try {
-            const memberToken = localStorage.getItem('umbrella_session_token') || '';
-            if (memberToken) {
-                authFetch('sendPresence', { token: memberToken, mode: 'standby', asAdmin: true }).catch(() => {});
+            const payload = JSON.stringify({ action: 'sendPresence', token: memberToken, mode: 'standby', asAdmin: true });
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(window.__umbrellaAuthUrl, new Blob([payload], { type: 'text/plain;charset=utf-8' }));
             }
         } catch(e) {}
     }
     
-    // Destroy token di server via POST (fire-and-forget)
-    try {
-        const session = JSON.parse(localStorage.getItem('umbrella_admin_session') || '{}');
-        if (session.sessionToken) {
-            fetch(window.GAS_ADMIN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ 
-                    action: 'logout', 
-                    sessionToken: session.sessionToken 
-                }),
-                keepalive: true
-            }).catch(() => {});
-        }
-    } catch(e) {}
+    // === 3. Destroy admin session — SERVER akan cascade destroy member token ===
+    // (GAS-ADMIN logoutAction → destroySession → callAuth destroyMemberSession)
+    if (adminToken) {
+        try {
+            const payload = JSON.stringify({ action: 'logout', sessionToken: adminToken });
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(window.GAS_ADMIN_URL, new Blob([payload], { type: 'text/plain;charset=utf-8' }));
+                console.log('🔒 Admin logout beacon dikirim');
+            } else {
+                fetch(window.GAS_ADMIN_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: payload,
+                    keepalive: true
+                }).catch(() => {});
+            }
+        } catch(e) { console.warn('Admin logout beacon:', e); }
+    }
     
     // Clear sessionStorage
     Object.keys(sessionStorage).forEach(key => {

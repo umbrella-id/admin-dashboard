@@ -1436,9 +1436,11 @@ window.handleResetPasskey = async function(adminId, adminNama) {
 // ==========================================
 function generateRandomPasskey(length = 8) {
     const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = new Uint32Array(length);
+    crypto.getRandomValues(bytes);
     let result = '';
     for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        result += chars.charAt(bytes[i] % chars.length);
     }
     return result;
 }

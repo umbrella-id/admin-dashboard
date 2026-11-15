@@ -304,14 +304,6 @@ window.contentBackFromSub = function() {
   }
 };
 
-window.contentBackFromSub = function() {
-  if (typeof closeCurrentView === 'function') {
-    closeCurrentView();
-  } else {
-    renderContentHome();
-  }
-};
-
 // ==========================================
 // RESET KE HOME — dipanggil dari router saat back ke dashboard
 // ==========================================

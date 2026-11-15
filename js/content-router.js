@@ -39,6 +39,18 @@ window.handleContentView = function(viewName, data) {
         window.renderCrystaChainDetail();
       }
       return true;
+      
+    case 'content-crysta-edit':
+      if (typeof window.renderCrystaEditForm === 'function') {
+        window.renderCrystaEditForm();
+      }
+      return true;
+    
+    case 'content-crysta-add':
+      if (typeof window.renderCrystaAddForm === 'function') {
+        window.renderCrystaAddForm();
+      }
+      return true;
     
     case 'content-profil-edit':
       if (typeof window.renderProfilEditForm === 'function') {

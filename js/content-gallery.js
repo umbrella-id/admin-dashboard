@@ -30,10 +30,10 @@
   
   function extractCaption(body) {
     if (!body) return '';
-    const tmp = document.createElement('div');
-    tmp.innerHTML = body.toString();
-    tmp.querySelectorAll('img').forEach(function(el) { el.remove(); });
-    return (tmp.textContent || '').trim();
+    // DOMParser tidak load image/script → aman dari XSS via innerHTML
+    const doc = new DOMParser().parseFromString(body.toString(), 'text/html');
+    doc.querySelectorAll('img').forEach(function(el) { el.remove(); });
+    return (doc.body.textContent || '').trim();
   }
   
   function buildBody(imgUrl, caption) {

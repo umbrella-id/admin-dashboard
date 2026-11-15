@@ -11,13 +11,15 @@ let cachedAdminLinkedData = [];
 // ==========================================
 function sanitizeWA(wa) {
     if (!wa) return '';
-    return wa.toString().replace(/\D/g, '');
+    let digits = wa.toString().replace(/\D/g, '');
+    if (digits.startsWith('0')) digits = '62' + digits.substring(1);
+    return digits;
 }
 
 function isValidWA(wa) {
     if (!wa) return true;
     if (!/^\d+$/.test(wa)) return false;
-    if (wa.startsWith('0')) return false;
+    if (wa.startsWith('0')) return false;   // harus sudah terkonversi
     if (wa.length < 10 || wa.length > 15) return false;
     return true;
 }
